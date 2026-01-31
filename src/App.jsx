@@ -89,9 +89,7 @@ function AppContent() {
 
   // 削除
   const handleDelete = async (id) => {
-    if (window.confirm('この大会を削除しますか？')) {
-      await deleteMarathon(id);
-    }
+    await deleteMarathon(id);
   };
 
   // マーカークリック
@@ -157,15 +155,15 @@ function AppContent() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* ヘッダー */}
       <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-2 md:px-4 py-2 md:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg flex-shrink-0">
                 🏃
               </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                  マラソントラッカー
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent truncate">
+                  RunJourney
                 </h1>
                 {/* 同期状態表示 */}
                 {firebaseEnabled && (
@@ -389,6 +387,7 @@ function AppContent() {
         }}
         onSubmit={handleFormSubmit}
         initialData={editingMarathon}
+        onDelete={handleDelete}
       />
 
       {/* 認証モーダル */}

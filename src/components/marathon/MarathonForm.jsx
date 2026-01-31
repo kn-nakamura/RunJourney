@@ -14,7 +14,7 @@ import {
   WEATHER_OPTIONS,
   CONDITION_EMOJIS,
 } from '../../constants/config';
-import { Search, CloudRain, Upload } from 'lucide-react';
+import { Search, CloudRain, Upload, Trash2 } from 'lucide-react';
 
 /**
  * 全角数字を半角数字に変換
@@ -35,8 +35,9 @@ const toHalfWidth = (str) => {
  * @param {Function} props.onClose - 閉じるハンドラ
  * @param {Function} props.onSubmit - 送信ハンドラ
  * @param {Object} props.initialData - 初期データ（編集時）
+ * @param {Function} props.onDelete - 削除ハンドラ（編集時のみ）
  */
-export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
+export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData, onDelete }) => {
   // フォームデータ
   const [formData, setFormData] = useState({
     name: '',
@@ -184,8 +185,17 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
     onClose();
   };
 
+  const isEditMode = !!initialData?.id;
+
+  const handleDelete = () => {
+    if (window.confirm('この大会の記録を削除しますか？この操作は取り消せません。')) {
+      onDelete && onDelete(initialData.id);
+      onClose();
+    }
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="新しい大会を追加" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? "大会を編集" : "新しい大会を追加"} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* 大会名 */}
         <div>
@@ -555,11 +565,27 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
         </div>
 
         {/* ボタン */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            キャンセル
-          </Button>
-          <Button type="submit">保存</Button>
+        <div className="flex gap-3 justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+          {/* 削除ボタン（編集時のみ） */}
+          <div>
+            {isEditMode && onDelete && (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDelete}
+                className="flex items-center gap-1"
+              >
+                <Trash2 size={16} />
+                削除
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              キャンセル
+            </Button>
+            <Button type="submit">保存</Button>
+          </div>
         </div>
       </form>
     </Modal>

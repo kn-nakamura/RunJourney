@@ -1,6 +1,6 @@
 /**
  * Tabs.jsx
- * 
+ *
  * タブ切り替えコンポーネント
  */
 
@@ -15,8 +15,8 @@ import React from 'react';
  */
 export const Tabs = ({ tabs, activeTab, onChange }) => {
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <nav className="flex space-x-8 px-6" aria-label="Tabs">
+    <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+      <nav className="flex justify-around md:justify-start md:space-x-8 md:px-6 min-w-max" aria-label="Tabs">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -26,7 +26,7 @@ export const Tabs = ({ tabs, activeTab, onChange }) => {
               key={tab.id}
               onClick={() => onChange(tab.id)}
               className={`
-                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                flex flex-col md:flex-row items-center gap-1 md:gap-2 py-3 md:py-4 px-3 md:px-1 border-b-2 font-medium text-xs md:text-sm transition-colors whitespace-nowrap
                 ${
                   isActive
                     ? 'border-primary-500 text-primary-600 dark:text-primary-400'
@@ -35,7 +35,7 @@ export const Tabs = ({ tabs, activeTab, onChange }) => {
               `}
             >
               {Icon && <Icon size={20} />}
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           );
         })}
