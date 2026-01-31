@@ -134,16 +134,68 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData, onDelete 
     }
   };
 
-  // 写真アップロード
-  const handlePhotoUpload = (e) => {
+  // 画像を圧縮する関数
+  const compressImage = (file, maxWidth = 1024, quality = 0.8) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // 元のサイズを取得
+          let width = img.width;
+          let height = img.height;
+
+          // 最大幅を超える場合はリサイズ
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          // Canvasで描画
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // JPEG形式で圧縮（PNG以外はJPEGに変換）
+          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const compressedDataUrl = canvas.toDataURL(mimeType, quality);
+
+          // 圧縮後のサイズを確認（デバッグ用）
+          const originalSize = Math.round(file.size / 1024);
+          const compressedSize = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+          console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB (${Math.round((1 - compressedSize / originalSize) * 100)}% reduction)`);
+
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 写真アップロード（圧縮付き）
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormData({ ...formData, photo: event.target?.result });
-    };
-    reader.readAsDataURL(file);
+    try {
+      // 画像を圧縮
+      const compressedPhoto = await compressImage(file, 1024, 0.8);
+      setFormData({ ...formData, photo: compressedPhoto });
+    } catch (error) {
+      console.error('Image compression error:', error);
+      // 圧縮に失敗した場合は元の画像を使用
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData({ ...formData, photo: event.target?.result });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // フォーム送信
