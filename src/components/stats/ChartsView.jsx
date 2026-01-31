@@ -17,9 +17,34 @@ import {
   Legend,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { timeToSeconds } from '../../utils/timeUtils';
+import { timeToSeconds, secondsToTime } from '../../utils/timeUtils';
 import { formatDateShort } from '../../utils/dateFormat';
 import { getDistanceLabel, calculateStats } from '../../utils/calculations';
+
+/**
+ * 秒数を距離に適したフォーマットの時間文字列に変換
+ * @param {number} seconds - 秒数
+ * @param {number} distance - 距離（km）
+ * @returns {string} フォーマットされた時間文字列
+ */
+const formatTimeForDistance = (seconds, distance) => {
+  if (!seconds || seconds <= 0) return '0:00:00';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  // フルマラソン、ハーフマラソン、10km以上は時:分:秒
+  if (distance >= 10) {
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+  }
+
+  // 短距離は分:秒
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+};
 
 ChartJS.register(
   CategoryScale,
@@ -54,6 +79,17 @@ export const ChartsView = ({ marathons }) => {
     );
   }, [marathons, selectedDistance]);
 
+  // フィルターされた距離を取得（グラフ表示用）
+  const currentDistance = useMemo(() => {
+    if (selectedDistance === 'all') {
+      // 全距離の場合は最大距離を使用
+      return filteredMarathons.length > 0
+        ? Math.max(...filteredMarathons.map((m) => m.distance))
+        : 42.195;
+    }
+    return parseFloat(selectedDistance);
+  }, [selectedDistance, filteredMarathons]);
+
   // タイム推移グラフデータ
   const timeProgressionData = useMemo(() => {
     const sorted = [...filteredMarathons].sort(
@@ -64,7 +100,7 @@ export const ChartsView = ({ marathons }) => {
       labels: sorted.map((m) => formatDateShort(m.date)),
       datasets: [
         {
-          label: 'タイム（秒）',
+          label: 'タイム',
           data: sorted.map((m) => timeToSeconds(m.time)),
           borderColor: 'rgb(249, 115, 22)',
           backgroundColor: 'rgba(249, 115, 22, 0.5)',
@@ -128,7 +164,8 @@ export const ChartsView = ({ marathons }) => {
   // 統計サマリー
   const stats = useMemo(() => calculateStats(marathons), [marathons]);
 
-  const chartOptions = {
+  // 基本チャートオプション（距離別参加回数、月別参加回数用）
+  const baseChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -169,6 +206,61 @@ export const ChartsView = ({ marathons }) => {
     },
   };
 
+  // タイム推移グラフ用オプション（Y軸を時間形式で表示）
+  const timeChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          labels: {
+            color: document.documentElement.classList.contains('dark')
+              ? '#e5e7eb'
+              : '#1f2937',
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const seconds = context.raw;
+              return `タイム: ${formatTimeForDistance(seconds, currentDistance)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          reverse: true, // 速いタイムが上になるように
+          ticks: {
+            color: document.documentElement.classList.contains('dark')
+              ? '#9ca3af'
+              : '#6b7280',
+            callback: (value) => formatTimeForDistance(value, currentDistance),
+          },
+          grid: {
+            color: document.documentElement.classList.contains('dark')
+              ? '#374151'
+              : '#e5e7eb',
+          },
+        },
+        x: {
+          ticks: {
+            color: document.documentElement.classList.contains('dark')
+              ? '#9ca3af'
+              : '#6b7280',
+          },
+          grid: {
+            color: document.documentElement.classList.contains('dark')
+              ? '#374151'
+              : '#e5e7eb',
+          },
+        },
+      },
+    }),
+    [currentDistance]
+  );
+
   return (
     <div className="space-y-8">
       {/* 距離フィルター */}
@@ -193,8 +285,11 @@ export const ChartsView = ({ marathons }) => {
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
           タイム推移
         </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          ※上にあるほど速いタイム
+        </p>
         <div className="h-80">
-          <Line data={timeProgressionData} options={chartOptions} />
+          <Line data={timeProgressionData} options={timeChartOptions} />
         </div>
       </div>
 
@@ -204,7 +299,7 @@ export const ChartsView = ({ marathons }) => {
           距離別参加回数
         </h3>
         <div className="h-80">
-          <Bar data={distanceCountData} options={chartOptions} />
+          <Bar data={distanceCountData} options={baseChartOptions} />
         </div>
       </div>
 
@@ -214,7 +309,7 @@ export const ChartsView = ({ marathons }) => {
           月別参加回数
         </h3>
         <div className="h-80">
-          <Bar data={monthlyCountData} options={chartOptions} />
+          <Bar data={monthlyCountData} options={baseChartOptions} />
         </div>
       </div>
 

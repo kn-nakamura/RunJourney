@@ -1,6 +1,6 @@
 /**
  * MarathonForm.jsx
- * 
+ *
  * マラソン大会の登録・編集フォーム
  */
 
@@ -15,6 +15,18 @@ import {
   CONDITION_EMOJIS,
 } from '../../constants/config';
 import { Search, CloudRain, Upload } from 'lucide-react';
+
+/**
+ * 全角数字を半角数字に変換
+ * @param {string} str - 入力文字列
+ * @returns {string} 半角変換後の文字列
+ */
+const toHalfWidth = (str) => {
+  if (!str) return '';
+  return str.replace(/[０-９]/g, (char) => {
+    return String.fromCharCode(char.charCodeAt(0) - 0xfee0);
+  });
+};
 
 /**
  * MarathonFormコンポーネント
@@ -241,31 +253,52 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
           </label>
           <div className="flex gap-2 items-center">
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min="0"
               max="23"
               value={formData.hours}
-              onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  hours: toHalfWidth(e.target.value).replace(/[^0-9]/g, ''),
+                })
+              }
               className="w-20 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
               placeholder="0"
             />
             <span className="text-gray-600 dark:text-gray-400">:</span>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min="0"
               max="59"
               value={formData.minutes}
-              onChange={(e) => setFormData({ ...formData, minutes: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  minutes: toHalfWidth(e.target.value).replace(/[^0-9]/g, ''),
+                })
+              }
               className="w-20 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
               placeholder="00"
             />
             <span className="text-gray-600 dark:text-gray-400">:</span>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min="0"
               max="59"
               value={formData.seconds}
-              onChange={(e) => setFormData({ ...formData, seconds: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  seconds: toHalfWidth(e.target.value).replace(/[^0-9]/g, ''),
+                })
+              }
               className="w-20 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
               placeholder="00"
             />
@@ -279,10 +312,17 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
         <div>
           <label className="block text-sm font-medium mb-2">順位（任意）</label>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min="1"
             value={formData.rank}
-            onChange={(e) => setFormData({ ...formData, rank: e.target.value })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                rank: toHalfWidth(e.target.value).replace(/[^0-9]/g, ''),
+              })
+            }
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
             placeholder="例: 120"
           />

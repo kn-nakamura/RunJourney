@@ -18,6 +18,7 @@ import { Trophy, Calendar } from 'lucide-react';
  * @param {number} props.selectedYear - 選択中の年度
  * @param {Function} props.onYearChange - 年度変更ハンドラ
  * @param {Array} props.availableYears - 利用可能な年度一覧
+ * @param {Function} props.onRecordClick - 記録クリック時のハンドラ
  */
 export const BestRecords = ({
   pbs,
@@ -25,6 +26,7 @@ export const BestRecords = ({
   selectedYear,
   onYearChange,
   availableYears,
+  onRecordClick,
 }) => {
   const distances = Object.keys(pbs).map(Number).sort((a, b) => b - a);
 
@@ -47,7 +49,8 @@ export const BestRecords = ({
             return (
               <div
                 key={distance}
-                className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border-2 border-yellow-500/30"
+                onClick={() => onRecordClick && onRecordClick(pb)}
+                className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border-2 border-yellow-500/30 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
               >
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
                   {getDistanceLabel(distance)}
@@ -68,6 +71,9 @@ export const BestRecords = ({
                     📊 ペース: {calculatePace(pb.time, pb.distance)}/km
                   </p>
                 </div>
+                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-3 text-center">
+                  クリックで詳細を表示
+                </p>
               </div>
             );
           })}
@@ -131,7 +137,8 @@ export const BestRecords = ({
             return (
               <div
                 key={distance}
-                className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border-2 border-blue-500/30"
+                onClick={() => onRecordClick && onRecordClick(sb)}
+                className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border-2 border-blue-500/30 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
               >
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
                   {getDistanceLabel(distance)}
@@ -167,6 +174,9 @@ export const BestRecords = ({
                     </p>
                   )}
                 </div>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-3 text-center">
+                  クリックで詳細を表示
+                </p>
               </div>
             );
           })}

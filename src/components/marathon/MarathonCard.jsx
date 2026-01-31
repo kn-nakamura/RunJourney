@@ -21,7 +21,10 @@ export const MarathonCard = ({ marathon, onEdit, onDelete }) => {
   const pace = calculatePace(marathon.time, marathon.distance);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div
+      id={`marathon-${marathon.id}`}
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-200 dark:border-gray-700"
+    >
       {/* 写真またはデフォルト背景 */}
       <div className="relative h-48 bg-gradient-to-br from-primary-400 to-secondary-500">
         {marathon.photo ? (

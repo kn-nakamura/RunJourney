@@ -4,7 +4,7 @@
  * 設定画面コンポーネント
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { exportData, importData } from '../../services/storage';
 import { Download, Upload, Trash2, Sun, Moon } from 'lucide-react';
@@ -19,6 +19,13 @@ import { APP_VERSION } from '../../constants/config';
  * @param {string} props.theme - 現在のテーマ
  * @param {Function} props.onThemeToggle - テーマ切り替えハンドラ
  */
+// データ削除確認用のランダム英単語リスト
+const RANDOM_WORDS = [
+  'apple', 'banana', 'cherry', 'dolphin', 'eagle', 'forest', 'guitar', 'harbor',
+  'island', 'jungle', 'knight', 'lemon', 'mountain', 'nature', 'ocean', 'planet',
+  'queen', 'river', 'sunset', 'tiger', 'umbrella', 'valley', 'winter', 'yellow'
+];
+
 export const SettingsView = ({
   marathons,
   onImport,
@@ -27,6 +34,10 @@ export const SettingsView = ({
   onThemeToggle,
 }) => {
   const [importMode, setImportMode] = useState('merge');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteWord, setDeleteWord] = useState('');
+  const [confirmWord, setConfirmWord] = useState('');
+  const fileInputRef = useRef(null);
 
   // エクスポート
   const handleExport = () => {
@@ -62,18 +73,32 @@ export const SettingsView = ({
       }
     };
     reader.readAsText(file);
+    // inputをリセット（同じファイルを再選択できるように）
+    e.target.value = '';
+  };
+
+  // 削除確認モーダルを開く
+  const openDeleteConfirm = () => {
+    const word = RANDOM_WORDS[Math.floor(Math.random() * RANDOM_WORDS.length)];
+    setDeleteWord(word);
+    setConfirmWord('');
+    setShowDeleteConfirm(true);
   };
 
   // 全削除
   const handleClearAll = () => {
-    if (
-      window.confirm(
-        '本当にすべてのデータを削除しますか？この操作は取り消せません。'
-      )
-    ) {
+    if (confirmWord === deleteWord) {
       onClearAll();
+      setShowDeleteConfirm(false);
       alert('すべてのデータを削除しました');
+    } else {
+      alert('入力された単語が一致しません');
     }
+  };
+
+  // インポートボタンクリック
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
   };
 
   // ストレージ使用量を計算（概算）
@@ -156,14 +181,12 @@ export const SettingsView = ({
                   accept=".json"
                   onChange={handleImport}
                   className="hidden"
-                  id="import-file"
+                  ref={fileInputRef}
                 />
-                <label htmlFor="import-file">
-                  <Button as="span">
-                    <Upload size={20} className="mr-2" />
-                    ファイルを選択
-                  </Button>
-                </label>
+                <Button onClick={handleImportClick}>
+                  <Upload size={20} className="mr-2" />
+                  ファイルを選択
+                </Button>
               </div>
             </div>
           </div>
@@ -179,7 +202,7 @@ export const SettingsView = ({
                 <p className="text-sm text-red-600 dark:text-red-400 mb-4">
                   ⚠️ この操作は取り消せません。すべてのマラソンデータが完全に削除されます。
                 </p>
-                <Button variant="danger" onClick={handleClearAll}>
+                <Button variant="danger" onClick={openDeleteConfirm}>
                   <Trash2 size={20} className="mr-2" />
                   削除（確認あり）
                 </Button>
@@ -255,9 +278,48 @@ export const SettingsView = ({
           </p>
         </div>
       </div>
+
+      {/* 削除確認モーダル */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md mx-4 shadow-2xl">
+            <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
+              データ削除の確認
+            </h3>
+            <p className="text-gray-700 dark:text-gray-300 mb-4">
+              この操作は取り消せません。すべてのデータが完全に削除されます。
+            </p>
+            <p className="text-gray-700 dark:text-gray-300 mb-2">
+              削除を確認するには、以下の単語を入力してください：
+            </p>
+            <p className="text-2xl font-bold text-center text-red-600 dark:text-red-400 mb-4 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg">
+              {deleteWord}
+            </p>
+            <input
+              type="text"
+              value={confirmWord}
+              onChange={(e) => setConfirmWord(e.target.value)}
+              placeholder="上記の単語を入力"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleClearAll}
+                disabled={confirmWord !== deleteWord}
+              >
+                削除実行
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-// useMemoをインポート
-import { useMemo } from 'react';
