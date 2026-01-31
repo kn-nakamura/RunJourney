@@ -1,0 +1,132 @@
+/**
+ * index.css
+ * 
+ * グローバルスタイル
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* カスタムスクロールバー */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800 rounded;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 dark:hover:bg-gray-500;
+  }
+}
+
+/* ベーススタイル */
+@layer base {
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+}
+
+/* Leafletのカスタムスタイル */
+.leaflet-container {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+.custom-marker {
+  border: none;
+  background: none;
+}
+
+/* ダークモードでのLeaflet調整 */
+.dark .leaflet-container {
+  @apply bg-gray-800;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  @apply bg-gray-800 text-white;
+}
+
+.dark .leaflet-popup-tip {
+  @apply bg-gray-800;
+}
+
+/* アニメーション */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  @apply animate-pulse bg-gray-200 dark:bg-gray-700;
+}
+
+/* リストのトランケート */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* カスタムグラデーション */
+.gradient-primary {
+  background: linear-gradient(135deg, #f97316 0%, #3b82f6 100%);
+}
+
+.gradient-text {
+  @apply bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent;
+}
+
+/* カードホバーエフェクト */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-2xl hover:-translate-y-1;
+}
+
+/* スムーズスクロール */
+html {
+  scroll-behavior: smooth;
+}
+
+/* フォーカス時のリング */
+*:focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900;
+}
+
+/* セレクトボックスのカスタムスタイル */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
