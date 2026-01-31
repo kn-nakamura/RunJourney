@@ -80,6 +80,23 @@ function App() {
     setRecordsSubTab('list');
   };
 
+  // 詳細に移動（マップやベスト記録から）
+  const handleNavigateToDetail = (marathon) => {
+    setActiveTab(TABS.RECORDS);
+    setRecordsSubTab('list');
+    // スクロールのためにマラソンIDを一時的に保存
+    setTimeout(() => {
+      const element = document.getElementById(`marathon-${marathon.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('ring-2', 'ring-primary-500');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-primary-500');
+        }, 2000);
+      }
+    }, 100);
+  };
+
   // インポート
   const handleImport = (importedMarathons, merge) => {
     importMarathons(importedMarathons, merge);
@@ -129,6 +146,7 @@ function App() {
               <MapView
                 marathons={marathons}
                 onMarkerClick={handleMarkerClick}
+                onNavigateToDetail={handleNavigateToDetail}
               />
             ) : (
               <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800 rounded-xl shadow-lg">
@@ -180,6 +198,7 @@ function App() {
                 selectedYear={selectedYear}
                 onYearChange={setSelectedYear}
                 availableYears={availableYears}
+                onRecordClick={handleNavigateToDetail}
               />
             ) : (
               <MarathonList

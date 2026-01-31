@@ -1,10 +1,11 @@
 /**
  * weather.js
- * 
+ *
  * Open-Meteo APIを使用した過去の天候データ取得サービス
  */
 
-const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
+const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const OPEN_METEO_ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive';
 
 /**
  * 天候アイコンを判定
@@ -55,6 +56,20 @@ const getWeatherIcon = (weatherValue) => {
 };
 
 /**
+ * 日付が過去かどうかを判定（予報APIの範囲外かどうか）
+ * @param {string} date - 日付（YYYY-MM-DD形式）
+ * @returns {boolean} 過去の日付かどうか
+ */
+const isHistoricalDate = (date) => {
+  const targetDate = new Date(date);
+  const today = new Date();
+  // 7日前より古いデータはarchive APIを使用
+  const threshold = new Date(today);
+  threshold.setDate(today.getDate() - 7);
+  return targetDate < threshold;
+};
+
+/**
  * 指定日の天候データを取得
  * @param {number} lat - 緯度
  * @param {number} lng - 経度
@@ -67,8 +82,12 @@ export const fetchWeatherData = async (lat, lng, date) => {
   }
 
   try {
+    // 過去のデータかどうかでAPIエンドポイントを選択
+    const isHistorical = isHistoricalDate(date);
+    const baseUrl = isHistorical ? OPEN_METEO_ARCHIVE_URL : OPEN_METEO_FORECAST_URL;
+
     const response = await fetch(
-      `${OPEN_METEO_BASE_URL}?` +
+      `${baseUrl}?` +
         new URLSearchParams({
           latitude: lat.toString(),
           longitude: lng.toString(),
@@ -81,13 +100,15 @@ export const fetchWeatherData = async (lat, lng, date) => {
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Weather API error:', errorText);
       throw new Error('Failed to fetch weather data');
     }
 
     const data = await response.json();
 
-    if (!data.daily) {
-      throw new Error('No weather data available');
+    if (!data.daily || !data.daily.temperature_2m_max || data.daily.temperature_2m_max[0] === null) {
+      throw new Error('No weather data available for this date');
     }
 
     const tempMax = Math.round(data.daily.temperature_2m_max[0]);
