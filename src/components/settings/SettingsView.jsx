@@ -1,13 +1,14 @@
 /**
  * SettingsView.jsx
- * 
+ *
  * 設定画面コンポーネント
+ * Firebase認証対応
  */
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { exportData, importData } from '../../services/storage';
-import { Download, Upload, Trash2, Sun, Moon } from 'lucide-react';
+import { Download, Upload, Trash2, Sun, Moon, User, LogIn, LogOut, Cloud, CloudOff } from 'lucide-react';
 import { APP_VERSION } from '../../constants/config';
 
 /**
@@ -18,6 +19,12 @@ import { APP_VERSION } from '../../constants/config';
  * @param {Function} props.onClearAll - 全削除ハンドラ
  * @param {string} props.theme - 現在のテーマ
  * @param {Function} props.onThemeToggle - テーマ切り替えハンドラ
+ * @param {Object} props.user - ログインユーザー
+ * @param {boolean} props.useFirebase - Firebase使用中か
+ * @param {boolean} props.hasLocalData - ローカルデータがあるか
+ * @param {Function} props.onMigrate - データ移行ハンドラ
+ * @param {Function} props.onLogin - ログインハンドラ
+ * @param {Function} props.onLogout - ログアウトハンドラ
  */
 // データ削除確認用のランダム英単語リスト
 const RANDOM_WORDS = [
@@ -32,6 +39,12 @@ export const SettingsView = ({
   onClearAll,
   theme,
   onThemeToggle,
+  user,
+  useFirebase,
+  hasLocalData,
+  onMigrate,
+  onLogin,
+  onLogout,
 }) => {
   const [importMode, setImportMode] = useState('merge');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -109,6 +122,98 @@ export const SettingsView = ({
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* アカウント設定（Firebase有効時のみ表示） */}
+      {(onLogin || onLogout) && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            アカウント
+          </h2>
+
+          <div className="space-y-6">
+            {/* ログイン状態 */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <User className="text-primary-500" size={24} />
+                  <div>
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                      {user ? 'ログイン中' : 'ゲストモード'}
+                    </h3>
+                    {user ? (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {user.email}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        ログインすると複数デバイスでデータを同期できます
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {user ? (
+                  <Button onClick={onLogout} variant="outline">
+                    <LogOut size={18} className="mr-2" />
+                    ログアウト
+                  </Button>
+                ) : (
+                  <Button onClick={onLogin}>
+                    <LogIn size={18} className="mr-2" />
+                    ログイン
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* 同期状態 */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <div className="flex items-center gap-4">
+                {useFirebase ? (
+                  <Cloud className="text-green-500" size={24} />
+                ) : (
+                  <CloudOff className="text-gray-400" size={24} />
+                )}
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                    データ同期
+                  </h3>
+                  {useFirebase ? (
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      クラウドに同期中 - すべてのデバイスでデータが共有されます
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      ローカル保存 - このブラウザにのみデータが保存されます
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* データ移行（ログイン中かつローカルデータがある場合） */}
+            {user && hasLocalData && (
+              <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-6 bg-blue-50 dark:bg-blue-900/10">
+                <div className="flex items-start gap-4">
+                  <Upload className="text-blue-500 mt-1" size={24} />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-blue-700 dark:text-blue-400 mb-2">
+                      ローカルデータをクラウドに移行
+                    </h3>
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">
+                      ログイン前に保存されたデータがあります。
+                      クラウドに移行すると、すべてのデバイスからアクセスできるようになります。
+                    </p>
+                    <Button onClick={onMigrate}>
+                      <Upload size={20} className="mr-2" />
+                      データを移行
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* データ管理 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
@@ -200,7 +305,7 @@ export const SettingsView = ({
                   すべてのデータを削除
                 </h3>
                 <p className="text-sm text-red-600 dark:text-red-400 mb-4">
-                  ⚠️ この操作は取り消せません。すべてのマラソンデータが完全に削除されます。
+                  この操作は取り消せません。すべてのマラソンデータが完全に削除されます。
                 </p>
                 <Button variant="danger" onClick={openDeleteConfirm}>
                   <Trash2 size={20} className="mr-2" />
@@ -238,7 +343,7 @@ export const SettingsView = ({
                 </div>
               </div>
               <Button onClick={onThemeToggle} variant="outline">
-                {theme === 'dark' ? '☀️ ライトモード' : '🌙 ダークモード'}
+                {theme === 'dark' ? 'ライトモード' : 'ダークモード'}
               </Button>
             </div>
           </div>
@@ -268,6 +373,12 @@ export const SettingsView = ({
             <span className="text-gray-600 dark:text-gray-400">使用容量:</span>
             <span className="font-medium text-gray-900 dark:text-white">
               約 {storageSize}KB
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-400">保存先:</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {useFirebase ? 'クラウド (Firebase)' : 'ローカル (LocalStorage)'}
             </span>
           </div>
         </div>
