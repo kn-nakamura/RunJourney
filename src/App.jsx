@@ -17,7 +17,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { AuthModal } from './components/auth/AuthModal';
 import { useMarathons } from './hooks/useMarathons';
 import { useTheme } from './hooks/useTheme';
-import { useAuth, AuthProvider } from './hooks/useAuth';
+import { useAuth, AuthProvider } from './hooks/useAuth.jsx';
 import { getAvailableYears } from './utils/calculations';
 import { Map, FileText, BarChart3, Settings, Plus, LogIn, LogOut, User, Cloud, CloudOff, Upload } from 'lucide-react';
 import { TABS } from './constants/config';
