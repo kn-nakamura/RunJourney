@@ -74,7 +74,7 @@ export const Modal = ({
         </div>
 
         {/* コンテンツ */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+        <div className="p-4 md:p-6 overflow-y-auto overflow-x-hidden max-h-[calc(90vh-80px)]">
           {children}
         </div>
       </div>

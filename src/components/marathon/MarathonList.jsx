@@ -215,80 +215,47 @@ export const MarathonList = ({ marathons, onEdit, onDelete }) => {
           </div>
         ) : (
           // リスト表示
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      大会名
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      日付
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      距離
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      タイム
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      ペース
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredAndSortedMarathons.map((marathon) => (
-                    <tr
-                      key={marathon.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          {marathon.isPB && (
-                            <span className="text-yellow-500 text-sm" title="PB">🏆</span>
-                          )}
-                          {marathon.isSB && !marathon.isPB && (
-                            <span className="text-gray-400 text-sm" title="SB">📅</span>
-                          )}
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {marathon.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {formatDateShort(marathon.date)}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {marathon.distance === 42.195
-                          ? 'フル'
-                          : marathon.distance === 21.0975
-                          ? 'ハーフ'
-                          : `${marathon.distance}km`}
-                      </td>
-                      <td className="px-4 py-4 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                        {marathon.time}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {calculatePace(marathon.time, marathon.distance)}/km
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <button
-                          onClick={() => onEdit(marathon)}
-                          className="p-2 text-gray-500 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          title="編集"
-                        >
-                          <Edit size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="space-y-2">
+            {filteredAndSortedMarathons.map((marathon) => (
+              <div
+                key={marathon.id}
+                id={`marathon-${marathon.id}`}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center justify-between gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {marathon.isPB && (
+                      <span className="text-yellow-500 text-sm flex-shrink-0" title="PB">🏆</span>
+                    )}
+                    {marathon.isSB && !marathon.isPB && (
+                      <span className="text-gray-400 text-sm flex-shrink-0" title="SB">📅</span>
+                    )}
+                    <span className="font-medium text-gray-900 dark:text-white truncate">
+                      {marathon.name}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <span>{formatDateShort(marathon.date)}</span>
+                    <span>
+                      {marathon.distance === 42.195
+                        ? 'フル'
+                        : marathon.distance === 21.0975
+                        ? 'ハーフ'
+                        : `${marathon.distance}km`}
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">{marathon.time}</span>
+                    <span>{calculatePace(marathon.time, marathon.distance)}/km</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onEdit(marathon)}
+                  className="p-2 text-gray-500 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                  title="編集"
+                >
+                  <Edit size={18} />
+                </button>
+              </div>
+            ))}
           </div>
         )
       ) : (

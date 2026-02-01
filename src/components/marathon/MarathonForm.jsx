@@ -68,7 +68,33 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData, onDelete 
   const [isSearching, setIsSearching] = useState(false);
   const [isFetchingWeather, setIsFetchingWeather] = useState(false);
 
-  // 初期データをセット（編集時）
+  // 初期フォームデータ
+  const initialFormData = {
+    name: '',
+    date: '',
+    distance: '',
+    customDistance: '',
+    hours: '',
+    minutes: '',
+    seconds: '',
+    rank: '',
+    locationSearch: '',
+    location: null,
+    externalLinks: {
+      strava: '',
+      garmin: '',
+    },
+    condition: {
+      physical: 3,
+      physicalEmoji: '😐',
+      notes: '',
+    },
+    weather: null,
+    photo: null,
+    notes: '',
+  };
+
+  // 初期データをセット（編集時）またはリセット（新規作成時）
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -80,6 +106,10 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData, onDelete 
           seconds: parseInt(initialData.time.split(':')[2]),
         },
       });
+    } else {
+      // 新規作成時はフォームをリセット
+      setFormData(initialFormData);
+      setLocationResults([]);
     }
   }, [initialData]);
 

@@ -150,21 +150,6 @@ const TouchController = () => {
 };
 
 /**
- * 2本指操作のオーバーレイメッセージ
- */
-const TouchOverlay = ({ show }) => {
-  if (!show) return null;
-
-  return (
-    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-[1000] pointer-events-none">
-      <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-300">
-        2本指で操作してください
-      </div>
-    </div>
-  );
-};
-
-/**
  * 地図の中心とズームを調整するコンポーネント
  */
 const MapController = ({ marathons }) => {
@@ -479,7 +464,6 @@ export const MapView = ({ marathons, onMarkerClick, onNavigateToDetail }) => {
   const defaultCenter = [35.6812, 139.7671]; // 東京
   const defaultZoom = 5;
   const [selectedTile, setSelectedTile] = useState('standard');
-  const [showTouchOverlay, setShowTouchOverlay] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -545,37 +529,6 @@ export const MapView = ({ marathons, onMarkerClick, onNavigateToDetail }) => {
         maximumAge: 0,
       }
     );
-  }, []);
-
-  // モバイルでのタッチ操作のオーバーレイ表示
-  useEffect(() => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
-
-    if (isMobile) {
-      let timeout;
-      const handleTouchStart = (e) => {
-        if (e.touches.length === 1) {
-          setShowTouchOverlay(true);
-          clearTimeout(timeout);
-          timeout = setTimeout(() => {
-            setShowTouchOverlay(false);
-          }, 2000);
-        } else {
-          setShowTouchOverlay(false);
-        }
-      };
-
-      const container = document.querySelector('.map-container');
-      if (container) {
-        container.addEventListener('touchstart', handleTouchStart, { passive: true });
-        return () => {
-          container.removeEventListener('touchstart', handleTouchStart);
-          clearTimeout(timeout);
-        };
-      }
-    }
   }, []);
 
   const isFiltered = filterYear !== 'all' || filterDistance !== 'all';
@@ -673,9 +626,6 @@ export const MapView = ({ marathons, onMarkerClick, onNavigateToDetail }) => {
           );
         })}
       </MapContainer>
-
-      {/* タッチオーバーレイ */}
-      <TouchOverlay show={showTouchOverlay} />
 
       {/* タイルセレクター */}
       <TileSelector selectedTile={selectedTile} onTileChange={setSelectedTile} />
