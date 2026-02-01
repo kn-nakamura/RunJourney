@@ -5,7 +5,7 @@
  * Firebase認証対応
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tabs } from './components/ui/Tabs';
 import { Button } from './components/ui/Button';
 import { MapView } from './components/map/MapView';
@@ -19,7 +19,7 @@ import { useMarathons } from './hooks/useMarathons';
 import { useTheme } from './hooks/useTheme';
 import { useAuth, AuthProvider } from './hooks/useAuth.jsx';
 import { getAvailableYears } from './utils/calculations';
-import { Map, FileText, BarChart3, Settings, Plus, LogIn, LogOut, User, Cloud, CloudOff, Upload } from 'lucide-react';
+import { Map, FileText, BarChart3, Settings, Plus, LogIn, LogOut, User, Cloud, CloudOff, Upload, AlertTriangle } from 'lucide-react';
 import { TABS } from './constants/config';
 
 function AppContent() {
@@ -28,6 +28,8 @@ function AppContent() {
   const [editingMarathon, setEditingMarathon] = useState(null);
   const [recordsSubTab, setRecordsSubTab] = useState('best'); // 'best' or 'list'
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const hasShownSyncDialog = useRef(false);
 
   const { theme, toggleTheme } = useTheme();
   const {
@@ -51,16 +53,34 @@ function AppContent() {
     clearAllMarathons,
     importMarathons,
     migrateToFirebase,
+    clearLocalData,
     pbs,
     sbs,
     selectedYear,
     setSelectedYear,
     loading: dataLoading,
     useFirebase,
-    hasLocalData
+    hasLocalData,
+    localMarathonsCount,
+    firebaseMarathonsCount
   } = useMarathons(user);
 
   const availableYears = getAvailableYears(marathons);
+
+  // ログイン時にローカルデータがある場合、同期ダイアログを表示
+  useEffect(() => {
+    if (user && hasLocalData && !hasShownSyncDialog.current && !dataLoading) {
+      setShowSyncDialog(true);
+      hasShownSyncDialog.current = true;
+    }
+  }, [user, hasLocalData, dataLoading]);
+
+  // ログアウト時にフラグをリセット
+  useEffect(() => {
+    if (!user) {
+      hasShownSyncDialog.current = false;
+    }
+  }, [user]);
 
   // タブ定義
   const tabs = [
@@ -129,6 +149,31 @@ function AppContent() {
       } catch (err) {
         alert('移行に失敗しました: ' + err.message);
       }
+    }
+  };
+
+  // 同期ダイアログ：クラウドにマージ
+  const handleMergeToCloud = async () => {
+    try {
+      await migrateToFirebase();
+      setShowSyncDialog(false);
+      alert('ローカルデータをクラウドに統合しました！');
+    } catch (err) {
+      alert('統合に失敗しました: ' + err.message);
+    }
+  };
+
+  // 同期ダイアログ：クラウドを優先
+  const handleUseCloudData = () => {
+    if (localMarathonsCount > 0) {
+      if (window.confirm(`ローカルの${localMarathonsCount}件のデータは削除されます。本当によろしいですか？`)) {
+        clearLocalData();
+        setShowSyncDialog(false);
+        alert('クラウドデータを優先しました。ローカルデータは削除されました。');
+      }
+    } else {
+      clearLocalData();
+      setShowSyncDialog(false);
     }
   };
 
@@ -401,6 +446,78 @@ function AppContent() {
           error={authError}
           onClearError={clearError}
         />
+      )}
+
+      {/* データ同期ダイアログ */}
+      {showSyncDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-lg w-full shadow-2xl">
+            <div className="flex items-start gap-4 mb-4">
+              <AlertTriangle className="text-yellow-500 flex-shrink-0 mt-1" size={32} />
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  データ同期の確認
+                </h3>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                  ローカルに保存されているデータとクラウドのデータを統合する方法を選択してください。
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">ローカルのデータ:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {localMarathonsCount}件
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">クラウドのデータ:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {firebaseMarathonsCount}件
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h4 className="font-bold text-gray-900 dark:text-white mb-2">
+                  オプション1: クラウドに統合
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  ローカルのデータをクラウドに追加します。すべてのデータが保持されます。
+                </p>
+                <Button onClick={handleMergeToCloud} className="w-full">
+                  <Upload size={18} className="mr-2" />
+                  クラウドに統合
+                </Button>
+              </div>
+
+              <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
+                <h4 className="font-bold text-red-700 dark:text-red-400 mb-2">
+                  オプション2: クラウドを優先
+                </h4>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                  クラウドのデータのみを使用します。ローカルのデータは削除されます。
+                </p>
+                <Button onClick={handleUseCloudData} variant="danger" className="w-full">
+                  <Cloud size={18} className="mr-2" />
+                  クラウドを優先（ローカルを削除）
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              variant="secondary"
+              onClick={() => setShowSyncDialog(false)}
+              className="w-full"
+            >
+              後で決める
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

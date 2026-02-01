@@ -290,15 +290,15 @@ export const SettingsView = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const jsonData = JSON.parse(event.target?.result);
         const imported = importData(jsonData);
-        onImport(imported.marathons, importMode === 'merge');
+        await onImport(imported.marathons, importMode === 'merge');
         alert('データをインポートしました');
       } catch (error) {
         console.error('Import error:', error);
-        alert('インポートに失敗しました。正しいファイルを選択してください。');
+        alert('インポートに失敗しました: ' + (error.message || '正しいファイルを選択してください。'));
       }
     };
     reader.readAsText(file);
@@ -311,7 +311,7 @@ export const SettingsView = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const csvText = event.target?.result;
         const marathonsData = parseCSV(csvText);
@@ -319,11 +319,11 @@ export const SettingsView = ({
           alert('インポート可能なデータがありません。必須フィールドを確認してください。');
           return;
         }
-        onImport(marathonsData, importMode === 'merge');
+        await onImport(marathonsData, importMode === 'merge');
         alert(`${marathonsData.length}件のデータをインポートしました`);
       } catch (error) {
         console.error('CSV Import error:', error);
-        alert('CSVのインポートに失敗しました。フォーマットを確認してください。');
+        alert('CSVのインポートに失敗しました: ' + (error.message || 'フォーマットを確認してください。'));
       }
     };
     reader.readAsText(file);
