@@ -64,4 +64,10 @@ export const MARKER_COLORS = {
 };
 
 // アプリバージョン
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
+
+// アプリ名
+export const APP_NAME = 'RunJourney';
+
+// アプリURL
+export const APP_URL = 'https://run-journey2.vercel.app';

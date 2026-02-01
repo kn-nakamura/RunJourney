@@ -14,7 +14,7 @@ import {
   WEATHER_OPTIONS,
   CONDITION_EMOJIS,
 } from '../../constants/config';
-import { Search, CloudRain, Upload } from 'lucide-react';
+import { Search, CloudRain, Upload, Trash2 } from 'lucide-react';
 
 /**
  * 全角数字を半角数字に変換
@@ -35,8 +35,9 @@ const toHalfWidth = (str) => {
  * @param {Function} props.onClose - 閉じるハンドラ
  * @param {Function} props.onSubmit - 送信ハンドラ
  * @param {Object} props.initialData - 初期データ（編集時）
+ * @param {Function} props.onDelete - 削除ハンドラ（編集時のみ）
  */
-export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
+export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData, onDelete }) => {
   // フォームデータ
   const [formData, setFormData] = useState({
     name: '',
@@ -67,7 +68,33 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [isFetchingWeather, setIsFetchingWeather] = useState(false);
 
-  // 初期データをセット（編集時）
+  // 初期フォームデータ
+  const initialFormData = {
+    name: '',
+    date: '',
+    distance: '',
+    customDistance: '',
+    hours: '',
+    minutes: '',
+    seconds: '',
+    rank: '',
+    locationSearch: '',
+    location: null,
+    externalLinks: {
+      strava: '',
+      garmin: '',
+    },
+    condition: {
+      physical: 3,
+      physicalEmoji: '😐',
+      notes: '',
+    },
+    weather: null,
+    photo: null,
+    notes: '',
+  };
+
+  // 初期データをセット（編集時）またはリセット（新規作成時）
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -79,6 +106,10 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
           seconds: parseInt(initialData.time.split(':')[2]),
         },
       });
+    } else {
+      // 新規作成時はフォームをリセット
+      setFormData(initialFormData);
+      setLocationResults([]);
     }
   }, [initialData]);
 
@@ -133,16 +164,68 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
     }
   };
 
-  // 写真アップロード
-  const handlePhotoUpload = (e) => {
+  // 画像を圧縮する関数
+  const compressImage = (file, maxWidth = 1024, quality = 0.8) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // 元のサイズを取得
+          let width = img.width;
+          let height = img.height;
+
+          // 最大幅を超える場合はリサイズ
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          // Canvasで描画
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // JPEG形式で圧縮（PNG以外はJPEGに変換）
+          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const compressedDataUrl = canvas.toDataURL(mimeType, quality);
+
+          // 圧縮後のサイズを確認（デバッグ用）
+          const originalSize = Math.round(file.size / 1024);
+          const compressedSize = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+          console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB (${Math.round((1 - compressedSize / originalSize) * 100)}% reduction)`);
+
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 写真アップロード（圧縮付き）
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormData({ ...formData, photo: event.target?.result });
-    };
-    reader.readAsDataURL(file);
+    try {
+      // 画像を圧縮
+      const compressedPhoto = await compressImage(file, 1024, 0.8);
+      setFormData({ ...formData, photo: compressedPhoto });
+    } catch (error) {
+      console.error('Image compression error:', error);
+      // 圧縮に失敗した場合は元の画像を使用
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData({ ...formData, photo: event.target?.result });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // フォーム送信
@@ -184,8 +267,17 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
     onClose();
   };
 
+  const isEditMode = !!initialData?.id;
+
+  const handleDelete = () => {
+    if (window.confirm('この大会の記録を削除しますか？この操作は取り消せません。')) {
+      onDelete && onDelete(initialData.id);
+      onClose();
+    }
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="新しい大会を追加" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? "大会を編集" : "新しい大会を追加"} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* 大会名 */}
         <div>
@@ -555,11 +647,27 @@ export const MarathonForm = ({ isOpen, onClose, onSubmit, initialData }) => {
         </div>
 
         {/* ボタン */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            キャンセル
-          </Button>
-          <Button type="submit">保存</Button>
+        <div className="flex gap-3 justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+          {/* 削除ボタン（編集時のみ） */}
+          <div>
+            {isEditMode && onDelete && (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDelete}
+                className="flex items-center gap-1"
+              >
+                <Trash2 size={16} />
+                削除
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              キャンセル
+            </Button>
+            <Button type="submit">保存</Button>
+          </div>
         </div>
       </form>
     </Modal>

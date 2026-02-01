@@ -150,26 +150,15 @@ export const MarathonCard = ({ marathon, onEdit, onDelete }) => {
           </p>
         )}
 
-        {/* アクションボタン */}
-        <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            variant="outline"
-            size="sm"
+        {/* アクションボタン - 編集アイコンのみ */}
+        <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button
             onClick={() => onEdit(marathon)}
-            className="flex-1"
+            className="p-2 text-gray-500 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="編集"
           >
-            <Edit size={16} className="mr-1" />
-            編集
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => onDelete(marathon.id)}
-            className="flex-1"
-          >
-            <Trash2 size={16} className="mr-1" />
-            削除
-          </Button>
+            <Edit size={18} />
+          </button>
         </div>
       </div>
     </div>
