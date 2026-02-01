@@ -152,13 +152,17 @@ export const useMarathons = (user = null) => {
           ...m,
           id: m.id || `marathon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         }));
-        setLocalMarathons([...localMarathons, ...newMarathons]);
+        setLocalMarathons((prev) => [...prev, ...newMarathons]);
       } else {
         // 上書き: すべて置き換え
-        setLocalMarathons(importedMarathons);
+        const marathonsWithIds = importedMarathons.map((m) => ({
+          ...m,
+          id: m.id || `marathon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        }));
+        setLocalMarathons(marathonsWithIds);
       }
     }
-  }, [useFirebase, user, localMarathons, setLocalMarathons]);
+  }, [useFirebase, user, setLocalMarathons]);
 
   /**
    * LocalStorageからFirestoreへデータを移行

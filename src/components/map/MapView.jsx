@@ -322,6 +322,7 @@ const ShareCardModal = ({
 }) => {
   const cardRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [mapImage, setMapImage] = useState(null);
 
   const stats = useMemo(() => {
     const totalRaces = marathons.length;
@@ -331,6 +332,30 @@ const ShareCardModal = ({
     return { totalRaces, totalDistance, pbCount };
   }, [marathons]);
 
+  // モーダルが開いたときにマップをキャプチャ
+  useEffect(() => {
+    if (isOpen && mapRef?.current) {
+      const captureMap = async () => {
+        try {
+          // マップコンテナを取得
+          const mapContainer = mapRef.current.getContainer();
+          if (mapContainer) {
+            const canvas = await html2canvas(mapContainer, {
+              useCORS: true,
+              allowTaint: true,
+              backgroundColor: '#ffffff',
+              scale: 1,
+            });
+            setMapImage(canvas.toDataURL('image/png'));
+          }
+        } catch (error) {
+          console.error('Failed to capture map:', error);
+        }
+      };
+      captureMap();
+    }
+  }, [isOpen, mapRef]);
+
   const handleDownload = async () => {
     if (!cardRef.current) return;
 
@@ -339,6 +364,8 @@ const ShareCardModal = ({
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
+        useCORS: true,
+        allowTaint: true,
       });
 
       const link = document.createElement('a');
@@ -396,14 +423,21 @@ const ShareCardModal = ({
           {/* 共有カード */}
           <div
             ref={cardRef}
-            className="bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl p-4 text-white"
+            className="bg-gradient-to-br from-primary-500 to-secondary-500 p-4 text-white"
           >
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl">🏃</span>
+              <img src="/Icon/favicon-32x32.png" alt="RunJourney" className="w-6 h-6" />
               <span className="font-bold text-xl">RunJourney</span>
             </div>
 
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 mb-3">
+            {/* マップ画像 */}
+            {mapImage && (
+              <div className="mb-3 overflow-hidden">
+                <img src={mapImage} alt="Map" className="w-full h-40 object-cover" />
+              </div>
+            )}
+
+            <div className="bg-white/20 backdrop-blur-sm p-3 mb-3">
               <div className="text-sm opacity-80 mb-1">
                 {filterYear !== 'all' ? `${filterYear}年` : '全期間'}
                 {filterDistance !== 'all' && ` / ${filterDistance === '42.195' ? 'フルマラソン' : filterDistance === '21.0975' ? 'ハーフマラソン' : filterDistance + 'km'}`}
