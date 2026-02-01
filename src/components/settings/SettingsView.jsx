@@ -94,12 +94,15 @@ const convertToCSV = (marathons) => {
  * CSVをパースしてマラソンデータに変換
  */
 const parseCSV = (csvText) => {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  const sanitizedText = csvText.replace(/^\uFEFF/, '');
+  const lines = sanitizedText.split(/\r?\n/).filter(line => line.trim());
   if (lines.length < 2) {
     throw new Error('CSVファイルにデータがありません');
   }
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const headers = parseCSVLine(lines[0]).map((header) => (
+    header.replace(/^\uFEFF/, '').trim().toLowerCase()
+  ));
   const marathons = [];
 
   for (let i = 1; i < lines.length; i++) {
