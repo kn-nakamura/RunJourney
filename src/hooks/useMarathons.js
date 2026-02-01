@@ -165,7 +165,7 @@ export const useMarathons = (user = null) => {
   }, [useFirebase, user, setLocalMarathons]);
 
   /**
-   * LocalStorageからFirestoreへデータを移行
+   * LocalStorageからFirestoreへデータを移行（マージモード）
    */
   const migrateToFirebase = useCallback(async () => {
     if (!useFirebase || localMarathons.length === 0) return;
@@ -178,6 +178,13 @@ export const useMarathons = (user = null) => {
       throw error;
     }
   }, [useFirebase, user, localMarathons, setLocalMarathons]);
+
+  /**
+   * ローカルデータのみをクリア（クラウドを優先する場合）
+   */
+  const clearLocalData = useCallback(() => {
+    setLocalMarathons([]);
+  }, [setLocalMarathons]);
 
   // PB/SBフラグ付きマラソンデータ
   const marathonsWithFlags = useMemo(
@@ -203,12 +210,15 @@ export const useMarathons = (user = null) => {
     clearAllMarathons,
     importMarathons,
     migrateToFirebase,
+    clearLocalData,
     pbs,
     sbs,
     selectedYear,
     setSelectedYear,
     loading,
     useFirebase,
-    hasLocalData: localMarathons.length > 0
+    hasLocalData: localMarathons.length > 0,
+    localMarathonsCount: localMarathons.length,
+    firebaseMarathonsCount: firebaseMarathons.length
   };
 };
