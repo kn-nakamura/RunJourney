@@ -201,9 +201,9 @@ export const importMarathonsToFirestore = async (userId, marathons, merge = fals
 
   marathons.forEach((marathon) => {
     const docRef = doc(marathonsRef);
+    const { id: _id, ...marathonData } = marathon;
     batch.set(docRef, {
-      ...marathon,
-      id: undefined, // Firestoreが自動生成
+      ...marathonData,
       createdAt: marathon.createdAt || new Date().toISOString()
     });
   });
