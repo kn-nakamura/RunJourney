@@ -10,8 +10,6 @@ struct RaceMapView: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedRace: Race?
     @State private var mapStyle: MapStyleChoice = .standard
-    @State private var showAddSheet = false
-    @State private var addCandidate: AddRaceCandidate?
 
     /// 選択中レースの最初のトラックポイント付き結果のルートを描画する。
     private var selectedRouteCoordinates: [CLLocationCoordinate2D] {
@@ -202,13 +200,6 @@ enum MapStyleChoice: String, CaseIterable, Identifiable {
         case .imagery: return .imagery(elevation: .realistic)
         }
     }
-}
-
-// MARK: - Long-press add candidate (Phase 2c用、現状未使用)
-
-struct AddRaceCandidate: Identifiable {
-    let id = UUID()
-    let coordinate: CLLocationCoordinate2D
 }
 
 // （RaceDetailView, RaceResultRow は Features/Detail/ 配下に移動）

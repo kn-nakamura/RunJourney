@@ -42,22 +42,12 @@ struct PlaybackControls: View {
                     .frame(width: 56, alignment: .trailing)
             }
 
-            // 操作ボタン
+            // 操作ボタン（シーク・速度はバー側に統合済みなので最小構成）
             HStack(spacing: 14) {
-                Button { controller.skip(by: -30) } label: {
-                    Image(systemName: "gobackward.30")
-                        .font(.system(size: 22))
-                }
-
                 Button { controller.togglePlay() } label: {
                     Image(systemName: controller.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 48))
                         .foregroundStyle(Color.accentPrimary)
-                }
-
-                Button { controller.skip(by: 30) } label: {
-                    Image(systemName: "goforward.30")
-                        .font(.system(size: 22))
                 }
 
                 Spacer()

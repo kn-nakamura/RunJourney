@@ -98,27 +98,47 @@ struct PaceCalculatorView: View {
                 HStack {
                     Text("距離")
                     Spacer()
-                    TextField("km", value: $customDistanceKm, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
+                    customDistanceField
                     Text("km").foregroundStyle(.secondary)
                 }
             }
         }
     }
 
+    @ViewBuilder
+    private var customDistanceField: some View {
+#if os(iOS)
+        TextField("km", value: $customDistanceKm, format: .number)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 100)
+#else
+        TextField("km", value: $customDistanceKm, format: .number)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 100)
+#endif
+    }
+
     private var goalTimeSection: some View {
         Section("目標タイム") {
+#if os(iOS)
             HStack(spacing: 12) {
                 wheel(label: "時", value: $hours, range: 0...23)
                 wheel(label: "分", value: $minutes, range: 0...59)
                 wheel(label: "秒", value: $seconds, range: 0...59)
             }
             .frame(height: 130)
+#else
+            HStack(spacing: 16) {
+                stepperBlock(label: "時", value: $hours, range: 0...23)
+                stepperBlock(label: "分", value: $minutes, range: 0...59)
+                stepperBlock(label: "秒", value: $seconds, range: 0...59)
+            }
+#endif
         }
     }
 
+#if os(iOS)
     @ViewBuilder
     private func wheel(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
         VStack(spacing: 2) {
@@ -133,6 +153,21 @@ struct PaceCalculatorView: View {
             Text(label).font(.body(11)).foregroundStyle(.secondary)
         }
     }
+#else
+    @ViewBuilder
+    private func stepperBlock(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        VStack(spacing: 4) {
+            Text(String(format: "%02d", value.wrappedValue))
+                .font(.mono(24, bold: true))
+                .foregroundStyle(Color.accentPrimary)
+            Stepper("", value: value, in: range)
+                .labelsHidden()
+            Text(label)
+                .font(.body(11))
+                .foregroundStyle(.secondary)
+        }
+    }
+#endif
 
     private var resultSection: some View {
         Section("結果") {

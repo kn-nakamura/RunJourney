@@ -130,14 +130,25 @@ struct ImportConfirmationSheet: View {
     @ViewBuilder
     private var newRaceSection: some View {
         Section("新しい大会") {
-            TextField("大会名", text: $newRaceName)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            raceNameField
             LabeledContent("カテゴリ", value: activity.estimatedCategory.displayName)
             Text("カテゴリと開始地点はアクティビティから自動推定されます。あとで詳細画面で編集できます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// プラットフォーム差異を吸収（textInputAutocapitalization は iOS only）。
+    @ViewBuilder
+    private var raceNameField: some View {
+#if os(iOS)
+        TextField("大会名", text: $newRaceName)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+#else
+        TextField("大会名", text: $newRaceName)
+            .autocorrectionDisabled()
+#endif
     }
 
     @ViewBuilder

@@ -49,7 +49,7 @@ struct ContentView: View {
     // MARK: - iPhone
 
     private var tabView: some View {
-        TabView(selection: $selectedSection) {
+        let tv = TabView(selection: $selectedSection) {
             Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
                 NavigationStack { RaceMapView() }
             }
@@ -63,8 +63,13 @@ struct ContentView: View {
                 NavigationStack { SettingsView() }
             }
         }
-        .tabBarMinimizeBehavior(.never)
-        .toolbarBackground(.visible, for: .tabBar)
+#if os(iOS)
+        return tv
+            .tabBarMinimizeBehavior(.never)         // iOS 26 の自動最小化を無効化
+            .toolbarBackground(.visible, for: .tabBar)
+#else
+        return tv
+#endif
     }
 
     // MARK: - iPad / Mac

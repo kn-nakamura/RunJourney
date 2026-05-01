@@ -143,47 +143,49 @@ struct RaceResultDetailView: View {
         return Group {
             if coords.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        sectionHeader("ルート")
-                        Spacer()
-                        NavigationLink {
-                            RouteFlythruView(result: result)
-                        } label: {
-                            Label("再生", systemImage: "play.circle.fill")
-                                .font(.body(13, weight: .bold))
+                    sectionHeader("ルート", subtitle: "タップしてフライスルー再生")
+                    NavigationLink {
+                        RouteFlythruView(result: result)
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Map {
+                                MapPolyline(coordinates: coords)
+                                    .stroke(
+                                        result.race?.category.pinColor ?? .accentPrimary,
+                                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                                    )
+                                if let first = coords.first {
+                                    Annotation("Start", coordinate: first) {
+                                        Image(systemName: "flag.checkered")
+                                            .foregroundStyle(.white)
+                                            .padding(6)
+                                            .background(Color.cat10K, in: Circle())
+                                    }
+                                }
+                                if let last = coords.last, coords.count > 1 {
+                                    Annotation("Finish", coordinate: last) {
+                                        Image(systemName: "flag.fill")
+                                            .foregroundStyle(.white)
+                                            .padding(6)
+                                            .background(Color.catFullMarathon, in: Circle())
+                                    }
+                                }
+                            }
+                            .mapStyle(.standard(elevation: .realistic))
+                            .frame(height: 240)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .allowsHitTesting(false)
+
+                            // 右上に控えめな再生インジケータ
+                            Image(systemName: "play.fill")
                                 .foregroundStyle(.black)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.accentPrimary, in: Capsule())
+                                .padding(10)
+                                .background(Color.accentPrimary, in: Circle())
+                                .shadow(radius: 3)
+                                .padding(10)
                         }
                     }
-                    Map {
-                        MapPolyline(coordinates: coords)
-                            .stroke(
-                                result.race?.category.pinColor ?? .accentPrimary,
-                                style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
-                            )
-                        if let first = coords.first {
-                            Annotation("Start", coordinate: first) {
-                                Image(systemName: "flag.checkered")
-                                    .foregroundStyle(.white)
-                                    .padding(6)
-                                    .background(Color.cat10K, in: Circle())
-                            }
-                        }
-                        if let last = coords.last, coords.count > 1 {
-                            Annotation("Finish", coordinate: last) {
-                                Image(systemName: "flag.fill")
-                                    .foregroundStyle(.white)
-                                    .padding(6)
-                                    .background(Color.catFullMarathon, in: Circle())
-                            }
-                        }
-                    }
-                    .mapStyle(.standard(elevation: .realistic))
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .allowsHitTesting(false)
+                    .buttonStyle(.plain)
                 }
             }
         }
