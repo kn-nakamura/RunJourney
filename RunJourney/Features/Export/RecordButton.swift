@@ -7,18 +7,24 @@ import ReplayKit
 /// - 状態: idle → starting → recording → stopping → idle / error
 /// - 録画停止後はOS標準のプレビューで保存・共有できる
 struct RecordButton: View {
+    /// 録画開始/停止イベントを親に通知。typically: 親で再生コントローラを pause する。
+    var onRecordingWillStart: (() -> Void)? = nil
+    var onRecordingDidStop: (() -> Void)? = nil
+
     @State private var exporter = VideoExporter()
 #if os(iOS)
-    @State private var preview: RPPreviewViewController?
+    /// プレビューシートの状態。安定した id を持つ Item として保持し、
+    /// 不要な sheet 再表示を防ぐ（@State 1個で id 不変）。
+    @State private var previewItem: RPPreviewItem?
 #endif
     @State private var errorMessage: String?
 
     var body: some View {
 #if os(iOS)
         button
-            .sheet(item: previewBinding) { vc in
-                RPPreviewWrapper(preview: vc) {
-                    preview = nil
+            .sheet(item: $previewItem) { item in
+                RPPreviewWrapper(preview: item.controller) {
+                    previewItem = nil
                 }
                 .ignoresSafeArea()
             }
@@ -73,13 +79,6 @@ struct RecordButton: View {
         }
     }
 
-    private var previewBinding: Binding<RPPreviewItem?> {
-        Binding(
-            get: { preview.map(RPPreviewItem.init) },
-            set: { if $0 == nil { preview = nil } }
-        )
-    }
-
     private var errorAlertBinding: Binding<Bool> {
         Binding(
             get: { errorMessage != nil },
@@ -90,13 +89,17 @@ struct RecordButton: View {
     private func toggleRecording() async {
         switch exporter.state {
         case .idle:
+            // 録画開始前に親へ通知（再生をいったん止めたいなら親側で対応）
+            onRecordingWillStart?()
             await exporter.startRecording()
             if case .error(let msg) = exporter.state {
                 errorMessage = msg
             }
         case .recording:
+            // 停止前に親へ通知（再生を pause させて Map のカメラ更新を止める）
+            onRecordingDidStop?()
             if let vc = await exporter.stopRecording() {
-                preview = vc
+                previewItem = RPPreviewItem(controller: vc)
             } else if case .error(let msg) = exporter.state {
                 errorMessage = msg
             }
@@ -108,16 +111,10 @@ struct RecordButton: View {
 }
 
 #if os(iOS)
-/// `RPPreviewViewController` をsheetのitemとして扱うためのIdentifiableラッパー。
+/// `RPPreviewViewController` を sheet(item:) のIdentifiable Item として扱うラッパー。
+/// id は init で固定生成されるので、同じ controller 参照に対しては同じ id を維持する。
 struct RPPreviewItem: Identifiable {
     let id = UUID()
     let controller: RPPreviewViewController
-    init(_ c: RPPreviewViewController) { self.controller = c }
-}
-
-extension RPPreviewWrapper {
-    init(preview item: RPPreviewItem, onFinish: @escaping () -> Void) {
-        self.init(preview: item.controller, onFinish: onFinish)
-    }
 }
 #endif

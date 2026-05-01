@@ -35,9 +35,18 @@ struct RouteFlythruView: View {
                 HStack {
                     Spacer()
 #if os(iOS)
-                    RecordButton()
-                        .padding(.trailing, 14)
-                        .padding(.top, 6)
+                    RecordButton(
+                        onRecordingWillStart: {
+                            // 録画開始時はそのままプレイ可能（ユーザーが play で開始する想定）
+                        },
+                        onRecordingDidStop: {
+                            // 録画停止と同時にプレイバックも停止 → カメラ追従更新が止まり
+                            // RPPreviewViewController と裏側の Map がぶつからない
+                            controller.pause()
+                        }
+                    )
+                    .padding(.trailing, 14)
+                    .padding(.top, 6)
 #endif
                 }
                 Spacer()
@@ -68,6 +77,11 @@ struct RouteFlythruView: View {
         .onAppear {
             // 初期カメラ
             cameraPosition = followMode ? followCameraPosition() : overviewCameraPosition()
+        }
+        .onDisappear {
+            // 画面を離れたら再生を止めて Timer も invalidate する。
+            // 戻って来たときに自動で再開はしない（明示的に play を押し直す）。
+            controller.pause()
         }
         .onChange(of: controller.currentTime) { _, _ in
             updateCameraIfNeeded()
