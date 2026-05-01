@@ -6,10 +6,10 @@ import CoreLocation
 enum ActivityImporter {
 
     /// 対応拡張子（小文字）
-    static let supportedExtensions: Set<String> = ["gpx", "tcx"]
-    // FIT は SwiftPM で FitDataProtocol を導入する Phase 3.5+ で追加
+    static let supportedExtensions: Set<String> = ["gpx", "tcx", "fit", "zip"]
 
     /// ファイルURLからパース。security-scoped resource を扱う。
+    /// `.zip` の場合は中の最初の .fit / .gpx / .tcx を抽出してそれぞれのパーサーへ委譲する。
     static func parse(url: URL) throws -> ParsedActivity {
         let ext = url.pathExtension.lowercased()
         guard supportedExtensions.contains(ext) else {
@@ -26,10 +26,26 @@ enum ActivityImporter {
             throw ImportError.fileAccessDenied
         }
 
+        return try parse(data: data, ext: ext)
+    }
+
+    /// 既にメモリにあるデータを拡張子ヒント付きでパース。zip 再帰用に internal で使う。
+    private static func parse(data: Data, ext: String) throws -> ParsedActivity {
         switch ext {
         case "gpx": return try GPXParser.parse(data: data)
         case "tcx": return try TCXParser.parse(data: data)
-        default: throw ImportError.unsupportedFormat(ext)
+        case "fit": return try FITParser.parse(data: data)
+        case "zip":
+            // 優先順位: .fit > .tcx > .gpx
+            let entries = try ZipReader.extractAll(from: data)
+            for preferred in ["fit", "tcx", "gpx"] {
+                if let entry = entries.first(where: { ($0.name as NSString).pathExtension.lowercased() == preferred }) {
+                    return try parse(data: entry.data, ext: preferred)
+                }
+            }
+            throw ImportError.parseFailed("ZIP: アクティビティファイル(.fit/.tcx/.gpx)が含まれていません — 含まれるエントリ: \(entries.map(\.name).joined(separator: ", "))")
+        default:
+            throw ImportError.unsupportedFormat(ext)
         }
     }
 

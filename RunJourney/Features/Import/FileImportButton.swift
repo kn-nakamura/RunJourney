@@ -49,13 +49,16 @@ struct FileImportButton: View {
         }
     }
 
-    /// 対応するファイルタイプ。GPX/TCXは独自MIMEではなく拡張子で判定するため、
-    /// XML系を許容しつつ任意拡張子に広げる。
+    /// 対応するファイルタイプ。
+    /// - .gpx / .tcx → XML
+    /// - .fit → 任意バイナリ（`UTType(filenameExtension:)` で生成）
+    /// - .zip → アーカイブ
     private static var allowedTypes: [UTType] {
-        var types: [UTType] = [.xml]
+        var types: [UTType] = [.xml, .zip]
         if let gpx = UTType(filenameExtension: "gpx") { types.append(gpx) }
         if let tcx = UTType(filenameExtension: "tcx") { types.append(tcx) }
-        // フォールバックとして.dataも許す
+        if let fit = UTType(filenameExtension: "fit") { types.append(fit) }
+        // フォールバック: 任意の data
         types.append(.data)
         return types
     }
