@@ -13,6 +13,14 @@ struct RaceMapView: View {
     @State private var showAddSheet = false
     @State private var addCandidate: AddRaceCandidate?
 
+    /// 選択中レースの最初のトラックポイント付き結果のルートを描画する。
+    private var selectedRouteCoordinates: [CLLocationCoordinate2D] {
+        guard let race = selectedRace,
+              let result = race.results?.first(where: { !$0.trackPoints.isEmpty })
+        else { return [] }
+        return result.trackPoints.map(\.coordinate)
+    }
+
     var body: some View {
         Map(position: $cameraPosition, selection: $selectedRace) {
             ForEach(races) { race in
@@ -20,6 +28,11 @@ struct RaceMapView: View {
                     RaceAnnotationView(race: race, isSelected: selectedRace == race)
                 }
                 .tag(race)
+            }
+
+            if let race = selectedRace, !selectedRouteCoordinates.isEmpty {
+                MapPolyline(coordinates: selectedRouteCoordinates)
+                    .stroke(race.category.pinColor, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
             }
         }
         .mapStyle(mapStyle.style)
@@ -30,7 +43,7 @@ struct RaceMapView: View {
         }
         .overlay(alignment: .top) {
             if races.isEmpty {
-                Text("右上の + ボタンを押して最初のレースを追加してみてください")
+                Text("ツールバーの ↓ から TCX / GPX を取り込み、または + でダミーレースを追加")
                     .font(.callout)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -41,8 +54,11 @@ struct RaceMapView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                FileImportButton()
+            }
+            ToolbarItem(placement: .secondaryAction) {
                 Button(action: addDummyRaceNearTokyo) {
-                    Label("レース追加", systemImage: "plus")
+                    Label("ダミー追加", systemImage: "plus")
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
@@ -61,6 +77,14 @@ struct RaceMapView: View {
                     Label("全レースを表示", systemImage: "scope")
                 }
                 .disabled(races.isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    fitSelectedRoute()
+                } label: {
+                    Label("ルートにフィット", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                .disabled(selectedRouteCoordinates.isEmpty)
             }
         }
         .navigationTitle("RunJourney")
@@ -103,6 +127,24 @@ struct RaceMapView: View {
             lng: pick.3
         )
         modelContext.insert(race)
+    }
+
+    private func fitSelectedRoute() {
+        let coords = selectedRouteCoordinates
+        guard coords.count >= 2 else { return }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max(lats.max()! - lats.min()!, 0.005) * 1.4,
+            longitudeDelta: max(lngs.max()! - lngs.min()!, 0.005) * 1.4
+        )
+        withAnimation(.easeInOut(duration: 0.6)) {
+            cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
+        }
     }
 
     private func fitAllRaces() {
@@ -177,6 +219,10 @@ struct RaceDetailPlaceholder: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    private var primaryResult: RaceResult? {
+        race.results?.sorted { $0.raceDate > $1.raceDate }.first
+    }
+
     var body: some View {
         Form {
             Section("基本情報") {
@@ -195,17 +241,46 @@ struct RaceDetailPlaceholder: View {
                     LabeledContent("都市", value: city)
                 }
             }
-            Section("結果") {
-                if let count = race.results?.count, count > 0 {
-                    Text("\(count) 件の結果")
-                } else {
+
+            if let result = primaryResult {
+                Section("最新結果") {
+                    LabeledContent("日付", value: result.raceDate.formatted(date: .abbreviated, time: .omitted))
+                    if let sec = result.finishTimeSec {
+                        LabeledContent("タイム", value: formatDuration(sec))
+                    }
+                    if let pace = result.summary?.avgPaceSecPerKm {
+                        LabeledContent("平均ペース", value: formatPace(pace))
+                    }
+                    if let dist = result.summary?.totalDistanceM {
+                        LabeledContent("総距離", value: String(format: "%.2f km", dist / 1000))
+                    }
+                    if let hr = result.summary?.avgHeartRate {
+                        LabeledContent("平均HR", value: "\(hr) bpm")
+                    }
+                    if let elev = result.summary?.elevationGainM {
+                        LabeledContent("標高上昇", value: String(format: "%.0f m", elev))
+                    }
+                    if let cal = result.summary?.totalCalories {
+                        LabeledContent("カロリー", value: String(format: "%.0f kcal", cal))
+                    }
+                }
+                Section("ラップ・トラック") {
+                    LabeledContent("ラップ数", value: "\(result.lapData.count)")
+                    LabeledContent("トラックポイント", value: "\(result.trackPoints.count)")
+                    Text("Phase 4 でラップチャート、Phase 5 でフライスルー再生を実装")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            } else {
+                Section("結果") {
                     Text("まだ結果が登録されていません")
                         .foregroundStyle(.secondary)
+                    Text("ツールバーの ↓ から TCX/GPX を取り込むと、このレースに紐付く結果として保存されます（現状は別レースになります — Phase 4で改善）")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
-                Text("Phase 4 で結果一覧UI、Phase 3 で TCX/GPX/FIT 取り込みを実装")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
+
             Section {
                 Button(role: .destructive) {
                     modelContext.delete(race)
@@ -219,5 +294,20 @@ struct RaceDetailPlaceholder: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+    }
+
+    private func formatDuration(_ totalSec: Double) -> String {
+        let s = Int(totalSec)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        let sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
+    }
+
+    private func formatPace(_ secPerKm: Double) -> String {
+        let m = Int(secPerKm) / 60
+        let s = Int(secPerKm) % 60
+        return String(format: "%d:%02d /km", m, s)
     }
 }
