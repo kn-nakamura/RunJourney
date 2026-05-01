@@ -4,6 +4,8 @@
 
 [`marathon-record-app`](../marathon-record-app)（React + Mapbox + Supabase Webアプリ）の純正アプリ版。
 
+リポジトリ: https://github.com/kn-nakamura/run-journey-ios （private）
+
 ## 技術スタック
 
 - **UI**: SwiftUI（iOS 17+ / iPadOS 17+ / macOS 14+）
