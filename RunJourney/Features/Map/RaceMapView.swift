@@ -14,6 +14,7 @@ struct RaceMapView: View {
     @State private var cameraPosition: MapCameraPosition = .region(Self.japanRegion)
     @State private var selectedRace: Race?
     @State private var hasFitInitialRaces = false
+    @State private var showRaceList = false
 
     /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
     private static let japanRegion = MKCoordinateRegion(
@@ -61,62 +62,66 @@ struct RaceMapView: View {
                 MapScaleView()
             }
         }
+        // フルスクリーン: ナビゲーションバーと TabBar の下まで地図を広げる。
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
+        .overlay(alignment: .topLeading) {
+            // 左上: ハンバーガー → レース一覧ドロワー
+            HamburgerButton(action: { showRaceList = true })
+                .padding(.top, 12)
+                .padding(.leading, 12)
+        }
         .overlay(alignment: .topTrailing) {
             // 右上のフロート: Layers ボタン
             LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
                 .padding(.top, 12)
                 .padding(.trailing, 12)
         }
+        .overlay(alignment: .bottomTrailing) {
+            // 右下フロートのアクションクラスタ: インポート / ダミー追加 / フィット / 日本表示。
+            // (元はナビゲーションバーのツールバーにあったが、フルスクリーン化のため画面内に移動)
+            MapActionsCluster(
+                onImport: nil, // FileImportButton を内部で使うため不要
+                onAddDummy: addDummyRaceNearTokyo,
+                onFitAll: fitAllRaces,
+                onFitRoute: fitSelectedRoute,
+                onResetJapan: {
+                    withAnimation(.easeInOut(duration: 0.6)) {
+                        cameraPosition = .region(Self.japanRegion)
+                    }
+                },
+                canFitAll: !races.isEmpty,
+                canFitRoute: !selectedRouteCoordinates.isEmpty
+            )
+            .padding(.trailing, 12)
+            .padding(.bottom, 96)   // TabBar 高さ + safe area 分を確保
+        }
         .overlay(alignment: .top) {
             if races.isEmpty {
-                Text("ツールバーの ↓ から TCX / GPX を取り込み、または + でダミーレースを追加")
+                Text("右下の ↓ から TCX / GPX を取り込み、または + でダミーレースを追加")
                     .font(.callout)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.regularMaterial, in: Capsule())
-                    .padding()
+                    .padding(.top, 64)
+                    .padding(.horizontal, 16)
                     .transition(.opacity)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                FileImportButton()
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button(action: addDummyRaceNearTokyo) {
-                    Label("ダミー追加", systemImage: "plus")
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    fitAllRaces()
-                } label: {
-                    Label("全レースを表示", systemImage: "scope")
-                }
-                .disabled(races.isEmpty)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    fitSelectedRoute()
-                } label: {
-                    Label("ルートにフィット", systemImage: "arrow.up.left.and.arrow.down.right")
-                }
-                .disabled(selectedRouteCoordinates.isEmpty)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        cameraPosition = .region(Self.japanRegion)
-                    }
-                } label: {
-                    Label("日本全体", systemImage: "globe.asia.australia")
-                }
-            }
-        }
-        .navigationTitle("RunJourney")
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
 #endif
+        .sheet(isPresented: $showRaceList) {
+            RaceListDrawer(
+                races: races,
+                onSelect: { race in
+                    showRaceList = false
+                    selectedRace = race
+                    fitRace(race)
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(item: $selectedRace) { race in
             NavigationStack {
                 RaceDetailView(race: race)
@@ -187,6 +192,35 @@ struct RaceMapView: View {
         }
     }
 
+    /// レース 1 件にフィットする。トラックポイントがあればルート全体にフィットし、
+    /// 無ければピン位置に約 5km 範囲でズームする。
+    private func fitRace(_ race: Race) {
+        let coords = (race.results?.first(where: { !$0.trackPoints.isEmpty })?.trackPoints ?? [])
+            .map(\.coordinate)
+        if coords.count >= 2 {
+            let lats = coords.map(\.latitude)
+            let lngs = coords.map(\.longitude)
+            let center = CLLocationCoordinate2D(
+                latitude: (lats.min()! + lats.max()!) / 2,
+                longitude: (lngs.min()! + lngs.max()!) / 2
+            )
+            let span = MKCoordinateSpan(
+                latitudeDelta: max(lats.max()! - lats.min()!, 0.005) * 1.4,
+                longitudeDelta: max(lngs.max()! - lngs.min()!, 0.005) * 1.4
+            )
+            withAnimation(.easeInOut(duration: 0.6)) {
+                cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.6)) {
+                cameraPosition = .region(MKCoordinateRegion(
+                    center: race.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                ))
+            }
+        }
+    }
+
     private func fitAllRaces() {
         guard !races.isEmpty else { return }
         let lats = races.map(\.lat)
@@ -210,3 +244,85 @@ struct RaceMapView: View {
 }
 
 // （RaceDetailView, RaceResultRow は Features/Detail/ 配下に移動）
+
+// MARK: - Floating overlay components
+
+/// 左上ハンバーガー: タップで race list ドロワーを開く。
+/// (Web 版 marathon-record-app の Sidebar への入口に相当)
+struct HamburgerButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("レース一覧")
+    }
+}
+
+/// 元はナビゲーションバーのツールバー項目だった「インポート / ダミー追加 / フィット / 日本表示」を
+/// 縦に積んだフロート群。マップフルスクリーン化に伴い右下に移動した。
+struct MapActionsCluster: View {
+    let onImport: (() -> Void)?           // 外部から差し替えたい場合用 (現状は内部 FileImportButton)
+    let onAddDummy: () -> Void
+    let onFitAll: () -> Void
+    let onFitRoute: () -> Void
+    let onResetJapan: () -> Void
+    let canFitAll: Bool
+    let canFitRoute: Bool
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // インポート: FileImportButton はピッカー UI を内包する独自 Button なので、
+            // labelStyle.iconOnly + tint で見た目を浮きボタンに揃える
+            FileImportButton()
+                .labelStyle(.iconOnly)
+                .font(.system(size: 16, weight: .semibold))
+                .tint(.white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+
+            floatButton(systemName: "plus", label: "ダミー追加", action: onAddDummy)
+            floatButton(systemName: "scope", label: "全レースを表示", action: onFitAll)
+                .opacity(canFitAll ? 1 : 0.4)
+                .disabled(!canFitAll)
+            floatButton(systemName: "arrow.up.left.and.arrow.down.right", label: "ルートにフィット", action: onFitRoute)
+                .opacity(canFitRoute ? 1 : 0.4)
+                .disabled(!canFitRoute)
+            floatButton(systemName: "globe.asia.australia", label: "日本全体", action: onResetJapan)
+        }
+    }
+
+    @ViewBuilder
+    private func floatButton(systemName: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}

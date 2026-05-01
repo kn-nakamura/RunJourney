@@ -11,19 +11,24 @@ final class PacePlan {
     var targetTimeSec: Double = 14_400  // 4:00:00
     var notes: String? = nil
     var createdAt: Date = Date.now
+    /// `PaceRaceType.rawValue`。旧データには無いので optional。
+    /// 読込時に値があればそれを優先、なければ targetDistanceKm から推定。
+    var raceTypeRaw: String? = nil
 
     init(
         id: UUID = UUID(),
         name: String = "",
         targetDistanceKm: Double = 42.195,
         targetTimeSec: Double = 14_400,
-        notes: String? = nil
+        notes: String? = nil,
+        raceTypeRaw: String? = nil
     ) {
         self.id = id
         self.name = name
         self.targetDistanceKm = targetDistanceKm
         self.targetTimeSec = targetTimeSec
         self.notes = notes
+        self.raceTypeRaw = raceTypeRaw
         self.createdAt = .now
     }
 

@@ -211,4 +211,21 @@ enum AngleMath {
         let result = resolvedTarget + (change + temp) * exp
         return result.truncatingRemainder(dividingBy: 360)
     }
+
+    /// スカラー値版 smoothDamp。緯度・経度・距離など、角度ラップ不要な値に使う。
+    static func smoothDamp(
+        from current: Double,
+        to target: Double,
+        velocity: inout Double,
+        smoothTime: Double,
+        dt: Double
+    ) -> Double {
+        let omega = 2.0 / max(smoothTime, 0.0001)
+        let x = omega * dt
+        let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x)
+        let change = current - target
+        let temp = (velocity + omega * change) * dt
+        velocity = (velocity - omega * temp) * exp
+        return target + (change + temp) * exp
+    }
 }
