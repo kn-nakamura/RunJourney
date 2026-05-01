@@ -30,10 +30,11 @@ struct ContentView: View {
 
     var body: some View {
 #if os(iOS)
-        if horizontalSizeClass == .compact {
-            tabView
-        } else {
+        // iPad / iPhone Plus/Max の Landscape のみ Sidebar、それ以外は TabView
+        if horizontalSizeClass == .regular {
             sidebarSplitView
+        } else {
+            tabView
         }
 #else
         sidebarSplitView
@@ -55,6 +56,8 @@ struct ContentView: View {
                 }
             }
         }
+        .tabBarMinimizeBehavior(.never)         // iOS 26 の自動最小化を無効化
+        .toolbarBackground(.visible, for: .tabBar)
     }
 
     // MARK: - iPad / Mac
