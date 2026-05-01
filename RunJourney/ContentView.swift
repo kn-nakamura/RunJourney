@@ -66,7 +66,8 @@ struct ContentView: View {
 #if os(iOS)
         return tv
             .tabBarMinimizeBehavior(.never)         // iOS 26 の自動最小化を無効化
-            .toolbarBackground(.visible, for: .tabBar)
+            // TabBar はシステム既定のブラー透過にして、地図画面が下まで広がるようにする。
+            // (Web 版 marathon-record-app の viewport いっぱいの地図体験を再現する目的)
 #else
         return tv
 #endif

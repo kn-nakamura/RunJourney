@@ -1,0 +1,235 @@
+import SwiftUI
+import SwiftData
+
+/// マップ画面左上のハンバーガーから開くレース一覧ドロワー。
+/// (Web 版 marathon-record-app の `src/components/layout/Sidebar.tsx` 相当)
+///
+/// 機能:
+/// - 検索 (name / city)
+/// - カテゴリ pill フィルタ (すべて + 各 RaceCategory)
+/// - 年フィルタ (createdAt ベース)
+/// - 行タップで `onSelect(race)` を呼び出して親にレース選択を通知
+struct RaceListDrawer: View {
+    let races: [Race]
+    let onSelect: (Race) -> Void
+
+    @State private var searchText: String = ""
+    @State private var selectedCategory: RaceCategory? = nil
+    @State private var selectedYear: Int? = nil
+
+    private var availableYears: [Int] {
+        let cal = Calendar.current
+        let years = Set(races.map { cal.component(.year, from: $0.createdAt) })
+        return years.sorted(by: >)
+    }
+
+    private var filteredRaces: [Race] {
+        let cal = Calendar.current
+        return races.filter { race in
+            if let cat = selectedCategory, race.category != cat { return false }
+            if let yr = selectedYear, cal.component(.year, from: race.createdAt) != yr { return false }
+            if !searchText.isEmpty {
+                let q = searchText.lowercased()
+                let nameMatch = race.name.lowercased().contains(q)
+                let cityMatch = (race.city ?? "").lowercased().contains(q)
+                if !(nameMatch || cityMatch) { return false }
+            }
+            return true
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                searchBar
+                filterRow
+                if !availableYears.isEmpty {
+                    yearRow
+                }
+                Divider().opacity(0.3)
+                content
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle("レース一覧 (\(filteredRaces.count))")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+        }
+    }
+
+    // MARK: - Sub views
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("レース名・都市で検索", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.body(14))
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                FilterPill(label: "すべて", isActive: selectedCategory == nil, color: .accentPrimary) {
+                    selectedCategory = nil
+                }
+                ForEach(RaceCategory.allCases) { cat in
+                    FilterPill(
+                        label: cat.displayName,
+                        isActive: selectedCategory == cat,
+                        color: cat.pinColor
+                    ) {
+                        selectedCategory = (selectedCategory == cat) ? nil : cat
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var yearRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                FilterPill(label: "全期間", isActive: selectedYear == nil, color: .accentPrimary) {
+                    selectedYear = nil
+                }
+                ForEach(availableYears, id: \.self) { yr in
+                    FilterPill(
+                        label: "\(yr)",
+                        isActive: selectedYear == yr,
+                        color: .accentPrimary
+                    ) {
+                        selectedYear = (selectedYear == yr) ? nil : yr
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if filteredRaces.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "magnifyingglass.circle")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.tertiary)
+                Text(races.isEmpty ? "まだレースがありません" : "該当するレースがありません")
+                    .font(.body(13))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(filteredRaces) { race in
+                        Button {
+                            onSelect(race)
+                        } label: {
+                            RaceListRow(race: race)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+        }
+    }
+}
+
+// MARK: - Row
+
+private struct RaceListRow: View {
+    let race: Race
+
+    private var resultCount: Int { race.results?.count ?? 0 }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 左バッジ (カテゴリ色)
+            ZStack {
+                Circle()
+                    .fill(race.category.pinColor.opacity(0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: race.category.symbolName)
+                    .foregroundStyle(race.category.pinColor)
+                    .font(.system(size: 16, weight: .semibold))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(race.name.isEmpty ? "(無名)" : race.name)
+                    .font(.body(14, weight: .bold))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(race.category.displayName)
+                        .font(.body(11))
+                        .foregroundStyle(.secondary)
+                    if let city = race.city, !city.isEmpty {
+                        Text("・\(city)").font(.body(11)).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            if resultCount > 0 {
+                Text("\(resultCount)")
+                    .font(.mono(11, bold: true))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.accentPrimary, in: Capsule())
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - FilterPill
+
+private struct FilterPill: View {
+    let label: String
+    let isActive: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.body(12, weight: isActive ? .bold : .medium))
+                .foregroundStyle(isActive ? Color.black : Color.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    isActive ? color : Color.bgSecondary,
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(isActive ? .clear : .white.opacity(0.1), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}

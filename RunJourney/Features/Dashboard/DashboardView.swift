@@ -3,32 +3,45 @@ import SwiftData
 import Charts
 
 /// 統計ダッシュボード。総走行・PB一覧・年別/カテゴリ別チャート。
+/// カテゴリ pill で結果を絞り込める (Web 版 marathon-record-app の DashboardPage 相当)。
 struct DashboardView: View {
     @Query(sort: \RaceResult.raceDate, order: .reverse) private var results: [RaceResult]
 
+    @State private var selectedCategory: RaceCategory? = nil  // nil = すべて
+
+    private var filteredResults: [RaceResult] {
+        guard let cat = selectedCategory else { return results }
+        return results.filter { $0.race?.category == cat }
+    }
+
     private var aggregate: PBCalculator.AggregateStats {
-        PBCalculator.aggregate(from: results)
+        PBCalculator.aggregate(from: filteredResults)
     }
     private var pbs: [RaceCategory: RaceResult] {
-        PBCalculator.personalBests(from: results)
+        PBCalculator.personalBests(from: filteredResults)
     }
     private var yearCounts: [(year: Int, count: Int)] {
-        PBCalculator.countsByYear(from: results)
+        PBCalculator.countsByYear(from: filteredResults)
     }
     private var categoryCounts: [(category: RaceCategory, count: Int)] {
-        PBCalculator.countsByCategory(from: results)
+        PBCalculator.countsByCategory(from: filteredResults)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if results.isEmpty {
+                if !results.isEmpty {
+                    categoryFilterPills
+                }
+                if filteredResults.isEmpty {
                     emptyState
                 } else {
                     summaryGrid
                     pbBoardSection
                     yearChartSection
-                    categoryChartSection
+                    if selectedCategory == nil {
+                        categoryChartSection
+                    }
                 }
             }
             .padding()
@@ -40,16 +53,44 @@ struct DashboardView: View {
 #endif
     }
 
+    // MARK: - Category filter pills
+
+    private var categoryFilterPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                DashboardFilterPill(label: "すべて", isActive: selectedCategory == nil, color: .accentPrimary) {
+                    selectedCategory = nil
+                }
+                ForEach(RaceCategory.allCases) { cat in
+                    DashboardFilterPill(label: cat.displayName, isActive: selectedCategory == cat, color: cat.pinColor) {
+                        selectedCategory = (selectedCategory == cat) ? nil : cat
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Empty state
 
+    @ViewBuilder
     private var emptyState: some View {
-        ContentUnavailableView(
-            "まだデータがありません",
-            systemImage: "chart.bar.xaxis",
-            description: Text("地図画面の取り込みボタン ↓ から TCX/GPX/FIT/ZIP を取り込むと、ここに統計が表示されます。")
-        )
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        if results.isEmpty {
+            ContentUnavailableView(
+                "まだデータがありません",
+                systemImage: "chart.bar.xaxis",
+                description: Text("地図画面の取り込みボタン ↓ から TCX/GPX/FIT/ZIP を取り込むと、ここに統計が表示されます。")
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 60)
+        } else {
+            ContentUnavailableView(
+                "該当データがありません",
+                systemImage: "magnifyingglass",
+                description: Text("選択中のカテゴリには結果が登録されていません。「すべて」または別のカテゴリを選択してください。")
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+        }
     }
 
     // MARK: - Stats summary grid
@@ -296,6 +337,34 @@ private struct PBCard: View {
         let sec = s % 60
         if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
         return String(format: "%d:%02d", m, sec)
+    }
+}
+
+// MARK: - Filter pill
+
+private struct DashboardFilterPill: View {
+    let label: String
+    let isActive: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.body(12, weight: isActive ? .bold : .medium))
+                .foregroundStyle(isActive ? Color.black : Color.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    isActive ? color : Color.bgSecondary,
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(isActive ? .clear : .white.opacity(0.1), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
