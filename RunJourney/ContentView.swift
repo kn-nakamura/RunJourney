@@ -1,71 +1,93 @@
 import SwiftUI
 import SwiftData
 
-/// アプリのルート画面。
-/// - iPhone: NavigationStack で MapView 1枚
-/// - iPad/Mac: NavigationSplitView でサイドバー（レース一覧）+ MapView 2カラム
+/// アプリのルート。
+/// - iPhone (compact): TabView で Map / Dashboard を切替
+/// - iPad / Mac (regular): NavigationSplitView の sidebar から切替
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var sidebarSelection: Race?
+    @State private var selectedSection: AppSection? = .map
+
+    enum AppSection: String, Hashable, CaseIterable, Identifiable {
+        case map
+        case dashboard
+
+        var id: String { rawValue }
+        var displayName: String {
+            switch self {
+            case .map: return "地図"
+            case .dashboard: return "ダッシュボード"
+            }
+        }
+        var symbolName: String {
+            switch self {
+            case .map: return "map"
+            case .dashboard: return "chart.bar"
+            }
+        }
+    }
 
     var body: some View {
 #if os(iOS)
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            splitView
+        if horizontalSizeClass == .compact {
+            tabView
         } else {
-            NavigationStack {
-                RaceMapView()
-            }
+            sidebarSplitView
         }
 #else
-        splitView
+        sidebarSplitView
 #endif
     }
 
-    private var splitView: some View {
+    // MARK: - iPhone
+
+    private var tabView: some View {
+        TabView(selection: tabSelectionBinding) {
+            NavigationStack {
+                RaceMapView()
+            }
+            .tabItem { Label(AppSection.map.displayName, systemImage: AppSection.map.symbolName) }
+            .tag(AppSection.map)
+
+            NavigationStack {
+                DashboardView()
+            }
+            .tabItem { Label(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName) }
+            .tag(AppSection.dashboard)
+        }
+    }
+
+    /// TabView は非 optional の selection を期待するので bridge する。
+    private var tabSelectionBinding: Binding<AppSection> {
+        Binding(
+            get: { selectedSection ?? .map },
+            set: { selectedSection = $0 }
+        )
+    }
+
+    // MARK: - iPad / Mac
+
+    private var sidebarSplitView: some View {
         NavigationSplitView {
-            List(selection: $sidebarSelection) {
-                Section("レース一覧 (\(races.count))") {
-                    if races.isEmpty {
-                        Text("地図右上の + から追加")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    } else {
-                        ForEach(races) { race in
-                            RaceSidebarRow(race: race)
-                                .tag(race)
-                        }
+            List(selection: $selectedSection) {
+                Section("RunJourney") {
+                    ForEach(AppSection.allCases) { section in
+                        Label(section.displayName, systemImage: section.symbolName)
+                            .tag(section)
                     }
                 }
             }
             .navigationTitle("RunJourney")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 280)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
             NavigationStack {
-                RaceMapView()
-            }
-        }
-    }
-}
-
-private struct RaceSidebarRow: View {
-    let race: Race
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: race.category.symbolName)
-                .foregroundStyle(race.category.pinColor)
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(race.name.isEmpty ? "(無題)" : race.name)
-                    .font(.subheadline)
-                    .lineLimit(1)
-                Text(race.category.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                switch selectedSection ?? .map {
+                case .map:
+                    RaceMapView()
+                case .dashboard:
+                    DashboardView()
+                }
             }
         }
     }
