@@ -14,17 +14,22 @@ struct RouteFlythruView: View {
     @State private var lastCameraUpdateAt: Date = .distantPast
     @State private var smoothedHeading: Double = 0
 
+    // Map タブで設定したマップ・ピンスタイルをそのままここでも使う。
+    // 同じ AppStorage キーを参照するので自動的に同期する。
+    @StoredMapStyleSettings private var mapSettings
+    @StoredPinSettings private var pinSettings
+
     /// 元のルート全体（背景polylineに使う）
     private let allCoords: [CLLocationCoordinate2D]
-    /// 推奨カメラ距離（ルート長から計算）
-    private let cameraDistance: Double
+    /// 距離プロファイルから決まったカメラ姿勢・追従応答・先読み時間。
+    private let cameraProfile: FollowCameraProfile
 
     init(result: RaceResult) {
         self.result = result
         let pts = result.trackPoints
         self.allCoords = pts.map(\.coordinate)
-        let totalDist = pts.last?.distanceM ?? 0
-        self.cameraDistance = PlaybackMath.recommendedCameraDistance(totalDistanceM: totalDist)
+        let totalDistKm = (pts.last?.distanceM ?? 0) / 1000
+        self.cameraProfile = PlaybackMath.followCameraProfile(distanceKm: totalDistKm)
         self._controller = State(initialValue: PlaybackController(trackPoints: pts))
     }
 
@@ -92,46 +97,48 @@ struct RouteFlythruView: View {
 
     @ViewBuilder
     private var mapLayer: some View {
-        Map(position: $cameraPosition) {
-            // 全体ルート（薄い線）
-            if allCoords.count >= 2 {
-                MapPolyline(coordinates: allCoords)
-                    .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-            }
-            // 走破済み（強調）
-            let traveled = controller.traveledPoints.map(\.coordinate)
-            if traveled.count >= 2 {
-                MapPolyline(coordinates: traveled)
-                    .stroke(
-                        result.race?.category.pinColor ?? .accentPrimary,
-                        style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
-                    )
-            }
-            // 現在位置マーカー
-            if let p = controller.currentPoint {
-                Annotation("", coordinate: p.coordinate, anchor: .center) {
-                    runnerMarker
+        ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
+            Map(position: $cameraPosition) {
+                // 全体ルート（薄い線）
+                if allCoords.count >= 2 {
+                    MapPolyline(coordinates: allCoords)
+                        .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                }
+                // 走破済み（強調）
+                let traveled = controller.traveledPoints.map(\.coordinate)
+                if traveled.count >= 2 {
+                    MapPolyline(coordinates: traveled)
+                        .stroke(
+                            result.race?.category.pinColor ?? .accentPrimary,
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
+                        )
+                }
+                // 現在位置マーカー
+                if let p = controller.currentPoint {
+                    Annotation("", coordinate: p.coordinate, anchor: .center) {
+                        runnerMarker
+                    }
+                }
+                // スタート/フィニッシュ
+                if let first = allCoords.first {
+                    Annotation("Start", coordinate: first) {
+                        Image(systemName: "flag.checkered")
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(Color.cat10K, in: Circle())
+                    }
+                }
+                if let last = allCoords.last, allCoords.count > 1 {
+                    Annotation("Finish", coordinate: last) {
+                        Image(systemName: "flag.fill")
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(Color.catFullMarathon, in: Circle())
+                    }
                 }
             }
-            // スタート/フィニッシュ
-            if let first = allCoords.first {
-                Annotation("Start", coordinate: first) {
-                    Image(systemName: "flag.checkered")
-                        .foregroundStyle(.white)
-                        .padding(5)
-                        .background(Color.cat10K, in: Circle())
-                }
-            }
-            if let last = allCoords.last, allCoords.count > 1 {
-                Annotation("Finish", coordinate: last) {
-                    Image(systemName: "flag.fill")
-                        .foregroundStyle(.white)
-                        .padding(5)
-                        .background(Color.catFullMarathon, in: Circle())
-                }
-            }
+            .mapStyle(mapSettings.mapStyle)
         }
-        .mapStyle(.standard(elevation: .realistic))
         .ignoresSafeArea(edges: .top)
     }
 
@@ -167,23 +174,27 @@ struct RouteFlythruView: View {
 
     private func followCameraPosition() -> MapCameraPosition {
         guard let cur = controller.currentPoint else { return .automatic }
-        let target = controller.lookAheadPoint
+        let target = controller.lookAheadPoint(sec: cameraProfile.lookAheadSec)
         var heading: Double
         if let target, target.id != cur.id {
             heading = PlaybackMath.bearingDegrees(from: cur.coordinate, to: target.coordinate)
         } else {
             heading = smoothedHeading
         }
-        // smoothDamp で滑らかに
+        // 距離プロファイル由来の応答時間で smoothDamp
         var velocity = 0.0
         smoothedHeading = AngleMath.smoothDampAngle(
-            from: smoothedHeading, to: heading, velocity: &velocity, smoothTime: 0.5, dt: 0.1
+            from: smoothedHeading,
+            to: heading,
+            velocity: &velocity,
+            smoothTime: cameraProfile.bearingResponseSec,
+            dt: 0.1
         )
         return .camera(MapCamera(
             centerCoordinate: cur.coordinate,
-            distance: cameraDistance,
+            distance: cameraProfile.distance,
             heading: smoothedHeading,
-            pitch: 60
+            pitch: cameraProfile.pitch
         ))
     }
 

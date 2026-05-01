@@ -18,10 +18,10 @@ final class PlaybackController {
         }
     }
     var isPlaying: Bool = false
-    /// 再生倍率。1, 2, 4, 8, 16, 32, 64, 128, 256
+    /// 再生倍率。1, 2, 4, 8, 16, 32, 64, 128, 256, 512
     var speed: Double = 16
 
-    static let speedPresets: [Double] = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+    static let speedPresets: [Double] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 
     // 内部
     private var timer: Timer?
@@ -30,6 +30,12 @@ final class PlaybackController {
     init(trackPoints: [TrackPoint]) {
         self.trackPoints = trackPoints
         self.totalDuration = trackPoints.last?.timeSec ?? 0
+        // 90 秒前後で再生完了するプリセット倍速を自動選択。
+        // 5K (25 分) → 16×、フル (3:30) → 128×、100K (12h) → 512× 程度。
+        self.speed = PlaybackMath.defaultPlaybackSpeed(
+            totalTimeSec: totalDuration,
+            presets: Self.speedPresets
+        )
     }
 
     deinit {
@@ -85,10 +91,10 @@ final class PlaybackController {
         PlaybackMath.interpolatedPoint(in: trackPoints, at: currentTime)
     }
 
-    /// カメラの向きを決定するために少し先のポイント
-    var lookAheadPoint: TrackPoint? {
-        // 倍速が大きいほど先を見せる（ターン感を強調）
-        let lookSec = max(4, min(20, speed / 4))
+    /// カメラの向きを決定するために少し先のポイント。
+    /// `sec` を指定するとそのまま使い、省略時は倍速に応じた簡易計算をする。
+    func lookAheadPoint(sec: TimeInterval? = nil) -> TrackPoint? {
+        let lookSec = sec ?? max(4, min(20, speed / 4))
         return PlaybackMath.lookAheadPoint(in: trackPoints, from: currentTime, lookAheadSec: lookSec)
     }
 

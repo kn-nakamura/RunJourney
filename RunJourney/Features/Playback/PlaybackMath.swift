@@ -1,6 +1,28 @@
 import Foundation
 import CoreLocation
 
+/// 距離プロファイルから計算したフライスルーカメラの全パラメータ。
+struct FollowCameraProfile: Equatable {
+    /// MapKit カメラ距離 (m)。
+    var distance: Double
+    /// カメラ pitch (度数)。
+    var pitch: Double
+    /// 進行方向決定のための先読み時間 (秒)。
+    var lookAheadSec: Double
+    /// 中心追従の smoothDamp smoothTime (秒)。
+    var centerResponseSec: Double
+    /// 方位角追従の smoothDamp smoothTime (秒)。
+    var bearingResponseSec: Double
+
+    static let marathonDefault = FollowCameraProfile(
+        distance: 1500,
+        pitch: 60,
+        lookAheadSec: 4,
+        centerResponseSec: 0.26,
+        bearingResponseSec: 0.42
+    )
+}
+
 /// プレイバック中のトラックポイント補間と方位角計算。
 enum PlaybackMath {
 
@@ -60,15 +82,74 @@ enum PlaybackMath {
     }
 
     /// ルートの総距離(m)に応じた推奨カメラ距離(m)。
-    /// 短いコースは近く、長いコースは引いて見せる。
+    /// 後方互換のため残置。新しいコードは `followCameraProfile(distanceKm:)` を使うこと。
     static func recommendedCameraDistance(totalDistanceM: Double) -> Double {
-        switch totalDistanceM {
-        case ..<5_000:    return 600   // 5km未満
-        case ..<15_000:   return 900   // 10km
-        case ..<30_000:   return 1_200 // ハーフ
-        case ..<50_000:   return 1_800 // フル
-        default:          return 2_400 // ウルトラ
+        followCameraProfile(distanceKm: totalDistanceM / 1000).distance
+    }
+
+    // MARK: - Distance-based camera profile
+
+    /// ルート長に応じてカメラ姿勢・追従応答・先読みをまとめて返す。
+    /// 移植元: `marathon-record-app/src/components/map/RouteFlythru.tsx` の `getFollowCameraProfile`。
+    static func followCameraProfile(distanceKm: Double) -> FollowCameraProfile {
+        let factor = profileFactor(distanceKm: distanceKm)
+        let shortBias = max(-factor, 0)
+        let longBias  = max( factor, 0)
+
+        // フルマラソン基準値: distance=1500m, pitch=60, lookAhead=4s, bearingResp=0.42s
+        let distance = clamp(
+            1500 - shortBias * 700 + longBias * 800,
+            min: 600, max: 3500
+        )
+        let pitch = clamp(
+            60 + shortBias * 1.5 - longBias * 3.2,
+            min: 52, max: 62
+        )
+        let lookAhead = clamp(
+            4.0 - shortBias * 0.45 + longBias * 1.0,
+            min: 3.0, max: 6.5
+        )
+        let bearingResp = clamp(
+            0.42 - shortBias * 0.09 + longBias * 0.18,
+            min: 0.22, max: 0.98
+        )
+        let centerResp = clamp(
+            0.26 - shortBias * 0.05 + longBias * 0.10,
+            min: 0.17, max: 0.50
+        )
+
+        return FollowCameraProfile(
+            distance: distance,
+            pitch: pitch,
+            lookAheadSec: lookAhead,
+            centerResponseSec: centerResp,
+            bearingResponseSec: bearingResp
+        )
+    }
+
+    /// `target = totalTimeSec / 90` 秒 を狙ってプリセット倍速の中で最も近いものを返す。
+    /// 移植元: 同じく `getDefaultSpeed`。
+    static func defaultPlaybackSpeed(totalTimeSec: Double, presets: [Double]) -> Double {
+        guard totalTimeSec > 0, !presets.isEmpty else { return presets.first ?? 1 }
+        let target = max(totalTimeSec / 90.0, 1.0)
+        return presets.reduce(presets[0]) { best, candidate in
+            let bestDelta = abs(log2(best) - log2(target))
+            let candDelta = abs(log2(candidate) - log2(target))
+            return candDelta < bestDelta ? candidate : best
         }
+    }
+
+    private static let referenceMarathonKm: Double = 42.195
+    private static let minProfileFactor: Double = -1.35
+    private static let maxProfileFactor: Double =  1.45
+
+    private static func profileFactor(distanceKm: Double) -> Double {
+        guard distanceKm.isFinite, distanceKm > 0 else { return 0 }
+        return clamp(log2(distanceKm / referenceMarathonKm), min: minProfileFactor, max: maxProfileFactor)
+    }
+
+    private static func clamp(_ v: Double, min lo: Double, max hi: Double) -> Double {
+        Swift.min(Swift.max(v, lo), hi)
     }
 
     // MARK: - Lerp helpers

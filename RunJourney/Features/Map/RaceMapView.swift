@@ -3,13 +3,23 @@ import SwiftData
 import MapKit
 
 /// メインの地図画面。全レースを色分けピンで表示し、タップで詳細を開く。
+/// マップ右下の Layers ボタンから `MapStylePanel` を開いてスタイル/ピンをカスタマイズできる。
 struct RaceMapView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
 
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    @StoredMapStyleSettings private var mapSettings
+    @StoredPinSettings private var pinSettings
+
+    @State private var cameraPosition: MapCameraPosition = .region(Self.japanRegion)
     @State private var selectedRace: Race?
-    @State private var mapStyle: MapStyleChoice = .standard
+    @State private var hasFitInitialRaces = false
+
+    /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
+    private static let japanRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 36.5, longitude: 138.0),
+        span: MKCoordinateSpan(latitudeDelta: 15.0, longitudeDelta: 13.0)
+    )
 
     /// 選択中レースの最初のトラックポイント付き結果のルートを描画する。
     private var selectedRouteCoordinates: [CLLocationCoordinate2D] {
@@ -20,24 +30,42 @@ struct RaceMapView: View {
     }
 
     var body: some View {
-        Map(position: $cameraPosition, selection: $selectedRace) {
-            ForEach(races) { race in
-                Annotation(race.name.isEmpty ? "レース" : race.name, coordinate: race.coordinate) {
-                    RaceAnnotationView(race: race, isSelected: selectedRace == race)
+        // MapKit の内部 UIView は SwiftUI の preferredColorScheme より UIKit 由来の
+        // overrideUserInterfaceStyle を見るので、ColorSchemeOverride で包んで強制する。
+        ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
+            Map(position: $cameraPosition, selection: $selectedRace) {
+                ForEach(races) { race in
+                    Annotation(
+                        race.name.isEmpty ? "レース" : race.name,
+                        coordinate: race.coordinate,
+                        anchor: pinSettings.shape == .pin ? .bottom : .center
+                    ) {
+                        RaceAnnotationView(
+                            race: race,
+                            isSelected: selectedRace == race,
+                            settings: pinSettings
+                        )
+                    }
+                    .tag(race)
                 }
-                .tag(race)
-            }
 
-            if let race = selectedRace, !selectedRouteCoordinates.isEmpty {
-                MapPolyline(coordinates: selectedRouteCoordinates)
-                    .stroke(race.category.pinColor, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                if let race = selectedRace, !selectedRouteCoordinates.isEmpty {
+                    MapPolyline(coordinates: selectedRouteCoordinates)
+                        .stroke(race.category.pinColor, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                }
+            }
+            .mapStyle(mapSettings.mapStyle)
+            .mapControls {
+                MapUserLocationButton()
+                MapCompass()
+                MapScaleView()
             }
         }
-        .mapStyle(mapStyle.style)
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-            MapScaleView()
+        .overlay(alignment: .topTrailing) {
+            // 右上のフロート: Layers ボタン
+            LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
+                .padding(.top, 12)
+                .padding(.trailing, 12)
         }
         .overlay(alignment: .top) {
             if races.isEmpty {
@@ -60,15 +88,6 @@ struct RaceMapView: View {
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                Picker("地図スタイル", selection: $mapStyle) {
-                    ForEach(MapStyleChoice.allCases) { choice in
-                        Label(choice.displayName, systemImage: choice.symbolName)
-                            .tag(choice)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-            ToolbarItem(placement: .secondaryAction) {
                 Button {
                     fitAllRaces()
                 } label: {
@@ -83,6 +102,15 @@ struct RaceMapView: View {
                     Label("ルートにフィット", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 .disabled(selectedRouteCoordinates.isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.6)) {
+                        cameraPosition = .region(Self.japanRegion)
+                    }
+                } label: {
+                    Label("日本全体", systemImage: "globe.asia.australia")
+                }
             }
         }
         .navigationTitle("RunJourney")
@@ -99,6 +127,20 @@ struct RaceMapView: View {
                     }
             }
             .presentationDetents([.medium, .large])
+        }
+        .onAppear {
+            // 初回のみ、レースがあればそこにフィット。0 件なら Japan region のまま見せる。
+            if !hasFitInitialRaces, !races.isEmpty {
+                hasFitInitialRaces = true
+                fitAllRaces()
+            }
+        }
+        .onChange(of: races.count) { _, newCount in
+            // インポート直後など、レースが追加されたら一度だけフィット
+            if !hasFitInitialRaces, newCount > 0 {
+                hasFitInitialRaces = true
+                fitAllRaces()
+            }
         }
     }
 
@@ -157,47 +199,12 @@ struct RaceMapView: View {
             latitude: (minLat + maxLat) / 2,
             longitude: (minLng + maxLng) / 2
         )
-        // 周辺余白を1.5倍持たせる
         let span = MKCoordinateSpan(
             latitudeDelta: max(maxLat - minLat, 0.05) * 1.5,
             longitudeDelta: max(maxLng - minLng, 0.05) * 1.5
         )
         withAnimation(.easeInOut(duration: 0.6)) {
             cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
-        }
-    }
-}
-
-// MARK: - Map style choice
-
-enum MapStyleChoice: String, CaseIterable, Identifiable {
-    case standard
-    case hybrid
-    case imagery
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .standard: return "標準"
-        case .hybrid: return "ハイブリッド"
-        case .imagery: return "航空写真"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .standard: return "map"
-        case .hybrid: return "map.fill"
-        case .imagery: return "globe"
-        }
-    }
-
-    var style: MapStyle {
-        switch self {
-        case .standard: return .standard(elevation: .realistic)
-        case .hybrid: return .hybrid(elevation: .realistic)
-        case .imagery: return .imagery(elevation: .realistic)
         }
     }
 }
