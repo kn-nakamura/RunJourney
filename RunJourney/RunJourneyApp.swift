@@ -1,10 +1,3 @@
-//
-//  RunJourneyApp.swift
-//  RunJourney
-//
-//  Created by Kenta Nakamura on 2026/05/01.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -12,10 +5,16 @@ import SwiftData
 struct RunJourneyApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Race.self,
+            RaceResult.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
+        // MVP初期はローカルのみ。Apple Developer Program加入後に
+        // ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.com.kn-nakamura.RunJourney"))
+        // へ切り替えてiCloud同期を有効化する。
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
