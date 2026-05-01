@@ -2,12 +2,12 @@ import SwiftUI
 import SwiftData
 
 /// アプリのルート。
-/// - iPhone (compact): TabView で Map / Dashboard を切替
+/// - iPhone (compact): TabView で 「地図 / ダッシュボード」 を切替
 /// - iPad / Mac (regular): NavigationSplitView の sidebar から切替
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var selectedSection: AppSection? = .map
+    @State private var selectedSection: AppSection = .map
 
     enum AppSection: String, Hashable, CaseIterable, Identifiable {
         case map
@@ -43,34 +43,25 @@ struct ContentView: View {
     // MARK: - iPhone
 
     private var tabView: some View {
-        TabView(selection: tabSelectionBinding) {
-            NavigationStack {
-                RaceMapView()
+        TabView(selection: $selectedSection) {
+            Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
+                NavigationStack {
+                    RaceMapView()
+                }
             }
-            .tabItem { Label(AppSection.map.displayName, systemImage: AppSection.map.symbolName) }
-            .tag(AppSection.map)
-
-            NavigationStack {
-                DashboardView()
+            Tab(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName, value: AppSection.dashboard) {
+                NavigationStack {
+                    DashboardView()
+                }
             }
-            .tabItem { Label(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName) }
-            .tag(AppSection.dashboard)
         }
-    }
-
-    /// TabView は非 optional の selection を期待するので bridge する。
-    private var tabSelectionBinding: Binding<AppSection> {
-        Binding(
-            get: { selectedSection ?? .map },
-            set: { selectedSection = $0 }
-        )
     }
 
     // MARK: - iPad / Mac
 
     private var sidebarSplitView: some View {
         NavigationSplitView {
-            List(selection: $selectedSection) {
+            List(selection: sidebarSelectionBinding) {
                 Section("RunJourney") {
                     ForEach(AppSection.allCases) { section in
                         Label(section.displayName, systemImage: section.symbolName)
@@ -82,7 +73,7 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
             NavigationStack {
-                switch selectedSection ?? .map {
+                switch selectedSection {
                 case .map:
                     RaceMapView()
                 case .dashboard:
@@ -90,6 +81,14 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// List(selection:) は Optional binding を要求するので bridge する。
+    private var sidebarSelectionBinding: Binding<AppSection?> {
+        Binding(
+            get: { selectedSection },
+            set: { selectedSection = $0 ?? .map }
+        )
     }
 }
 
