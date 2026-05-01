@@ -38,12 +38,14 @@ enum ActivityMath {
     }()
 
     /// プレイバック用にトラックポイントを間引く。
-    /// 4時間マラソン1Hzで14400点 → 滑らかなアニメに必要なのは ~180 点。
-    /// 6時間以上のアクティビティは少し増やす。
+    /// アニメ自体は時間補間で滑らかにできるが、地図上のポリラインは点と点を直線で繋ぐので
+    /// ここを間引きすぎるとコーナーで多角形のようにカクついた線に見える。
+    /// マラソン 42km なら 2000 点で 21m 間隔となり、ズームしても折れ線感が出ない。
+    /// 6 時間超のアクティビティは比例して増やす。
     static func sampleTrackPoints(_ points: [TrackPoint], targetCount: Int? = nil) -> [TrackPoint] {
         guard points.count > 0 else { return [] }
         let totalSeconds = points.last?.timeSec ?? 0
-        let target = targetCount ?? (totalSeconds > 6 * 3600 ? 360 : 180)
+        let target = targetCount ?? (totalSeconds > 6 * 3600 ? 4000 : 2000)
         guard points.count > target else { return points }
 
         var result: [TrackPoint] = []

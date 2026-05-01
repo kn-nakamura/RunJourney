@@ -1,8 +1,10 @@
 import Foundation
 import SwiftUI
+import QuartzCore
+import CoreLocation
 
 /// ルートフライスルーの再生状態を管理する @Observable コントローラ。
-/// CADisplayLink/Timer で `currentTime` を進める。`speed` で時間倍率を調整。
+/// CADisplayLink で表示同期しながら `currentTime` を進める。`speed` で時間倍率を調整。
 @Observable
 final class PlaybackController {
 
@@ -24,8 +26,13 @@ final class PlaybackController {
     static let speedPresets: [Double] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 
     // 内部
+#if canImport(UIKit)
+    private var displayLink: CADisplayLink?
+    private var displayLinkProxy: DisplayLinkProxy?
+#else
     private var timer: Timer?
-    private var lastTickAt: Date = .now
+#endif
+    private var lastTickAt: CFTimeInterval = 0
 
     init(trackPoints: [TrackPoint]) {
         self.trackPoints = trackPoints
@@ -39,7 +46,11 @@ final class PlaybackController {
     }
 
     deinit {
+#if canImport(UIKit)
+        displayLink?.invalidate()
+#else
         timer?.invalidate()
+#endif
     }
 
     // MARK: - Controls
@@ -49,18 +60,38 @@ final class PlaybackController {
         guard totalDuration > 0 else { return }
         if currentTime >= totalDuration { currentTime = 0 }  // 終了状態から押せばリスタート
         isPlaying = true
-        lastTickAt = .now
-        // 30Hz: マップカメラ更新の負荷とのバランス
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        lastTickAt = CACurrentMediaTime()
+
+#if canImport(UIKit)
+        // CADisplayLink で表示同期。ProMotion 端末では 120Hz、それ以外は 60Hz。
+        // Timer ベースだと 30/60Hz でもフレーム取りこぼしでジッタが発生するが、
+        // 表示同期にすれば各フレームちょうどで currentTime を更新できる。
+        let proxy = DisplayLinkProxy { [weak self] in self?.tick() }
+        let link = CADisplayLink(target: proxy, selector: #selector(DisplayLinkProxy.invoke))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        self.displayLinkProxy = proxy
+        self.displayLink = link
+#else
+        // macOS は CADisplayLink(target:selector:) が unavailable。
+        // 60Hz Timer フォールバック (NSView 経由の displayLink にしてもよいが、ここはコントローラ層)。
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
+#endif
     }
 
     func pause() {
         guard isPlaying else { return }
         isPlaying = false
+#if canImport(UIKit)
+        displayLink?.invalidate()
+        displayLink = nil
+        displayLinkProxy = nil
+#else
         timer?.invalidate()
         timer = nil
+#endif
     }
 
     func togglePlay() {
@@ -98,22 +129,45 @@ final class PlaybackController {
         return PlaybackMath.lookAheadPoint(in: trackPoints, from: currentTime, lookAheadSec: lookSec)
     }
 
-    /// 既に走った区間（現在時刻まで）のトラックポイント
+    /// 既に走った区間のうち「最後に通過したトラックポイントまで」。
+    /// 補間中の末端は含めないので、トラックポイントを跨いだ瞬間だけ配列が伸びる。
+    /// 描画用 MapPolyline は本来この粒度で再構築されれば十分で、120Hz の body 再評価ごとに
+    /// 2000 点の配列を毎回作り直すと MapKit が描画スキップを起こす。
     var traveledPoints: [TrackPoint] {
         guard !trackPoints.isEmpty else { return [] }
-        let cutoff = currentTime
-        // 二分探索で「currentTime 以下」の最後のインデックスを取得
+        let lo = lastReachedIndex(at: currentTime)
+        return Array(trackPoints[0...lo])
+    }
+
+    /// 直近で通過したトラックポイントの index を直接公開する。
+    /// MKMapView 側で「index が動いた時だけ MKPolyline を作り直す」判定に使う。
+    var lastReachedIndexValue: Int {
+        guard !trackPoints.isEmpty else { return 0 }
+        return lastReachedIndex(at: currentTime)
+    }
+
+    /// 直近のトラックポイントから補間中の現在位置までの 2 点ペア。
+    /// 走者マーカーと走破ライン本体の隙間を埋める「ヒゲ」として使う。
+    /// 2 点しかないので 120Hz で毎フレーム作り直しても負荷はほぼない。
+    var traveledTailSegment: [CLLocationCoordinate2D]? {
+        guard !trackPoints.isEmpty else { return nil }
+        guard let cur = currentPoint else { return nil }
+        let lo = lastReachedIndex(at: currentTime)
+        let tail = trackPoints[lo]
+        // 最終点に到達後は重複するので隙間描画不要。
+        if tail.timeSec == cur.timeSec { return nil }
+        return [tail.coordinate, cur.coordinate]
+    }
+
+    /// `time` 以下で最後に通過したトラックポイントの index を二分探索で返す。
+    private func lastReachedIndex(at time: TimeInterval) -> Int {
         var lo = 0
         var hi = trackPoints.count - 1
         while lo < hi {
             let mid = (lo + hi + 1) / 2
-            if trackPoints[mid].timeSec <= cutoff { lo = mid } else { hi = mid - 1 }
+            if trackPoints[mid].timeSec <= time { lo = mid } else { hi = mid - 1 }
         }
-        var result = Array(trackPoints[0...lo])
-        if let cur = currentPoint, result.last?.timeSec != cur.timeSec {
-            result.append(cur)
-        }
-        return result
+        return lo
     }
 
     var progressFraction: Double {
@@ -124,8 +178,8 @@ final class PlaybackController {
     // MARK: - Internal
 
     private func tick() {
-        let now = Date.now
-        let realDelta = now.timeIntervalSince(lastTickAt)
+        let now = CACurrentMediaTime()
+        let realDelta = now - lastTickAt
         lastTickAt = now
         currentTime += realDelta * speed
         if currentTime >= totalDuration {
@@ -134,3 +188,17 @@ final class PlaybackController {
         }
     }
 }
+
+#if canImport(UIKit)
+/// CADisplayLink 用の `@objc` セレクタ受け口。
+/// PlaybackController 自体を NSObject 派生にすると `@Observable` との取り合いが面倒なので
+/// 軽量プロキシで取り回す。link.invalidate() で link 側の retain が外れる。
+private final class DisplayLinkProxy: NSObject {
+    private let action: () -> Void
+    init(_ action: @escaping () -> Void) {
+        self.action = action
+        super.init()
+    }
+    @objc func invoke() { action() }
+}
+#endif
