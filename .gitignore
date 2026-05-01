@@ -1,0 +1,65 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Xcode workspace user settings
+*.xcworkspace/xcuserdata/
+*.xcworkspace/contents.xcworkspacedata.lock
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+# Note: Package.resolved is intentionally ignored for app projects (lock-on-CI is not standard for SwiftPM apps)
+
+# CocoaPods (not used here, but defensive)
+Pods/
+*.xcworkspace.lock
+
+# Carthage (not used)
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Provisioning profiles & signing certs (NEVER commit)
+*.mobileprovision
+*.p12
+*.cer
+*.certSigningRequest
+
+# Environment / secrets
+.env
+.env.*
+*.secret
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
