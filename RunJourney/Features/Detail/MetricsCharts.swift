@@ -1,0 +1,284 @@
+import SwiftUI
+import Charts
+
+/// 標高プロファイル（距離 vs 標高、AreaMark）。
+struct ElevationProfileChart: View {
+    let trackPoints: [TrackPoint]
+
+    private var validPoints: [TrackPoint] {
+        trackPoints.filter { $0.altitudeM != nil }
+    }
+
+    var body: some View {
+        if validPoints.isEmpty {
+            ContentUnavailableView(
+                "標高データなし",
+                systemImage: "mountain.2",
+                description: Text("ファイルに高度データが含まれていません")
+            )
+            .frame(height: 100)
+        } else {
+            chart
+        }
+    }
+
+    private var chart: some View {
+        Chart(validPoints) { p in
+            AreaMark(
+                x: .value("距離 (km)", p.distanceM / 1000),
+                y: .value("標高 (m)", p.altitudeM ?? 0)
+            )
+            .foregroundStyle(.linearGradient(
+                colors: [Color.cat10K.opacity(0.7), Color.cat10K.opacity(0.05)],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+            .interpolationMethod(.monotone)
+
+            LineMark(
+                x: .value("距離 (km)", p.distanceM / 1000),
+                y: .value("標高 (m)", p.altitudeM ?? 0)
+            )
+            .foregroundStyle(Color.cat10K)
+            .lineStyle(.init(lineWidth: 1.5))
+            .interpolationMethod(.monotone)
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 5)) { _ in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                AxisValueLabel().font(.mono(10))
+            }
+        }
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                if let raw = value.as(Double.self) {
+                    AxisValueLabel {
+                        Text(String(format: "%.0f m", raw))
+                            .font(.mono(10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .frame(height: 140)
+    }
+}
+
+/// 心拍推移（時間 vs HR、LineMark）。
+struct HeartRateChart: View {
+    let trackPoints: [TrackPoint]
+
+    private var validPoints: [TrackPoint] {
+        trackPoints.filter { ($0.heartRate ?? 0) > 0 }
+    }
+
+    var body: some View {
+        if validPoints.isEmpty {
+            ContentUnavailableView(
+                "心拍データなし",
+                systemImage: "heart",
+                description: Text("ファイルに心拍データが含まれていません")
+            )
+            .frame(height: 100)
+        } else {
+            chart
+        }
+    }
+
+    private var chart: some View {
+        Chart(validPoints) { p in
+            LineMark(
+                x: .value("時間 (分)", p.timeSec / 60),
+                y: .value("心拍 (bpm)", p.heartRate ?? 0)
+            )
+            .foregroundStyle(Color.catFullMarathon)
+            .lineStyle(.init(lineWidth: 1.8))
+            .interpolationMethod(.monotone)
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 5)) { _ in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                AxisValueLabel().font(.mono(10))
+            }
+        }
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                AxisValueLabel().font(.mono(10))
+            }
+        }
+        .frame(height: 140)
+    }
+}
+
+/// 複数結果のラップペース重ね合わせ（年別比較）。
+struct MultiResultLapPaceChart: View {
+    /// 比較対象の結果。最大4件まで色分けして表示する。
+    let results: [RaceResult]
+
+    private var validResults: [(idx: Int, result: RaceResult)] {
+        results
+            .filter { !$0.lapData.isEmpty }
+            .enumerated()
+            .map { (idx: $0.offset, result: $0.element) }
+    }
+
+    private static let palette: [Color] = [
+        .accentPrimary,           // 黄緑 (最新)
+        .cat10K,                  // 緑
+        .cat5K,                   // 青
+        .catTrail,                // 紫
+        .catUltra100K,            // オレンジ
+    ]
+
+    var body: some View {
+        if validResults.count < 2 {
+            ContentUnavailableView(
+                "比較できる結果が不足",
+                systemImage: "chart.line.uptrend.xyaxis",
+                description: Text("同じ大会に2件以上の結果が必要です")
+            )
+            .frame(height: 100)
+        } else {
+            chart
+        }
+    }
+
+    private var chart: some View {
+        Chart {
+            ForEach(validResults, id: \.idx) { item in
+                let label = yearLabel(for: item.result)
+                let color = Self.palette[item.idx % Self.palette.count]
+                ForEach(item.result.lapData.filter { $0.paceSecPerKm > 0 }, id: \.lapIndex) { lap in
+                    LineMark(
+                        x: .value("ラップ", lap.lapIndex),
+                        y: .value("ペース", lap.paceSecPerKm),
+                        series: .value("年", label)
+                    )
+                    .foregroundStyle(color)
+                    .lineStyle(.init(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                    PointMark(
+                        x: .value("ラップ", lap.lapIndex),
+                        y: .value("ペース", lap.paceSecPerKm)
+                    )
+                    .foregroundStyle(color)
+                    .symbolSize(20)
+                }
+            }
+        }
+        .chartForegroundStyleScale(
+            domain: validResults.map { yearLabel(for: $0.result) },
+            range: validResults.map { Self.palette[$0.idx % Self.palette.count] }
+        )
+        .chartLegend(position: .top, alignment: .leading)
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                if let raw = value.as(Double.self) {
+                    AxisValueLabel {
+                        Text(formatPace(raw))
+                            .font(.mono(10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic) { _ in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                AxisValueLabel().font(.mono(10))
+            }
+        }
+        .frame(height: 220)
+    }
+
+    private func yearLabel(for result: RaceResult) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "yyyy"
+        return f.string(from: result.raceDate)
+    }
+
+    private func formatPace(_ secPerKm: Double) -> String {
+        let m = Int(secPerKm) / 60
+        let s = Int(secPerKm) % 60
+        return String(format: "%d:%02d", m, s)
+    }
+}
+
+/// 複数結果のフィニッシュタイム比較棒グラフ。
+struct FinishTimeComparisonChart: View {
+    let results: [RaceResult]
+
+    private var validResults: [RaceResult] {
+        results
+            .filter { !$0.isDNF && !$0.isDNS && ($0.finishTimeSec ?? 0) > 0 }
+            .sorted { $0.raceDate < $1.raceDate }
+    }
+
+    private var pbSec: Double? {
+        validResults.compactMap(\.finishTimeSec).min()
+    }
+
+    var body: some View {
+        if validResults.count < 2 {
+            EmptyView()
+        } else {
+            chart
+        }
+    }
+
+    private var chart: some View {
+        Chart {
+            ForEach(validResults, id: \.id) { result in
+                let label = dateLabel(result)
+                let isPB = result.finishTimeSec == pbSec
+                BarMark(
+                    x: .value("日付", label),
+                    y: .value("タイム", result.finishTimeSec ?? 0)
+                )
+                .foregroundStyle(isPB ? Color.accentPrimary : Color.bgTertiary.opacity(0.85))
+                .cornerRadius(4)
+                .annotation(position: .top) {
+                    Text(formatDuration(result.finishTimeSec ?? 0))
+                        .font(.mono(10, bold: isPB))
+                        .foregroundStyle(isPB ? Color.accentPrimary : .secondary)
+                }
+            }
+        }
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine().foregroundStyle(.white.opacity(0.06))
+                if let raw = value.as(Double.self) {
+                    AxisValueLabel {
+                        Text(formatDuration(raw))
+                            .font(.mono(10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { _ in AxisValueLabel().font(.mono(10)) }
+        }
+        .frame(height: 180)
+    }
+
+    private func dateLabel(_ result: RaceResult) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "yyyy/MM/dd"
+        return f.string(from: result.raceDate)
+    }
+
+    private func formatDuration(_ totalSec: Double) -> String {
+        let s = Int(totalSec)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        let sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
+    }
+}
