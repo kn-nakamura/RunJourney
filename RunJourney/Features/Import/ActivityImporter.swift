@@ -49,54 +49,72 @@ enum ActivityImporter {
         }
     }
 
-    /// パース結果から Race と RaceResult を作成し ModelContext に挿入する。
-    /// - Parameters:
-    ///   - activity: パース済データ
-    ///   - context: SwiftData ModelContext
-    ///   - fileName: ファイル名（レース名のデフォルトに使用）
-    /// - Returns: 作成した (Race, RaceResult)
+    /// パース結果から **新しい大会(Race) + 結果(RaceResult)** を作成して保存。
     @discardableResult
     static func saveAsNewRace(
         _ activity: ParsedActivity,
         context: ModelContext,
+        raceName: String? = nil,
         fileName: String? = nil
     ) -> (race: Race, result: RaceResult) {
-        let raceName: String = {
-            if let fn = fileName {
-                let base = (fn as NSString).deletingPathExtension
-                if !base.isEmpty { return base }
-            }
-            if let date = activity.startDate {
-                let f = DateFormatter()
-                f.dateFormat = "yyyy-MM-dd"
-                return "アクティビティ \(f.string(from: date))"
-            }
-            return "新規レース"
-        }()
-
+        let name = raceName ?? defaultRaceName(activity: activity, fileName: fileName)
         let coord = activity.startCoordinate
             ?? CLLocationCoordinate2D(latitude: 35.6909, longitude: 139.6917)
         let race = Race(
-            name: raceName,
+            name: name,
             category: activity.estimatedCategory,
             distanceKm: activity.totalDistanceKm,
             lat: coord.latitude,
             lng: coord.longitude
         )
+        context.insert(race)
+        let result = makeResult(activity: activity, race: race)
+        context.insert(result)
+        return (race, result)
+    }
 
+    /// **既存の大会(Race)に結果だけ追加**して保存。Webアプリの「同じ大会の年別結果」フローに対応。
+    @discardableResult
+    static func appendResult(
+        _ activity: ParsedActivity,
+        to race: Race,
+        context: ModelContext
+    ) -> RaceResult {
+        let result = makeResult(activity: activity, race: race)
+        context.insert(result)
+        return result
+    }
+
+    // MARK: - Helpers
+
+    private static func makeResult(activity: ParsedActivity, race: Race) -> RaceResult {
         let result = RaceResult(
             race: race,
             raceDate: activity.startDate ?? .now,
             finishTimeSec: activity.finishTimeSec
         )
         result.lapData = activity.laps
-        // 表示用にサンプリングしてから保存（CloudKit/メモリ節約）
         result.trackPoints = ActivityMath.sampleTrackPoints(activity.trackPoints)
         result.summary = activity.summary
+        return result
+    }
 
-        context.insert(race)
-        context.insert(result)
-
-        return (race, result)
+    /// 大会名のデフォルト値: ファイル名 → 日付ベース → "新規大会" の順で組み立てる。
+    static func defaultRaceName(activity: ParsedActivity, fileName: String?) -> String {
+        if let fn = fileName {
+            let base = (fn as NSString).deletingPathExtension
+            // Garmin export の "12345678901_ACTIVITY" のような数字+ACTIVITY は人間に優しい名前にする
+            if !base.isEmpty,
+               !(base.hasSuffix("_ACTIVITY") || base.allSatisfy({ $0.isNumber })) {
+                return base
+            }
+        }
+        if let date = activity.startDate {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "ja_JP")
+            f.dateFormat = "yyyy/MM/dd"
+            return "\(activity.estimatedCategory.displayName) (\(f.string(from: date)))"
+        }
+        return "新しい大会"
     }
 }
