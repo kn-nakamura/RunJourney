@@ -143,7 +143,20 @@ struct RaceResultDetailView: View {
         return Group {
             if coords.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
-                    sectionHeader("ルート")
+                    HStack {
+                        sectionHeader("ルート")
+                        Spacer()
+                        NavigationLink {
+                            RouteFlythruView(result: result)
+                        } label: {
+                            Label("再生", systemImage: "play.circle.fill")
+                                .font(.body(13, weight: .bold))
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.accentPrimary, in: Capsule())
+                        }
+                    }
                     Map {
                         MapPolyline(coordinates: coords)
                             .stroke(
