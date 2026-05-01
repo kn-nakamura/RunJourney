@@ -32,6 +32,14 @@ struct RouteFlythruView: View {
         ZStack {
             mapLayer
             VStack {
+                HStack {
+                    Spacer()
+#if os(iOS)
+                    RecordButton()
+                        .padding(.trailing, 14)
+                        .padding(.top, 6)
+#endif
+                }
                 Spacer()
                 PlaybackHUD(controller: controller, race: result.race)
                 PlaybackControls(controller: controller, followMode: $followMode)

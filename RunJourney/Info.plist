@@ -6,6 +6,10 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>RunJourney で録画した動画を写真ライブラリに保存するために使用します。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>画面録画時にマイク音声を含めることがあります（任意）。</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
