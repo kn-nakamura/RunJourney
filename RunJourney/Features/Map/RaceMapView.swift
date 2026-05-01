@@ -313,19 +313,20 @@ private struct RaceResultRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(result.raceDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(.subheadline.bold())
+                    .font(.body(15, weight: .bold))
                 if isPB {
                     Text("PB")
-                        .font(.caption2.bold())
+                        .font(.monoCaption)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(.yellow.opacity(0.85), in: Capsule())
+                        .background(Color.pbBadge, in: Capsule())
                         .foregroundStyle(.black)
                 }
                 Spacer()
                 if let sec = result.finishTimeSec {
                     Text(formatDuration(sec))
-                        .font(.headline.monospacedDigit())
+                        .font(.display(28))                 // Bebas Neue でタイムを際立たせる
+                        .foregroundStyle(Color.accentPrimary)
                 } else if result.isDNF {
                     Text("DNF").foregroundStyle(.red)
                 } else if result.isDNS {
@@ -335,16 +336,18 @@ private struct RaceResultRow: View {
             HStack(spacing: 12) {
                 if let dist = result.summary?.totalDistanceM {
                     Label(String(format: "%.2f km", dist / 1000), systemImage: "ruler")
+                        .font(.mono(12))
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
                     Label(formatPace(pace), systemImage: "speedometer")
+                        .font(.mono(12))
                 }
                 if let hr = result.summary?.avgHeartRate {
                     Label("\(hr) bpm", systemImage: "heart.fill")
-                        .foregroundStyle(.red.opacity(0.8))
+                        .font(.mono(12))
+                        .foregroundStyle(.red.opacity(0.85))
                 }
             }
-            .font(.caption)
             .foregroundStyle(.secondary)
 
             if !result.lapData.isEmpty || !result.trackPoints.isEmpty {
@@ -362,7 +365,7 @@ private struct RaceResultRow: View {
                         Text(String(format: "%.0f kcal", cal))
                     }
                 }
-                .font(.caption2)
+                .font(.mono(11))
                 .foregroundStyle(.tertiary)
             }
         }

@@ -25,6 +25,9 @@ struct RunJourneyApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.dark)        // Webアプリと同じダークテーマ固定
+                .tint(.accentPrimary)               // 蛍光イエローグリーン (#E8FF47)
+                .background(Color.bgPrimary)
         }
         .modelContainer(sharedModelContainer)
     }

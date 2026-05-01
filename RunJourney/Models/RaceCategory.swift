@@ -35,15 +35,17 @@ enum RaceCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Web版 marathon-record-app と同じTailwind 400系カラー。
+    /// 実際のhex値は `Color+RunJourney.swift` を参照。
     var pinColor: Color {
         switch self {
-        case .fiveK: return .blue
-        case .tenK: return .green
-        case .halfMarathon: return .orange
-        case .fullMarathon: return .red
-        case .trail: return .purple
-        case .ultra100K: return .pink
-        case .ultraCustom: return .yellow
+        case .fiveK:         return .cat5K           // blue-400  #60A5FA
+        case .tenK:          return .cat10K          // emerald-400 #34D399
+        case .halfMarathon:  return .catHalfMarathon // amber-400 #FBBF24
+        case .fullMarathon:  return .catFullMarathon // red-400   #F87171
+        case .trail:         return .catTrail        // violet-400 #A78BFA
+        case .ultra100K:     return .catUltra100K    // orange-400 #FB923C
+        case .ultraCustom:   return .catUltraCustom
         }
     }
 
