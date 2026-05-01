@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 /// アプリのルート。
-/// - iPhone (compact): TabView で 「地図 / ダッシュボード」 を切替
+/// - iPhone (compact): TabView で 「地図 / ダッシュボード / ペース / 設定」 を切替
 /// - iPad / Mac (regular): NavigationSplitView の sidebar から切替
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -12,25 +12,30 @@ struct ContentView: View {
     enum AppSection: String, Hashable, CaseIterable, Identifiable {
         case map
         case dashboard
+        case pace
+        case settings
 
         var id: String { rawValue }
         var displayName: String {
             switch self {
             case .map: return "地図"
             case .dashboard: return "ダッシュボード"
+            case .pace: return "ペース"
+            case .settings: return "設定"
             }
         }
         var symbolName: String {
             switch self {
             case .map: return "map"
             case .dashboard: return "chart.bar"
+            case .pace: return "speedometer"
+            case .settings: return "gearshape"
             }
         }
     }
 
     var body: some View {
 #if os(iOS)
-        // iPad / iPhone Plus/Max の Landscape のみ Sidebar、それ以外は TabView
         if horizontalSizeClass == .regular {
             sidebarSplitView
         } else {
@@ -46,17 +51,19 @@ struct ContentView: View {
     private var tabView: some View {
         TabView(selection: $selectedSection) {
             Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
-                NavigationStack {
-                    RaceMapView()
-                }
+                NavigationStack { RaceMapView() }
             }
             Tab(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName, value: AppSection.dashboard) {
-                NavigationStack {
-                    DashboardView()
-                }
+                NavigationStack { DashboardView() }
+            }
+            Tab(AppSection.pace.displayName, systemImage: AppSection.pace.symbolName, value: AppSection.pace) {
+                NavigationStack { PaceCalculatorView() }
+            }
+            Tab(AppSection.settings.displayName, systemImage: AppSection.settings.symbolName, value: AppSection.settings) {
+                NavigationStack { SettingsView() }
             }
         }
-        .tabBarMinimizeBehavior(.never)         // iOS 26 の自動最小化を無効化
+        .tabBarMinimizeBehavior(.never)
         .toolbarBackground(.visible, for: .tabBar)
     }
 
@@ -77,16 +84,15 @@ struct ContentView: View {
         } detail: {
             NavigationStack {
                 switch selectedSection {
-                case .map:
-                    RaceMapView()
-                case .dashboard:
-                    DashboardView()
+                case .map:       RaceMapView()
+                case .dashboard: DashboardView()
+                case .pace:      PaceCalculatorView()
+                case .settings:  SettingsView()
                 }
             }
         }
     }
 
-    /// List(selection:) は Optional binding を要求するので bridge する。
     private var sidebarSelectionBinding: Binding<AppSection?> {
         Binding(
             get: { selectedSection },
@@ -97,5 +103,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Race.self, RaceResult.self], inMemory: true)
+        .modelContainer(for: [Race.self, RaceResult.self, PacePlan.self], inMemory: true)
 }

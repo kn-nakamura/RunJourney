@@ -7,6 +7,7 @@ struct RunJourneyApp: App {
         let schema = Schema([
             Race.self,
             RaceResult.self,
+            PacePlan.self,
         ])
         // MVP初期はローカルのみ。Apple Developer Program加入後に
         // ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.com.kn-nakamura.RunJourney"))
