@@ -214,13 +214,21 @@ struct AddRaceCandidate: Identifiable {
 // MARK: - Detail placeholder (一時)
 
 /// Phase 4 で正式な RaceDetailView に置き換える。
+/// 1つの大会(Race)に紐づく複数の結果(RaceResult)を一覧表示する。
 struct RaceDetailPlaceholder: View {
     @Bindable var race: Race
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    private var primaryResult: RaceResult? {
-        race.results?.sorted { $0.raceDate > $1.raceDate }.first
+    private var sortedResults: [RaceResult] {
+        (race.results ?? []).sorted { $0.raceDate > $1.raceDate }
+    }
+
+    /// 同カテゴリでの自己ベスト（DNF/DNSは除外）— 表示時のPB判定に使う。
+    private var pbSeconds: Double? {
+        sortedResults
+            .compactMap { ($0.isDNF || $0.isDNS) ? nil : $0.finishTimeSec }
+            .min()
     }
 
     var body: some View {
@@ -242,51 +250,50 @@ struct RaceDetailPlaceholder: View {
                 }
             }
 
-            if let result = primaryResult {
-                Section("最新結果") {
-                    LabeledContent("日付", value: result.raceDate.formatted(date: .abbreviated, time: .omitted))
-                    if let sec = result.finishTimeSec {
-                        LabeledContent("タイム", value: formatDuration(sec))
-                    }
-                    if let pace = result.summary?.avgPaceSecPerKm {
-                        LabeledContent("平均ペース", value: formatPace(pace))
-                    }
-                    if let dist = result.summary?.totalDistanceM {
-                        LabeledContent("総距離", value: String(format: "%.2f km", dist / 1000))
-                    }
-                    if let hr = result.summary?.avgHeartRate {
-                        LabeledContent("平均HR", value: "\(hr) bpm")
-                    }
-                    if let elev = result.summary?.elevationGainM {
-                        LabeledContent("標高上昇", value: String(format: "%.0f m", elev))
-                    }
-                    if let cal = result.summary?.totalCalories {
-                        LabeledContent("カロリー", value: String(format: "%.0f kcal", cal))
-                    }
-                }
-                Section("ラップ・トラック") {
-                    LabeledContent("ラップ数", value: "\(result.lapData.count)")
-                    LabeledContent("トラックポイント", value: "\(result.trackPoints.count)")
-                    Text("Phase 4 でラップチャート、Phase 5 でフライスルー再生を実装")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            } else {
-                Section("結果") {
+            // 結果一覧（複数年の比較に使う重要セクション）
+            Section {
+                if sortedResults.isEmpty {
                     Text("まだ結果が登録されていません")
                         .foregroundStyle(.secondary)
-                    Text("ツールバーの ↓ から TCX/GPX を取り込むと、このレースに紐付く結果として保存されます（現状は別レースになります — Phase 4で改善）")
+                    Text("地図のツールバー ↓ から TCX/GPX/FIT/ZIP を取り込み、確認シートで「既存の大会に結果を追加」を選ぶと、この大会の結果として登録されます。")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                } else {
+                    ForEach(sortedResults) { result in
+                        RaceResultRow(result: result, isPB: result.finishTimeSec == pbSeconds && pbSeconds != nil)
+                    }
+                    .onDelete { offsets in
+                        for offset in offsets {
+                            let result = sortedResults[offset]
+                            modelContext.delete(result)
+                        }
+                        try? modelContext.save()
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("結果一覧")
+                    Spacer()
+                    Text("\(sortedResults.count)件")
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                if sortedResults.count >= 2 {
+                    Text("複数年の結果を比較できます。Phase 4 で年別チャートを追加予定。")
                 }
             }
 
             Section {
                 Button(role: .destructive) {
                     modelContext.delete(race)
+                    try? modelContext.save()
                     dismiss()
                 } label: {
-                    Label("レースを削除", systemImage: "trash")
+                    Label("大会を削除", systemImage: "trash")
+                }
+            } footer: {
+                if !sortedResults.isEmpty {
+                    Text("削除すると \(sortedResults.count) 件の結果も一緒に消えます。")
                 }
             }
         }
@@ -294,6 +301,72 @@ struct RaceDetailPlaceholder: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+    }
+}
+
+/// 結果一覧の1行。日付・タイム・距離・ペース・HRをコンパクトに表示。
+private struct RaceResultRow: View {
+    let result: RaceResult
+    let isPB: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(result.raceDate.formatted(date: .abbreviated, time: .omitted))
+                    .font(.subheadline.bold())
+                if isPB {
+                    Text("PB")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.yellow.opacity(0.85), in: Capsule())
+                        .foregroundStyle(.black)
+                }
+                Spacer()
+                if let sec = result.finishTimeSec {
+                    Text(formatDuration(sec))
+                        .font(.headline.monospacedDigit())
+                } else if result.isDNF {
+                    Text("DNF").foregroundStyle(.red)
+                } else if result.isDNS {
+                    Text("DNS").foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 12) {
+                if let dist = result.summary?.totalDistanceM {
+                    Label(String(format: "%.2f km", dist / 1000), systemImage: "ruler")
+                }
+                if let pace = result.summary?.avgPaceSecPerKm {
+                    Label(formatPace(pace), systemImage: "speedometer")
+                }
+                if let hr = result.summary?.avgHeartRate {
+                    Label("\(hr) bpm", systemImage: "heart.fill")
+                        .foregroundStyle(.red.opacity(0.8))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            if !result.lapData.isEmpty || !result.trackPoints.isEmpty {
+                HStack(spacing: 12) {
+                    if !result.lapData.isEmpty {
+                        Text("ラップ \(result.lapData.count)")
+                    }
+                    if !result.trackPoints.isEmpty {
+                        Text("ポイント \(result.trackPoints.count)")
+                    }
+                    if let elev = result.summary?.elevationGainM {
+                        Text(String(format: "↑ %.0f m", elev))
+                    }
+                    if let cal = result.summary?.totalCalories {
+                        Text(String(format: "%.0f kcal", cal))
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func formatDuration(_ totalSec: Double) -> String {

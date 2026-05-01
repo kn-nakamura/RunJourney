@@ -70,10 +70,15 @@ enum ActivityImporter {
         context.insert(race)
         let result = makeResult(activity: activity, race: race)
         context.insert(result)
+        if race.results?.contains(result) == false {
+            race.results?.append(result)
+        }
+        try? context.save()
         return (race, result)
     }
 
     /// **既存の大会(Race)に結果だけ追加**して保存。Webアプリの「同じ大会の年別結果」フローに対応。
+    /// SwiftDataのinverse自動更新がタイミングで遅れることがあるので、両側を明示的に紐付ける。
     @discardableResult
     static func appendResult(
         _ activity: ParsedActivity,
@@ -82,6 +87,12 @@ enum ActivityImporter {
     ) -> RaceResult {
         let result = makeResult(activity: activity, race: race)
         context.insert(result)
+        // 双方向で確実に結びつける（SwiftDataの inverse 自動更新の保険）
+        if race.results?.contains(result) == false {
+            race.results?.append(result)
+        }
+        // 即座にUIへ反映させるためコンテキストを保存
+        try? context.save()
         return result
     }
 
