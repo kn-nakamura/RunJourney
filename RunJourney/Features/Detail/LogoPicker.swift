@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import UIKit
 
 /// 大会(Race)のロゴ画像を PhotosPicker から選び、Documents/race-logos にローカル保存する。
 /// `Race.logoURL` には Documents 起点の相対パスが入る。
@@ -27,6 +28,16 @@ struct LogoPicker: View {
                         .appText(.bodySmBold)
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(Color.bgTertiary)
+                    .foregroundStyle(Color.textPrimary)
+
+                    Button {
+                        pasteImageFromClipboard()
+                    } label: {
+                        Label("Paste Logo", systemImage: "doc.on.clipboard")
+                            .appText(.bodySmBold)
+                    }
+                    .buttonStyle(.bordered)
                     .tint(Color.bgTertiary)
                     .foregroundStyle(Color.textPrimary)
 
@@ -101,6 +112,37 @@ struct LogoPicker: View {
             }
             if let oldPath = race.logoURL { RaceLogoStore.delete(oldPath) }
             let relative = try RaceLogoStore.save(data, for: race.id)
+            race.logoURL = relative
+        } catch {
+            errorMessage = "Failed to save logo: \(error.localizedDescription)"
+        }
+    }
+
+    /// クリップボードに画像があれば取り込む。Safari の "画像をコピー" やスクショ後のコピーに対応。
+    /// JPEG が無いケース (透過 PNG) もあるので、PNG → JPEG の順でフォールバックして保存する。
+    private func pasteImageFromClipboard() {
+        errorMessage = nil
+        let pasteboard = UIPasteboard.general
+        guard pasteboard.hasImages, let image = pasteboard.image else {
+            errorMessage = "No image on the clipboard."
+            return
+        }
+        let data: Data?
+        let ext: String
+        if let png = image.pngData() {
+            data = png
+            ext = "png"
+        } else {
+            data = image.jpegData(compressionQuality: 0.9)
+            ext = "jpg"
+        }
+        guard let imageData = data else {
+            errorMessage = "Could not encode pasted image."
+            return
+        }
+        do {
+            if let oldPath = race.logoURL { RaceLogoStore.delete(oldPath) }
+            let relative = try RaceLogoStore.save(imageData, for: race.id, ext: ext)
             race.logoURL = relative
         } catch {
             errorMessage = "Failed to save logo: \(error.localizedDescription)"
