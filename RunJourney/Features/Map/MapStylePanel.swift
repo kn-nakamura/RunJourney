@@ -95,7 +95,7 @@ struct MapStylePanel: View {
             .disabled(!mapSettings.allowsTraffic)
             .opacity(mapSettings.allowsTraffic ? 1 : 0.4)
         } header: {
-            Text("Map")
+            SectionHeader(title: "Map")
         } footer: {
             Text("\"POI\" hides cafe / park glyphs. City and place name labels are always shown by Apple Maps.")
                 .font(.caption2)
@@ -106,7 +106,7 @@ struct MapStylePanel: View {
     // MARK: - Pin
 
     private var pinSection: some View {
-        Section("Pin") {
+        Section {
             // Shape
             HStack {
                 Label("Shape", systemImage: "circle.fill")
@@ -193,6 +193,8 @@ struct MapStylePanel: View {
             }
             .padding(.vertical, 8)
             .listRowBackground(Color.clear)
+        } header: {
+            SectionHeader(title: "Pin")
         }
     }
 

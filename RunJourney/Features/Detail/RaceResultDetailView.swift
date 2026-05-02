@@ -143,7 +143,7 @@ struct RaceResultDetailView: View {
         return Group {
             if coords.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
-                    sectionHeader("Route", subtitle: "Tap to play flythrough")
+                    SectionHeader(title: "Route", subtitle: "Tap to play flythrough")
                     NavigationLink {
                         RouteFlythruView(result: result)
                     } label: {
@@ -195,21 +195,21 @@ struct RaceResultDetailView: View {
 
     private var lapChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Lap Pace", subtitle: result.lapData.isEmpty ? nil : "\(result.lapData.count) laps")
+            SectionHeader(title: "Lap Pace", subtitle: result.lapData.isEmpty ? nil : "\(result.lapData.count) laps")
             LapPaceChart(laps: result.lapData)
         }
     }
 
     private var elevationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Elevation Profile")
+            SectionHeader(title: "Elevation Profile")
             ElevationProfileChart(trackPoints: result.trackPoints)
         }
     }
 
     private var heartRateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Heart Rate")
+            SectionHeader(title: "Heart Rate")
             HeartRateChart(trackPoints: result.trackPoints)
         }
     }
@@ -231,20 +231,6 @@ struct RaceResultDetailView: View {
     }
 
     // MARK: - Helpers
-
-    private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .appText(.bodyBaseBold)
-                .foregroundStyle(Color.textPrimary)
-            if let sub = subtitle {
-                Text(sub)
-                    .appText(.bodyXs)
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer()
-        }
-    }
 
     private func formatDuration(_ totalSec: Double) -> String {
         let s = Int(totalSec)

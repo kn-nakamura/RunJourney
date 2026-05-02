@@ -116,7 +116,7 @@ struct DashboardView: View {
 
     private var pbBoardSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Personal Bests", subtitle: "by category")
+            SectionHeader(title: "Personal Bests", subtitle: "by category")
             VStack(spacing: 10) {
                 ForEach(RaceCategory.allCases) { cat in
                     if let result = pbs[cat] {
@@ -138,7 +138,7 @@ struct DashboardView: View {
 
     private var yearChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Races per Year")
+            SectionHeader(title: "Races per Year")
             if yearCounts.isEmpty {
                 Text("No yearly data")
                     .appText(.bodySm)
@@ -178,7 +178,7 @@ struct DashboardView: View {
 
     private var categoryChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Races by Category")
+            SectionHeader(title: "Races by Category")
             if categoryCounts.isEmpty {
                 Text("No category data")
                     .appText(.bodySm)
@@ -213,22 +213,6 @@ struct DashboardView: View {
                     }
                 }
             }
-        }
-    }
-
-    // MARK: - Section header
-
-    private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .appText(.bodyBaseBold)
-                .foregroundStyle(Color.textPrimary)
-            if let sub = subtitle {
-                Text(sub)
-                    .appText(.bodyXs)
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer()
         }
     }
 

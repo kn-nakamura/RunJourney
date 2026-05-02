@@ -138,9 +138,7 @@ struct PaceCalculatorView: View {
 
     private var distanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Distance")
-                .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+            SectionHeader(title: "Distance")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(PaceConstants.order) { type in
@@ -205,6 +203,7 @@ struct PaceCalculatorView: View {
 
     private var resultHero: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // カード内ラベルなので 24pt 中タイトルではなく eyebrow (10pt キャプション) を使う
             Text("Average Pace / km")
                 .appText(.eyebrow)
                 .foregroundStyle(.secondary)
@@ -232,9 +231,7 @@ struct PaceCalculatorView: View {
 
     private var splitsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Splits (cumulative)")
-                .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+            SectionHeader(title: "Splits (cumulative)")
             VStack(spacing: 4) {
                 ForEach(laps) { lap in
                     let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
@@ -288,9 +285,7 @@ struct PaceCalculatorView: View {
 
     private var saveSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Save Plan")
-                .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+            SectionHeader(title: "Save Plan")
             HStack(spacing: 8) {
                 TextField("Plan name (e.g. Sub 4)", text: $planName)
                     .textFieldStyle(.plain)
@@ -316,9 +311,7 @@ struct PaceCalculatorView: View {
 
     private var savedPlansSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Saved Plans")
-                .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+            SectionHeader(title: "Saved Plans")
             VStack(spacing: 6) {
                 ForEach(savedPlans) { plan in
                     Button {

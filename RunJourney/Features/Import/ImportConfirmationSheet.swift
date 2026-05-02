@@ -91,7 +91,7 @@ struct ImportConfirmationSheet: View {
 
     @ViewBuilder
     private var activitySummarySection: some View {
-        Section("Activity Summary") {
+        Section {
             if let date = activity.startDate {
                 LabeledContent("Date", value: date.formatted(date: .abbreviated, time: .shortened))
             }
@@ -105,6 +105,8 @@ struct ImportConfirmationSheet: View {
             }
             LabeledContent("Track Points", value: "\(activity.trackPoints.count)")
             LabeledContent("Laps", value: "\(activity.laps.count)")
+        } header: {
+            SectionHeader(title: "Activity Summary")
         }
     }
 
@@ -129,12 +131,14 @@ struct ImportConfirmationSheet: View {
 
     @ViewBuilder
     private var newRaceSection: some View {
-        Section("New Race") {
+        Section {
             raceNameField
             LabeledContent("Category", value: activity.estimatedCategory.displayName)
             Text("Category and start location are auto-inferred from the activity. Edit later from the detail view.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        } header: {
+            SectionHeader(title: "New Race")
         }
     }
 
@@ -171,7 +175,7 @@ struct ImportConfirmationSheet: View {
                 }
             }
         } header: {
-            Text("Pick a race to attach")
+            SectionHeader(title: "Pick a race to attach")
         }
     }
 

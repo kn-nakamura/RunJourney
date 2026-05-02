@@ -41,7 +41,7 @@ struct RaceDetailView: View {
     // MARK: - Basic info
 
     private var basicInfoSection: some View {
-        Section("Race Info") {
+        Section {
             TextField("Race Name", text: $race.name)
             Picker("Category", selection: $race.category) {
                 ForEach(RaceCategory.allCases) { cat in
@@ -56,6 +56,8 @@ struct RaceDetailView: View {
             if let city = race.city {
                 LabeledContent("City", value: city)
             }
+        } header: {
+            SectionHeader(title: "Race Info")
         }
     }
 
@@ -85,12 +87,7 @@ struct RaceDetailView: View {
                 }
             }
         } header: {
-            HStack {
-                Text("Results")
-                Spacer()
-                Text("\(sortedResults.count)")
-                    .foregroundStyle(.secondary)
-            }
+            SectionHeader(title: "Results", subtitle: "\(sortedResults.count)")
         } footer: {
             if sortedResults.count >= 2 {
                 Text("Tap a row for details and charts. Open \"Year-over-Year\" below to overlay multiple results.")
