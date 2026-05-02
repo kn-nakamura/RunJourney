@@ -20,33 +20,28 @@ struct RaceMapView: View {
     /// MKMapView へ渡す「一回限りの region 変更要求」。fit 操作時にセットし、
     /// 反映後は MKMapView 側で nil に戻される。
     @State private var requestedRegion: MKCoordinateRegion?
+    /// `requestedRegion` を画面上半分にフィットさせるか。`fitRace` (= ピン1件への
+    /// ズーム) のときだけ true。シートが下半分に被さる前提で、ピンを上半分中央に
+    /// 置くことでシートに隠れないようにする。
+    @State private var requestedRegionUpperHalf = false
     /// MKMapView がタップ検知 → SwiftUI バインディングへ伝える「カメラを動かしたい対象」。
-    /// シート表示用の `sheetRace` とは分離して、ズームアニメ完了後にシートを上げる。
+    /// シート表示用の `sheetRace`、ピンの拡大/アイコン化用の `iconifiedRace` と
+    /// 3 つに分離することで、ズーム → シート → アイコン化を時間差で発生させる。
     @State private var selectedRace: Race?
     @State private var sheetRace: Race?
+    /// ピンを「拡大＋アイコン表示」状態にするレース。シート出現から少し遅らせて
+    /// セットすることで、ズーム & シート開きが完全に終わった後に
+    /// ピンが滑らかにアイコンへ切り替わるよう演出する。
+    @State private var iconifiedRace: Race?
     @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
-    /// シート表示前提でカメラをずらしたいときに使う bottom edge padding (pt)。
-    /// `.medium` detent はおおよそ画面の半分なので `screen.height * 0.5` を使う。
-    /// 0 のときはシートなしの通常フィット。
-    @State private var bottomInsetHint: CGFloat = 0
 
     /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
     private static let japanRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 36.5, longitude: 138.0),
         span: MKCoordinateSpan(latitudeDelta: 15.0, longitudeDelta: 13.0)
     )
-
-    /// シート表示中レースの最初のトラックポイント付き結果のルートを描画する。
-    /// `selectedRace` ではなく `sheetRace` を使うことで、`zoomThenPresent` 後の
-    /// `selectedRace = nil` でルートが消えないようにする。
-    private var selectedRouteCoordinates: [CLLocationCoordinate2D] {
-        guard let race = sheetRace,
-              let result = race.results?.first(where: { !$0.trackPoints.isEmpty })
-        else { return [] }
-        return result.trackPoints.map(\.coordinate)
-    }
 
     var body: some View {
         ZStack {
@@ -92,7 +87,7 @@ struct RaceMapView: View {
             //    → MKMapView の region アニメ (~1s) と splash フェード (0.7s) が重なる
             guard !hasFitInitialRaces else { return }
             hasFitInitialRaces = true
-            requestedRegion = Self.japanRegion
+            animate(toRegion: Self.japanRegion)
             try? await Task.sleep(for: .milliseconds(250))
             if !races.isEmpty {
                 fitAllRaces()
@@ -113,33 +108,35 @@ struct RaceMapView: View {
         .onChange(of: sheetRace) { _, race in
             // シートが閉じたら全体ビューに戻す。Web 版と同じ挙動。
             if race == nil, !races.isEmpty {
-                bottomInsetHint = 0
+                iconifiedRace = nil
                 fitAllRaces()
             }
         }
     }
 
-    /// `.medium` detent はおおよそ画面の半分。シートの真上にピンを置きたいので、
-    /// その分だけ bottom edge padding を入れて `setVisibleMapRect` でカメラを上にずらす。
-    private var expectedSheetHeight: CGFloat {
-#if os(iOS)
-        UIScreen.main.bounds.height * 0.5
-#else
-        0
-#endif
-    }
-
-    /// ピン選択 → ターゲットへ約 5km ズーム（ルートあれば全体フィット）→ 450ms 後にシート表示。
-    /// シート分の bottomInsetHint を先に立てておくことで、ズーム時点でカメラが
-    /// シート上の見える領域に合わせて上にずれる。
+    /// ピン選択 → ピンを画面上半分の中央へ向けて滑らかにズーム → ズームが完全に
+    /// 落ち着いてからシート表示 → さらに少し置いてピンを拡大＋アイコン化。
+    /// MKMapView の region アニメは大ズーム時に最大 ~1s 近くかかるため、
+    /// シート出現前に十分なバッファを取って「ピンが動き切ってからシートが出る」
+    /// 体感にする (= 減速感)。
     private func zoomThenPresent(_ race: Race) async {
-        bottomInsetHint = expectedSheetHeight
+        // 別ピンが既に拡大中なら一旦解除。新しいズーム中に古いピンが大きいままだと
+        // 視点が混乱するので、ズーム開始と同時にリセットしておく。
+        iconifiedRace = nil
         fitRace(race)
-        try? await Task.sleep(for: .milliseconds(450))
+        // ズームが完全に静止してからシートを上げる。バッファを広めに取り、
+        // 「ピンが止まる→ひと呼吸置いてシート」のリズムにする。
+        try? await Task.sleep(for: .milliseconds(1200))
         guard !Task.isCancelled else { return }
         sheetRace = race
         // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
         selectedRace = nil
+        // シートが完全に展開してから少し置いてピンを拡大＋アイコン化する。
+        // 直前にシートのプレゼンテーションアニメ (~0.5s) が走るので、
+        // それと重ならないように 1.3 秒待つ。
+        try? await Task.sleep(for: .milliseconds(1300))
+        guard !Task.isCancelled else { return }
+        iconifiedRace = race
     }
 
     // MARK: - Layers
@@ -150,12 +147,11 @@ struct RaceMapView: View {
         RaceListMapView(
             races: races,
             selectedRace: $selectedRace,
-            sheetRace: $sheetRace,
+            iconifiedRace: iconifiedRace,
             requestedRegion: $requestedRegion,
-            selectedRouteCoords: selectedRouteCoordinates,
+            requestedRegionUpperHalf: requestedRegionUpperHalf,
             mapSettings: mapSettings,
-            pinSettings: pinSettings,
-            bottomInset: bottomInsetHint
+            pinSettings: pinSettings
         )
 #else
         Color.bgSecondary
@@ -194,12 +190,10 @@ struct RaceMapView: View {
                     onImport: nil,
                     onAddDummy: addDummyRaceNearTokyo,
                     onFitAll: fitAllRaces,
-                    onFitRoute: fitSelectedRoute,
                     onResetJapan: {
-                        requestedRegion = Self.japanRegion
+                        animate(toRegion: Self.japanRegion)
                     },
-                    canFitAll: !races.isEmpty,
-                    canFitRoute: !selectedRouteCoordinates.isEmpty
+                    canFitAll: !races.isEmpty
                 )
             }
             .padding(.trailing, 12)
@@ -234,25 +228,17 @@ struct RaceMapView: View {
         modelContext.insert(race)
     }
 
-    private func fitSelectedRoute() {
-        let coords = selectedRouteCoordinates
-        guard coords.count >= 2 else { return }
-        animate(toRegion: regionFitting(coords))
-    }
-
-    /// レース 1 件にフィットする。トラックポイントがあればルート全体にフィットし、
-    /// 無ければピン位置に約 5km 範囲でズームする。
+    /// レース 1 件にフィットする。ピン位置を画面上半分の中央に置く近接ズーム。
+    /// 直後にシートが下半分を覆う前提で、シートに隠れない位置にピンを寄せておく。
+    /// (ルートは RESULTS 詳細のミニマップ側で見るので、メイン地図ではピン拡大に専念)。
     private func fitRace(_ race: Race) {
-        let coords = (race.results?.first(where: { !$0.trackPoints.isEmpty })?.trackPoints ?? [])
-            .map(\.coordinate)
-        if coords.count >= 2 {
-            animate(toRegion: regionFitting(coords))
-        } else {
-            animate(toRegion: MKCoordinateRegion(
+        animate(
+            toRegion: MKCoordinateRegion(
                 center: race.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-            ))
-        }
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            ),
+            upperHalf: true
+        )
     }
 
     private func fitAllRaces() {
@@ -275,9 +261,12 @@ struct RaceMapView: View {
         return MKCoordinateRegion(center: center, span: span)
     }
 
-    private func animate(toRegion region: MKCoordinateRegion) {
+    private func animate(toRegion region: MKCoordinateRegion, upperHalf: Bool = false) {
         // RaceListMapView (UIViewRepresentable) は requestedRegion バインディングを
         // 監視して setRegion(animated: true) を呼ぶ。SwiftUI の withAnimation は不要。
+        // upperHalf フラグは region と同タイミングで反映され、updateUIView から
+        // edgePadding に流れる。
+        requestedRegionUpperHalf = upperHalf
         requestedRegion = region
     }
 }
@@ -312,10 +301,8 @@ struct MapActionsCluster: View {
     let onImport: (() -> Void)?           // 外部から差し替えたい場合用 (現状は内部 FileImportButton)
     let onAddDummy: () -> Void
     let onFitAll: () -> Void
-    let onFitRoute: () -> Void
     let onResetJapan: () -> Void
     let canFitAll: Bool
-    let canFitRoute: Bool
 
     var body: some View {
         VStack(spacing: 8) {
@@ -335,9 +322,6 @@ struct MapActionsCluster: View {
             floatButton(systemName: "scope", label: "Fit All Races", action: onFitAll)
                 .opacity(canFitAll ? 1 : 0.4)
                 .disabled(!canFitAll)
-            floatButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Fit Route", action: onFitRoute)
-                .opacity(canFitRoute ? 1 : 0.4)
-                .disabled(!canFitRoute)
             floatButton(systemName: "globe.asia.australia", label: "View Japan", action: onResetJapan)
         }
     }

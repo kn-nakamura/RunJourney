@@ -15,20 +15,23 @@ import MapKit
 /// 複雑になるため snapshot 時に無効化している（ピンタップ時はシートが開くので冗長）。
 struct RaceListMapView: UIViewRepresentable {
     let races: [Race]
-    /// ピンタップで親に伝える「カメラを動かしたい対象」。シート表示用 `sheetRace` とは分離。
+    /// ピンタップで親に伝える「カメラを動かしたい対象」。シート表示用 `sheetRace`、
+    /// ピン拡大用 `iconifiedRace` とは分離。
     @Binding var selectedRace: Race?
-    /// シート表示中レース。アイコン化／ルート描画はこちらをソースにすることで、
-    /// ズーム完了 (≒ シート出現) 後にピンが拡大するよう自然に遅延させる。
-    @Binding var sheetRace: Race?
+    /// 拡大＋アイコン化されるピンの対象レース。親側でズーム & シート出現が
+    /// 終わってから少し置いてセットされる。これに合わせてピン画像が
+    /// クロスフェードで切り替わる。
+    let iconifiedRace: Race?
     /// 親から要求された一回限りのカメラ region 変更。`nil` = 何もしない。
     /// 反映後はバインディング側で `nil` に戻す。
     @Binding var requestedRegion: MKCoordinateRegion?
-    let selectedRouteCoords: [CLLocationCoordinate2D]
+    /// region をマップビュー全体ではなく **上半分** にフィットさせるか。
+    /// `true` のとき bottom edge padding をマップ高さの半分にして、region 中心が
+    /// 画面上半分の中央に来るようにする (ピンタップ → ズーム時に使う)。
+    /// `false` (既定) は四方均等パディングで通常フィット。
+    var requestedRegionUpperHalf: Bool = false
     let mapSettings: MapStyleSettings
     let pinSettings: PinSettings
-    /// シートが地図下部を覆う高さ (pt)。`setVisibleMapRect` の bottom edge padding に流す。
-    /// 0 のときはシートなしの通常フィット動作。
-    var bottomInset: CGFloat = 0
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -77,21 +80,16 @@ struct RaceListMapView: UIViewRepresentable {
             context.coordinator.applyImage(to: view, for: raceAnno)
         }
 
-        // ポリライン同期 (シート表示中のレース＝ `sheetRace` のルートを描画する)
-        let oldOverlays = mapView.overlays.compactMap { $0 as? RoutePolyline }
-        mapView.removeOverlays(oldOverlays)
-        if !selectedRouteCoords.isEmpty, let race = sheetRace {
-            let line = RoutePolyline(coordinates: selectedRouteCoords, count: selectedRouteCoords.count)
-            line.strokeColor = UIColor(race.category.pinColor)
-            mapView.addOverlay(line)
-        }
-
-        // 親が要求した region 変更があれば反映。bottomInset>0 のときは
-        // setVisibleMapRect に edgePadding を渡して、シート上の見える領域に
-        // フィットさせる (ピンがシートに隠れないようカメラを上にずらす)。
+        // 親が要求した region 変更があれば反映。
+        // upperHalf=true のときは bottom 余白をマップ高さの半分にして、ピンを
+        // 画面上半分の中央へ寄せる (ピンタップ後のシートに隠れない位置に置く)。
+        // それ以外は四方均等パディングで通常フィット。
         if let region = requestedRegion {
             let mapRect = Self.makeMapRect(region: region)
-            let padding = UIEdgeInsets(top: 32, left: 32, bottom: max(bottomInset, 0), right: 32)
+            let bottom: CGFloat = requestedRegionUpperHalf
+                ? max(mapView.bounds.height / 2, 32)
+                : 32
+            let padding = UIEdgeInsets(top: 32, left: 32, bottom: bottom, right: 32)
             mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
             DispatchQueue.main.async {
                 self.requestedRegion = nil
@@ -146,14 +144,29 @@ struct RaceListMapView: UIViewRepresentable {
             return view
         }
 
-        /// 現在の `sheetRace` / `pinSettings` で SwiftUI `RaceAnnotationView` を
+        /// 「拡大＋アイコン化」状態を覚えておくためのレース ID 集合。
+        /// 状態が反転したピンだけクロスフェードを掛けるために必要。
+        private var iconifiedIDs: Set<PersistentIdentifier> = []
+
+        /// 現在の `iconifiedRace` / `pinSettings` で SwiftUI `RaceAnnotationView` を
         /// 描画して `MKAnnotationView.image` に流し込む。アンカー位置も pin 形状で調整。
         ///
-        /// `isSelected` のソースは `selectedRace` ではなく `sheetRace` を使うことで、
-        /// ズーム完了 (= シート表示開始) 後にピンが拡大／アイコン化するよう自然に遅延する。
-        /// (タップ直後の `selectedRace = race` からズーム中はピンは小さいまま。)
+        /// `isSelected` のソースは `selectedRace` でも `sheetRace` でもなく
+        /// `iconifiedRace` を使う。親側でズーム → シート → 1 秒待ってから
+        /// `iconifiedRace` がセットされるので、その瞬間にだけピンがアイコンへ変化する。
+        ///
+        /// ピン画像は毎フレーム新しい UIImage に差し替わるが、選択状態が反転した
+        /// ピンに限って `UIView.transition(.transitionCrossDissolve)` でクロスフェード
+        /// するので「ピン → アイコン」の切替が滑らかに見える。
         func applyImage(to view: MKAnnotationView, for raceAnno: RaceAnnotation) {
-            let isSelected = parent.sheetRace?.persistentModelID == raceAnno.race.persistentModelID
+            let id = raceAnno.race.persistentModelID
+            let isSelected = parent.iconifiedRace?.persistentModelID == id
+            let wasSelected = iconifiedIDs.contains(id)
+            if isSelected {
+                iconifiedIDs.insert(id)
+            } else {
+                iconifiedIDs.remove(id)
+            }
             // showName は snapshot 時のアンカー計算を複雑にするので強制 OFF。
             var settings = parent.pinSettings
             settings.showName = false
@@ -161,37 +174,59 @@ struct RaceListMapView: UIViewRepresentable {
             // 描画した分まで含めずに切ってしまうことがある（ピンの上端が削れて見える原因）。
             // 透明 padding を被せることでシャドウ全体を画像内に収める。
             let padding: CGFloat = 8
+
+            // 固定キャンバス: 選択前/後で画像の外形サイズが変わると、
+            // クロスフェードに合わせて `centerOffset` も変わってしまい、
+            // 「アイコン化の瞬間にピンが一瞬上にずれる」現象が起きる。
+            // そこで常に「選択時の最大サイズ」のキャンバスで描画し、
+            // 小さいピンは pin 形状なら下寄せ、それ以外なら中央に配置する。
+            // これで両状態の画像の外形が一致し、`centerOffset` が定数になり、
+            // クロスフェード中もピン位置が動かなくなる。
+            let canvasDim = parent.pinSettings.size.selectedDimension
+            let canvasHeight: CGFloat
+            let canvasAlignment: Alignment
+            switch parent.pinSettings.shape {
+            case .pin:
+                canvasHeight = canvasDim * 1.35
+                canvasAlignment = .bottom
+            case .dot, .ring, .square:
+                canvasHeight = canvasDim
+                canvasAlignment = .center
+            }
             let swiftUIView = RaceAnnotationView(
                 race: raceAnno.race,
                 isSelected: isSelected,
                 settings: settings
             )
+            .frame(width: canvasDim, height: canvasHeight, alignment: canvasAlignment)
             .padding(padding)
             let renderer = ImageRenderer(content: swiftUIView)
             renderer.scale = view.traitCollection.displayScale
             guard let image = renderer.uiImage else { return }
-            view.image = image
-            // pin (teardrop) は尖り先 (= 画像下端から padding 分上) を座標に合わせる。
-            // それ以外の形 (dot/ring/square) は画像中央を座標に合わせる。
+
+            // 選択状態が反転したピンだけ crossfade。pinSettings の変更や差分なし時は
+            // 即時差し替えで余計な ちらつき を避ける。
+            let stateChanged = wasSelected != isSelected && view.image != nil
+            if stateChanged {
+                UIView.transition(
+                    with: view,
+                    duration: 0.5,
+                    options: [.transitionCrossDissolve, .allowUserInteraction, .curveEaseInOut],
+                    animations: { view.image = image },
+                    completion: nil
+                )
+            } else {
+                view.image = image
+            }
+
+            // 固定キャンバスで画像高さは選択前/後とも同じ。pin (teardrop) は
+            // 尖り先 (= 画像下端から padding 分上) を座標に合わせる。それ以外の形
+            // (dot/ring/square) は画像中央を座標に合わせる。
             if parent.pinSettings.shape == .pin {
                 view.centerOffset = CGPoint(x: 0, y: -image.size.height / 2 + padding)
             } else {
                 view.centerOffset = .zero
             }
-        }
-
-        // MARK: Overlay renderers
-
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let line = overlay as? RoutePolyline {
-                let r = MKPolylineRenderer(polyline: line)
-                r.strokeColor = line.strokeColor
-                r.lineWidth = 5
-                r.lineCap = .round
-                r.lineJoin = .round
-                return r
-            }
-            return MKOverlayRenderer(overlay: overlay)
         }
 
         // MARK: Selection
@@ -209,16 +244,12 @@ struct RaceListMapView: UIViewRepresentable {
     }
 }
 
-// MARK: - Annotation / Overlay model
+// MARK: - Annotation model
 
 final class RaceAnnotation: NSObject, MKAnnotation {
     let race: Race
     init(race: Race) { self.race = race }
     var coordinate: CLLocationCoordinate2D { race.coordinate }
     var title: String? { race.name.isEmpty ? "Race" : race.name }
-}
-
-private final class RoutePolyline: MKPolyline {
-    var strokeColor: UIColor = .systemYellow
 }
 #endif
