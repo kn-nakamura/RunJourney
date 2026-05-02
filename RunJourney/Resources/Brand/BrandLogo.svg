@@ -22,8 +22,9 @@
   </linearGradient>
 </defs>
 
-<!-- Rounded square base -->
-<rect x="0" y="0" width="160" height="160" rx="32" fill="url(#iconBg)" stroke="#2a2a2a" stroke-width="1.5"/>
+<!-- Full-bleed base. iOS のアプリアイコンは OS が squircle マスクを当てるので、
+     PNG 側で rx を付けると iOS マスクと曲率が合わずフチに白い隙間が出る。
+     全面を不透明で塗って iOS のマスクに任せる。 --><rect x="0" y="0" width="160" height="160" fill="url(#iconBg)"/>
 
 <!-- Primary slash -->
 <polygon
