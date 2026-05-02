@@ -23,6 +23,9 @@ struct MapAddFAB: View {
     @State private var newRace: Race? = nil
     @State private var showRacePicker: Bool = false
     @State private var pickedRace: Race? = nil
+    /// 「Add Result → レース選択」のドロワー用。map のピン側とは連動させない
+    /// (ローカルなピッカーなので、開く度にリセットされる挙動で良い)。
+    @State private var pickerFilters = RaceFilters()
 
     var body: some View {
         Button {
@@ -90,6 +93,7 @@ struct MapAddFAB: View {
         .sheet(isPresented: $showRacePicker) {
             RaceListDrawer(
                 races: races,
+                filters: $pickerFilters,
                 onSelect: { race in
                     showRacePicker = false
                     DispatchQueue.main.async {
@@ -99,6 +103,10 @@ struct MapAddFAB: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .onChange(of: showRacePicker) { _, isShown in
+            // ピッカーを閉じた次回開封時は条件をクリアして開きたい。
+            if !isShown { pickerFilters = RaceFilters() }
         }
         .sheet(item: $pickedRace) { race in
             AddResultSheet(race: race)

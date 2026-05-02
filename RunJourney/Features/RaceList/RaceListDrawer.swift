@@ -1,6 +1,40 @@
 import SwiftUI
 import SwiftData
 
+/// レース一覧ドロワー / 地図ピンの両方を駆動する共有フィルター。
+/// 親 (`RaceMapView`) が単一の真実として持ち、`RaceListDrawer` には binding で渡す。
+/// これにより「ドロワーで絞ると map のピンも同じ条件で減る」挙動になる。
+///
+/// 各フィールドの意味:
+/// - `searchText`: name / city の部分一致 (大小文字無視)
+/// - `category`: 単一カテゴリ pill。`nil` = すべて
+/// - `year`: `createdAt` の年で絞る。`nil` = すべて
+struct RaceFilters: Equatable {
+    var searchText: String = ""
+    var category: RaceCategory? = nil
+    var year: Int? = nil
+
+    var isActive: Bool {
+        !searchText.isEmpty || category != nil || year != nil
+    }
+
+    /// 1 件のレースがフィルタを通過するか判定する。地図ピン側 (`mappableRaces`) と
+    /// ドロワー側 (`filteredRaces`) の両方から呼ぶ。`createdAt` の年で照合するのは
+    /// 旧来の `RaceListDrawer` の挙動を維持するため。
+    func matches(_ race: Race) -> Bool {
+        let cal = Calendar.current
+        if let cat = category, race.category != cat { return false }
+        if let yr = year, cal.component(.year, from: race.createdAt) != yr { return false }
+        if !searchText.isEmpty {
+            let q = searchText.lowercased()
+            let nameMatch = race.name.lowercased().contains(q)
+            let cityMatch = (race.city ?? "").lowercased().contains(q)
+            if !(nameMatch || cityMatch) { return false }
+        }
+        return true
+    }
+}
+
 /// マップ画面左上のハンバーガーから開くレース一覧ドロワー。
 /// (Web 版 marathon-record-app の `src/components/layout/Sidebar.tsx` 相当)
 ///
@@ -9,13 +43,13 @@ import SwiftData
 /// - カテゴリ pill フィルタ (すべて + 各 RaceCategory)
 /// - 年フィルタ (createdAt ベース)
 /// - 行タップで `onSelect(race)` を呼び出して親にレース選択を通知
+///
+/// フィルタ状態 (`filters`) は親が所有する `@State`。地図ピンと共有することで
+/// ドロワーの絞り込みが地図にもそのまま反映される。
 struct RaceListDrawer: View {
     let races: [Race]
+    @Binding var filters: RaceFilters
     let onSelect: (Race) -> Void
-
-    @State private var searchText: String = ""
-    @State private var selectedCategory: RaceCategory? = nil
-    @State private var selectedYear: Int? = nil
 
     private var availableYears: [Int] {
         let cal = Calendar.current
@@ -24,18 +58,7 @@ struct RaceListDrawer: View {
     }
 
     private var filteredRaces: [Race] {
-        let cal = Calendar.current
-        return races.filter { race in
-            if let cat = selectedCategory, race.category != cat { return false }
-            if let yr = selectedYear, cal.component(.year, from: race.createdAt) != yr { return false }
-            if !searchText.isEmpty {
-                let q = searchText.lowercased()
-                let nameMatch = race.name.lowercased().contains(q)
-                let cityMatch = (race.city ?? "").lowercased().contains(q)
-                if !(nameMatch || cityMatch) { return false }
-            }
-            return true
-        }
+        races.filter(filters.matches)
     }
 
     var body: some View {
@@ -63,11 +86,11 @@ struct RaceListDrawer: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Search by name or city", text: $searchText)
+            TextField("Search by name or city", text: $filters.searchText)
                 .textFieldStyle(.plain)
                 .font(.appFont(.bodySm))
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
+            if !filters.searchText.isEmpty {
+                Button { filters.searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.tertiary)
                 }
@@ -85,16 +108,16 @@ struct RaceListDrawer: View {
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterPill(label: "All", isActive: selectedCategory == nil, color: .accentPrimary) {
-                    selectedCategory = nil
+                FilterPill(label: "All", isActive: filters.category == nil, color: .accentPrimary) {
+                    filters.category = nil
                 }
                 ForEach(RaceCategory.allCases) { cat in
                     FilterPill(
                         label: cat.displayName,
-                        isActive: selectedCategory == cat,
+                        isActive: filters.category == cat,
                         color: cat.pinColor
                     ) {
-                        selectedCategory = (selectedCategory == cat) ? nil : cat
+                        filters.category = (filters.category == cat) ? nil : cat
                     }
                 }
             }
@@ -106,16 +129,16 @@ struct RaceListDrawer: View {
     private var yearRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterPill(label: "All Years", isActive: selectedYear == nil, color: .accentPrimary) {
-                    selectedYear = nil
+                FilterPill(label: "All Years", isActive: filters.year == nil, color: .accentPrimary) {
+                    filters.year = nil
                 }
                 ForEach(availableYears, id: \.self) { yr in
                     FilterPill(
                         label: "\(yr)",
-                        isActive: selectedYear == yr,
+                        isActive: filters.year == yr,
                         color: .accentPrimary
                     ) {
-                        selectedYear = (selectedYear == yr) ? nil : yr
+                        filters.year = (filters.year == yr) ? nil : yr
                     }
                 }
             }
@@ -206,30 +229,3 @@ private struct RaceListRow: View {
     }
 }
 
-// MARK: - FilterPill
-
-private struct FilterPill: View {
-    let label: String
-    let isActive: Bool
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .appText(.displayXs)
-                .foregroundStyle(isActive ? Color.black : Color.textPrimary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    isActive ? color : Color.bgSecondary,
-                    in: Capsule()
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(isActive ? .clear : .white.opacity(0.1), lineWidth: 0.5)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-}

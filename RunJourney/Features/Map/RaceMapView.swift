@@ -16,8 +16,12 @@ struct RaceMapView: View {
     /// 地図に出すレース (lat/lng が未設定の `(0, 0)` レースは除外)。
     /// "+ → Add Race" で作った直後のレースは位置未確定なので、ユーザが
     /// LocationSearchField で住所を確定するまでピンを立てない。
+    /// さらに RACES ドロワーと共有する `filters` (search / category / year) でも絞り込む。
     private var mappableRaces: [Race] {
-        races.filter { !($0.lat == 0 && $0.lng == 0) }
+        races.filter { race in
+            if race.lat == 0 && race.lng == 0 { return false }
+            return filters.matches(race)
+        }
     }
 
     @StoredMapStyleSettings private var mapSettings
@@ -49,6 +53,10 @@ struct RaceMapView: View {
     @State private var currentMapCenter: CLLocationCoordinate2D = CLLocationCoordinate2D(
         latitude: 36.5, longitude: 138.0
     )
+    /// RACES ドロワーと共有するフィルター。binding でドロワーに渡すことで、
+    /// ドロワーでの絞り込みが地図ピンにもそのまま反映される。
+    /// category / year が変わったら残った範囲に再フィット (検索文字の毎キーストロークは無視)。
+    @State private var filters = RaceFilters()
 
     /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
     private static let japanRegion = MKCoordinateRegion(
@@ -78,6 +86,7 @@ struct RaceMapView: View {
         .sheet(isPresented: $showRaceList) {
             RaceListDrawer(
                 races: races,
+                filters: $filters,
                 onSelect: { race in
                     showRaceList = false
                     selectedRace = race
@@ -131,6 +140,13 @@ struct RaceMapView: View {
                 iconifiedRace = nil
                 fitAllRaces()
             }
+        }
+        .onChange(of: filters.category) { _, _ in
+            // カテゴリ切替で残った範囲にリフィット。0 件のときは触らない。
+            if !mappableRaces.isEmpty { fitAllRaces() }
+        }
+        .onChange(of: filters.year) { _, _ in
+            if !mappableRaces.isEmpty { fitAllRaces() }
         }
     }
 
@@ -202,6 +218,15 @@ struct RaceMapView: View {
 
             if races.isEmpty {
                 Text("Tap + to import a workout file, or load sample races from Settings → Developer.")
+                    .font(.callout)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.horizontal, 16)
+                    .transition(.opacity)
+            } else if mappableRaces.isEmpty, filters.isActive {
+                Text("No races match the current filter.")
                     .font(.callout)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
