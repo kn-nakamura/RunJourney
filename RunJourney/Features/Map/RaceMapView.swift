@@ -175,7 +175,7 @@ struct RaceMapView: View {
             Spacer()
 
             if races.isEmpty {
-                Text("Import TCX / GPX from the toolbar, or tap + to add a sample race")
+                Text("Import TCX / GPX from the toolbar, or tap + to load sample races")
                     .font(.callout)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -204,6 +204,7 @@ struct RaceMapView: View {
     // MARK: - Actions
 
     /// MVP用ダミー追加。Phase 3 で TCX/GPX/FIT 取り込みダイアログに置き換える。
+    /// 既登録の名前は重複追加しないので、何度押しても 8 件に揃う。
     private func addDummyRaceNearTokyo() {
         let samples: [(String, RaceCategory, Double, Double, String)] = [
             ("Tokyo Marathon", .fullMarathon, 35.6909, 139.6917, "Tokyo"),
@@ -215,17 +216,19 @@ struct RaceMapView: View {
             ("Itabashi City Marathon", .fullMarathon, 35.7611, 139.6833, "Itabashi"),
             ("UTMF", .ultraCustom, 35.4361, 138.7186, "Fujikawaguchiko"),
         ]
-        let pick = samples[races.count % samples.count]
-        let race = Race(
-            name: pick.0,
-            category: pick.1,
-            address: pick.4,
-            city: pick.4,
-            country: "Japan",
-            lat: pick.2,
-            lng: pick.3
-        )
-        modelContext.insert(race)
+        let existingNames = Set(races.map(\.name))
+        for sample in samples where !existingNames.contains(sample.0) {
+            let race = Race(
+                name: sample.0,
+                category: sample.1,
+                address: sample.4,
+                city: sample.4,
+                country: "Japan",
+                lat: sample.2,
+                lng: sample.3
+            )
+            modelContext.insert(race)
+        }
     }
 
     /// レース 1 件にフィットする。ピン位置を画面上半分の中央に置く近接ズーム。
