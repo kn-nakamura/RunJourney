@@ -32,6 +32,13 @@ struct PaceCalculatorView: View {
     /// .onChange を貼ると無限ループするので、片方を変える時だけサプレスする。
     @State private var suppressSync = false
 
+    /// ラップ毎のペース上書き (index → 秒/km)。スピナーで個別に編集した結果を保持する。
+    /// 距離やレース種別が変わると無効になるのでクリアする。
+    @State private var lapPaceOverrides: [Int: Int] = [:]
+
+    /// 現在編集中のラップ。nil でないとき LapPaceEditor シートを表示する。
+    @State private var editingLap: PaceLapSegment?
+
     // MARK: - Derived
 
     private var distanceKm: Double {
@@ -58,7 +65,8 @@ struct PaceCalculatorView: View {
         return PaceUtils.generateLaps(
             config: effectiveConfig,
             goalTimeSeconds: goalTimeSeconds,
-            paceOverride: pacePerKm
+            paceOverride: pacePerKm,
+            perLapOverrides: lapPaceOverrides
         )
     }
 
@@ -103,22 +111,26 @@ struct PaceCalculatorView: View {
         .toolbar(.hidden, for: .navigationBar)
 #endif
         .onChange(of: raceType) { _, newType in
+            lapPaceOverrides.removeAll()
             applyDefaultsForRaceType(newType)
         }
         .onChange(of: customDistanceKm) { _, _ in
             if raceType == .custom {
+                lapPaceOverrides.removeAll()
                 // custom 距離が変わったら現在のペースから目標タイムを再計算
                 applyPace(pacePerKm)
             }
         }
         .onChange(of: goalTimeSeconds) { _, newSec in
             guard !suppressSync, distanceKm > 0 else { return }
+            lapPaceOverrides.removeAll()
             suppressSync = true
             pacePerKm = PaceUtils.goalTimeToPace(goalTimeSeconds: newSec, distanceKm: distanceKm)
             DispatchQueue.main.async { suppressSync = false }
         }
         .onChange(of: pacePerKm) { _, newPace in
             guard !suppressSync, distanceKm > 0 else { return }
+            lapPaceOverrides.removeAll()
             suppressSync = true
             goalTimeSeconds = PaceUtils.paceToGoalTime(pacePerKm: newPace, distanceKm: distanceKm)
             DispatchQueue.main.async { suppressSync = false }
@@ -130,6 +142,21 @@ struct PaceCalculatorView: View {
                 goalTimeSeconds: goalTimeSeconds,
                 pacePerKm: pacePerKm,
                 laps: laps
+            )
+        }
+        .sheet(item: $editingLap) { lap in
+            LapPaceEditor(
+                lap: lap,
+                initialPace: lapPaceOverrides[lap.index] ?? lap.pacePerKm,
+                onCancel: { editingLap = nil },
+                onCommit: { newPace in
+                    lapPaceOverrides[lap.index] = newPace
+                    editingLap = nil
+                },
+                onReset: {
+                    lapPaceOverrides.removeValue(forKey: lap.index)
+                    editingLap = nil
+                }
             )
         }
     }
@@ -183,7 +210,7 @@ struct PaceCalculatorView: View {
     // MARK: - Spinners
 
     private var spinnersGrid: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             PaceTimeSpinner(
                 title: "Goal Time",
                 mode: .goalTime,
@@ -197,6 +224,7 @@ struct PaceCalculatorView: View {
                 derivedGoalTimeSeconds: PaceUtils.paceToGoalTime(pacePerKm: pacePerKm, distanceKm: distanceKm)
             )
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Result hero
@@ -236,7 +264,9 @@ struct PaceCalculatorView: View {
                 laps: laps,
                 raceLabel: raceType == .custom
                     ? "\(PaceUtils.formatDistanceLabel(distanceKm)) km"
-                    : raceType.labelLong
+                    : raceType.labelLong,
+                basePace: pacePerKm,
+                onTapLap: { lap in editingLap = lap }
             )
         }
     }
@@ -360,6 +390,7 @@ struct PaceCalculatorView: View {
 
     private func loadPlan(_ plan: PacePlan) {
         // raceTypeRaw を優先、無ければ距離マッチング (後方互換)
+        lapPaceOverrides.removeAll()
         suppressSync = true
         if let raw = plan.raceTypeRaw, let type = PaceRaceType(rawValue: raw) {
             raceType = type

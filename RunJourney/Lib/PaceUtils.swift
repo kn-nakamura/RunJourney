@@ -68,12 +68,14 @@ extension PaceUtils {
 
     /// 距離・目標タイム・ラップ間隔からラップ配列を生成。
     /// HALF / GOAL マークを Web 版 (paceUtils.ts:43-90) と同じ規則で付与する。
+    /// `perLapOverrides` を渡すと該当 index のラップだけそのペースを使う。
     static func generateLaps(
         config: PaceRaceConfig,
         goalTimeSeconds: Int,
-        paceOverride: Int? = nil
+        paceOverride: Int? = nil,
+        perLapOverrides: [Int: Int] = [:]
     ) -> [PaceLapSegment] {
-        let pacePerKm = paceOverride
+        let basePace = paceOverride
             ?? goalTimeToPace(goalTimeSeconds: goalTimeSeconds, distanceKm: config.distanceKm)
 
         var laps: [PaceLapSegment] = []
@@ -85,6 +87,7 @@ extension PaceUtils {
             let remaining = config.distanceKm - currentKm
             let segmentKm = (min(config.lapIntervalKm, remaining) * 1000).rounded() / 1000
             let endKm = ((currentKm + segmentKm) * 1000).rounded() / 1000
+            let pacePerKm = perLapOverrides[index] ?? basePace
             let lapTime = Double(pacePerKm) * segmentKm
             cumulativeTime += lapTime
 
@@ -133,22 +136,33 @@ extension PaceUtils {
         return Int((totalTime / totalKm).rounded())
     }
 
-    /// ペースバーの色。Web 版 paceUtils.ts:288-299 と同じ 3 段階分岐。
-    /// `min == max` のとき (一定ペース) は teal で固定。
-    static func paceBarColor(pace: Int, minPace: Int, maxPace: Int) -> Color {
-        guard maxPace > minPace else { return Color(hex: 0x4ECDC4) }
-        let ratio = Double(pace - minPace) / Double(maxPace - minPace)
-        if ratio < 0.33 { return Color(hex: 0x00D4AA) } // emerald (fast)
-        if ratio < 0.66 { return Color(hex: 0x4ECDC4) } // teal (medium)
-        return Color(hex: 0xE94560)                     // red (slow)
+    /// ペースバーの色。基準ペースを中央 (amber) に置き、faster → emerald, slower → red へ補間。
+    /// 0 で emerald、basePace で amber、basePace*2 以上で red に達する。
+    static func paceBarColor(pace: Int, basePace: Int) -> Color {
+        let mid: (Double, Double, Double)  = (0xF2 / 255, 0xC7 / 255, 0x44 / 255)
+        guard basePace > 0 else { return Color(red: mid.0, green: mid.1, blue: mid.2) }
+        let fast: (Double, Double, Double) = (0x00 / 255, 0xD4 / 255, 0xAA / 255)
+        let slow: (Double, Double, Double) = (0xE9 / 255, 0x45 / 255, 0x60 / 255)
+        let (a, b, t): ((Double, Double, Double), (Double, Double, Double), Double)
+        if pace <= basePace {
+            let r = max(0.0, min(1.0, Double(pace) / Double(basePace)))
+            (a, b, t) = (fast, mid, r)
+        } else {
+            let r = max(0.0, min(1.0, Double(pace - basePace) / Double(basePace)))
+            (a, b, t) = (mid, slow, r)
+        }
+        return Color(
+            red:   a.0 + (b.0 - a.0) * t,
+            green: a.1 + (b.1 - a.1) * t,
+            blue:  a.2 + (b.2 - a.2) * t
+        )
     }
 
-    /// バー幅 (0..1)。Web 版と同じ計算で、最小 4% を下限とする。
-    static func paceBarRatio(pace: Int, minPace: Int, maxPace: Int) -> Double {
-        guard maxPace > minPace else { return 0.5 }
-        let lo = Double(minPace) * 0.9
-        let hi = Double(maxPace) * 1.1
-        let raw = (Double(pace) - lo) / (hi - lo)
-        return max(0.04, min(1.0, raw))
+    /// バー幅 (0..1)。`basePace` で 0.5、`basePace * 2` で 1.0 を返す。
+    /// 例: basePace = 5:00 のとき pace = 10:00 で右端、5:00 でちょうど半分。
+    static func paceBarRatio(pace: Int, basePace: Int) -> Double {
+        guard basePace > 0 else { return 0 }
+        let denom = Double(basePace) * 2.0
+        return max(0.0, min(1.0, Double(pace) / denom))
     }
 }

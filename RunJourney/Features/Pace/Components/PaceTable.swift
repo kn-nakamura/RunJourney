@@ -1,19 +1,21 @@
 import SwiftUI
 
 /// ペース計算機のラップ表 (DIST / PACE/KM / TIME / AVG/LAP の 4 列)。
-/// Web 版 marathon-record-app `src/components/pace/PaceTable.tsx` の SwiftUI 移植。
 ///
-/// 各行は ZStack で「ペース帯バー (背景, opacity 10%)」+「コンテンツ HStack」の 2 層。
-/// バー幅と色は `PaceUtils.paceBarRatio` / `paceBarColor` で算出するので、
-/// GPX エレベーション補正等で lap 別に pacePerKm が違うときにグラフが現れる。
-/// 一定ペースの計算結果では全行のバーが同じ幅 (フラット) で表示される。
+/// 各行は ZStack で「ペース帯バー (背景) + コンテンツ HStack」の 2 層。
+/// バー長は `lap.pace / (basePace * 2)` を 0..1 でクランプ。
+/// 例: basePace = 5:00 のとき、ペース 10:00 がちょうど右端 (1.0)、5:00 なら半分 (0.5)。
+/// 色は basePace を境に lerp する: 速い側は emerald → teal、遅い側は teal → red。
+/// 各バーは leading 濃 → trailing 薄の横グラデーションで描画。
 struct PaceTable: View {
     let laps: [PaceLapSegment]
     /// フッターに出すレース全体のラベル ("Full Marathon" 等)。
     let raceLabel: String
+    /// 基準ペース (秒/km)。バー長と色のしきい値。`PaceCalculatorView.pacePerKm` を渡す想定。
+    let basePace: Int
+    /// 行タップ時のコールバック。nil なら行は非インタラクティブ。
+    var onTapLap: ((PaceLapSegment) -> Void)? = nil
 
-    private var minPace: Int { laps.map(\.pacePerKm).min() ?? 0 }
-    private var maxPace: Int { laps.map(\.pacePerKm).max() ?? 0 }
     private var totalSeconds: Int {
         Int((laps.last?.cumulativeTime ?? 0).rounded())
     }
@@ -22,7 +24,13 @@ struct PaceTable: View {
         VStack(spacing: 0) {
             header
             ForEach(Array(laps.enumerated()), id: \.element.id) { index, lap in
-                row(for: lap, index: index, isLast: index == laps.count - 1)
+                let rowView = row(for: lap, index: index, isLast: index == laps.count - 1)
+                if let onTapLap {
+                    Button { onTapLap(lap) } label: { rowView }
+                        .buttonStyle(.plain)
+                } else {
+                    rowView
+                }
             }
             footer
         }
@@ -63,16 +71,22 @@ struct PaceTable: View {
     @ViewBuilder
     private func row(for lap: PaceLapSegment, index: Int, isLast: Bool) -> some View {
         let isSpecial = lap.distanceLabel == "HALF" || lap.distanceLabel == "GOAL"
-        let barColor = PaceUtils.paceBarColor(pace: lap.pacePerKm, minPace: minPace, maxPace: maxPace)
-        let barRatio = PaceUtils.paceBarRatio(pace: lap.pacePerKm, minPace: minPace, maxPace: maxPace)
         let avgPace = PaceUtils.getAveragePace(laps: laps, upToIndex: index)
+        let ratio = PaceUtils.paceBarRatio(pace: lap.pacePerKm, basePace: basePace)
+        let color = PaceUtils.paceBarColor(pace: lap.pacePerKm, basePace: basePace)
 
         ZStack(alignment: .leading) {
+            // leading 濃 → trailing 薄のフェードグラデーションで pace 帯を可視化。
             GeometryReader { geo in
-                Rectangle()
-                    .fill(barColor)
-                    .frame(width: geo.size.width * barRatio)
-                    .opacity(0.18)
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        color.opacity(0.55),
+                        color.opacity(0.10)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: max(2, geo.size.width * ratio), height: geo.size.height)
             }
             .allowsHitTesting(false)
 

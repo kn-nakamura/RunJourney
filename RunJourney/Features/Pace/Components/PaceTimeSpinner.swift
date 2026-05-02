@@ -29,14 +29,15 @@ struct PaceTimeSpinner: View {
                 paceSpinner
             }
 
-            if let derived = derivedGoalTimeSeconds {
-                Text("→ \(PaceUtils.formatTimeSimple(derived))")
-                    .appText(.codeXs)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
+            // Reserve the derived-line slot even when nil so paired spinners share height.
+            Text(derivedGoalTimeSeconds.map { "→ \(PaceUtils.formatTimeSimple($0))" } ?? "→ ")
+                .appText(.codeXs)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .opacity(derivedGoalTimeSeconds == nil ? 0 : 1)
         }
         .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
     }
 

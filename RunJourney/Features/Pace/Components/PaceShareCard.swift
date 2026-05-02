@@ -44,35 +44,35 @@ struct PaceShareCard: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             Text("RUN JOURNEY")
                 .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textPrimary.opacity(0.78))
             Text(raceType.labelLong)
-                .appText(.displaySm)
+                .appText(.displayMd)
                 .foregroundStyle(Color.accentPrimary)
         }
-        .padding(.bottom, 28)
+        .padding(.bottom, 24)
     }
 
     // MARK: - Hero (large pace)
 
     private var heroBlock: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Text("AVERAGE PACE")
                 .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textPrimary.opacity(0.78))
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(PaceUtils.formatPaceSimple(pacePerKm))
-                    .appText(.codeHero)
+                    .appText(.codeXl)
                     .foregroundStyle(Color.accentPrimary)
                 Text("/ km")
-                    .appText(.bodyLg)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 12)
+                    .appText(.bodyBaseBold)
+                    .foregroundStyle(Color.textPrimary.opacity(0.78))
+                    .padding(.bottom, 8)
             }
 
-            HStack(spacing: 20) {
+            HStack(spacing: 24) {
                 metricColumn(
                     label: "DISTANCE",
                     value: String(format: "%.2f", distanceKm),
@@ -85,25 +85,25 @@ struct PaceShareCard: View {
                     suffix: nil
                 )
             }
-            .padding(.top, 8)
+            .padding(.top, 6)
         }
         .padding(.horizontal, 28)
-        .padding(.bottom, 28)
+        .padding(.bottom, 20)
     }
 
     private func metricColumn(label: String, value: String, suffix: String?) -> some View {
         VStack(spacing: 4) {
             Text(label)
                 .appText(.eyebrow)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                .foregroundStyle(Color.textPrimary.opacity(0.78))
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .appText(.codeMd)
+                    .appText(.codeLg)
                     .foregroundStyle(Color.textPrimary)
                 if let suffix {
                     Text(suffix)
-                        .appText(.bodySm)
-                        .foregroundStyle(.secondary)
+                        .appText(.bodyBaseBold)
+                        .foregroundStyle(Color.textPrimary.opacity(0.78))
                 }
             }
         }
@@ -115,35 +115,65 @@ struct PaceShareCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("SPLITS")
                 .appText(.eyebrow)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textPrimary.opacity(0.78))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
+                .padding(.bottom, 6)
 
-            // 最大 12 行に絞って画像内に収める。多い時は等間隔で間引く。
-            let displayed = downsample(laps, max: 12)
+            // 最大 11 行に絞って画像内に収める。多い時は等間隔で間引く。
+            let displayed = downsample(laps, max: 11)
             ForEach(displayed) { lap in
-                let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
-                HStack {
-                    Text(lap.distanceLabel)
-                        .appText(isMilestone ? .codeXsBold : .codeXs)
-                        .foregroundStyle(lapColor(lap))
-                        .frame(width: 60, alignment: .leading)
-                    Spacer()
-                    Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
-                        .appText(.codeSmBold)
-                        .foregroundStyle(Color.textPrimary)
-                }
+                lapRow(lap)
             }
         }
         .padding(.horizontal, 28)
-        .padding(.top, 22)
+        .padding(.top, 24)
+    }
+
+    /// SPLITS 1 行: 背景に basePace 基準のグラデーションバー、上にラベル/タイムを重ねる。
+    private func lapRow(_ lap: PaceLapSegment) -> some View {
+        let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
+        let ratio = PaceUtils.paceBarRatio(pace: lap.pacePerKm, basePace: pacePerKm)
+        let color = PaceUtils.paceBarColor(pace: lap.pacePerKm, basePace: pacePerKm)
+
+        return ZStack(alignment: .leading) {
+            GeometryReader { geo in
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        color.opacity(0.55),
+                        color.opacity(0.10)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: max(2, geo.size.width * ratio), height: geo.size.height)
+            }
+            .allowsHitTesting(false)
+
+            HStack(spacing: 10) {
+                Text(lap.distanceLabel)
+                    .appText(isMilestone ? .codeMdBold : .codeMd)
+                    .foregroundStyle(lapColor(lap))
+                    .frame(width: 88, alignment: .leading)
+                Text(PaceUtils.formatPaceSimple(lap.pacePerKm))
+                    .appText(.codeMdBold)
+                    .foregroundStyle(Color.accentPrimary)
+                Spacer()
+                Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
+                    .appText(.codeLgBold)
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .frame(minHeight: 50)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func lapColor(_ lap: PaceLapSegment) -> Color {
         switch lap.distanceLabel {
         case "GOAL": return Color.accentPrimary
         case "HALF": return .orange
-        default: return .secondary
+        default: return Color.textPrimary.opacity(0.85)
         }
     }
 
@@ -174,7 +204,7 @@ struct PaceShareCard: View {
         VStack(spacing: 4) {
             Text("Generated with RunJourney iOS")
                 .appText(.bodyXs)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Color.textPrimary.opacity(0.55))
         }
         .padding(.horizontal, 28)
     }
