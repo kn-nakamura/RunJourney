@@ -30,6 +30,10 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                Text("Dashboard")
+                    .appText(.displayLg)
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if !results.isEmpty {
                     categoryFilterPills
                 }
@@ -47,9 +51,11 @@ struct DashboardView: View {
             .padding()
         }
         .background(Color.bgPrimary)
-        .navigationTitle("ダッシュボード")
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        // iOS 26 のナビバーは UIAppearance で Bebas Neue を当てても取りこぼすことが
+        // あるので、ナビバー自体は非表示にして ScrollView の中に見出しを置く
+        // (Web 版の `<h1>DASHBOARD</h1>` と同じパターン)。
+        .toolbar(.hidden, for: .navigationBar)
 #endif
     }
 
@@ -58,7 +64,7 @@ struct DashboardView: View {
     private var categoryFilterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                DashboardFilterPill(label: "すべて", isActive: selectedCategory == nil, color: .accentPrimary) {
+                DashboardFilterPill(label: "All", isActive: selectedCategory == nil, color: .accentPrimary) {
                     selectedCategory = nil
                 }
                 ForEach(RaceCategory.allCases) { cat in
@@ -76,17 +82,17 @@ struct DashboardView: View {
     private var emptyState: some View {
         if results.isEmpty {
             ContentUnavailableView(
-                "まだデータがありません",
+                "No Data Yet",
                 systemImage: "chart.bar.xaxis",
-                description: Text("地図画面の取り込みボタン ↓ から TCX/GPX/FIT/ZIP を取り込むと、ここに統計が表示されます。")
+                description: Text("Import TCX / GPX / FIT / ZIP from the Map tab to see your stats here.")
             )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 60)
         } else {
             ContentUnavailableView(
-                "該当データがありません",
+                "No Matching Data",
                 systemImage: "magnifyingglass",
-                description: Text("選択中のカテゴリには結果が登録されていません。「すべて」または別のカテゴリを選択してください。")
+                description: Text("No results in the selected category. Pick \"All\" or another category.")
             )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)
@@ -97,11 +103,11 @@ struct DashboardView: View {
 
     private var summaryGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            StatCard(label: "完走数", value: "\(aggregate.totalRaces)", unit: "回", symbol: "flag.checkered", color: .accentPrimary)
-            StatCard(label: "総距離", value: String(format: "%.1f", aggregate.totalDistanceM / 1000), unit: "km", symbol: "ruler", color: .cat10K)
-            StatCard(label: "総時間", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
+            StatCard(label: "Finishes", value: "\(aggregate.totalRaces)", unit: "", symbol: "flag.checkered", color: .accentPrimary)
+            StatCard(label: "Total Distance", value: String(format: "%.1f", aggregate.totalDistanceM / 1000), unit: "km", symbol: "ruler", color: .cat10K)
+            StatCard(label: "Total Time", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
             if let pace = aggregate.weightedAvgPaceSecPerKm {
-                StatCard(label: "平均ペース", value: formatPace(pace), unit: "/km", symbol: "speedometer", color: .catHalfMarathon)
+                StatCard(label: "Avg Pace", value: formatPace(pace), unit: "/km", symbol: "speedometer", color: .catHalfMarathon)
             }
         }
     }
@@ -110,7 +116,7 @@ struct DashboardView: View {
 
     private var pbBoardSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("自己ベスト (PB)", subtitle: "カテゴリ別")
+            sectionHeader("Personal Bests", subtitle: "by category")
             VStack(spacing: 10) {
                 ForEach(RaceCategory.allCases) { cat in
                     if let result = pbs[cat] {
@@ -118,8 +124,8 @@ struct DashboardView: View {
                     }
                 }
                 if pbs.isEmpty {
-                    Text("PB はまだ登録されていません")
-                        .font(.body(13))
+                    Text("No personal bests yet")
+                        .appText(.bodySm)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 14)
@@ -132,33 +138,33 @@ struct DashboardView: View {
 
     private var yearChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("年別レース数")
+            sectionHeader("Races per Year")
             if yearCounts.isEmpty {
-                Text("年別データなし")
-                    .font(.body(13))
+                Text("No yearly data")
+                    .appText(.bodySm)
                     .foregroundStyle(.secondary)
             } else {
                 Chart(yearCounts, id: \.year) { item in
                     BarMark(
-                        x: .value("年", "\(item.year)"),
-                        y: .value("件数", item.count)
+                        x: .value("Year", "\(item.year)"),
+                        y: .value("Count", item.count)
                     )
                     .foregroundStyle(Color.accentPrimary.gradient)
                     .cornerRadius(4)
                     .annotation(position: .top) {
                         Text("\(item.count)")
-                            .font(.mono(11, bold: true))
+                            .appText(.codeXxsBold)
                             .foregroundStyle(Color.accentPrimary)
                     }
                 }
                 .chartYAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                         AxisGridLine().foregroundStyle(.white.opacity(0.06))
-                        AxisValueLabel().font(.mono(10))
+                        AxisValueLabel().font(.appFont(.codeXxs))
                     }
                 }
                 .chartXAxis {
-                    AxisMarks { _ in AxisValueLabel().font(.mono(10)) }
+                    AxisMarks { _ in AxisValueLabel().font(.appFont(.codeXxs)) }
                 }
                 .frame(height: 160)
                 .padding(.vertical, 6)
@@ -172,22 +178,22 @@ struct DashboardView: View {
 
     private var categoryChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("カテゴリ別レース数")
+            sectionHeader("Races by Category")
             if categoryCounts.isEmpty {
-                Text("カテゴリデータなし")
-                    .font(.body(13))
+                Text("No category data")
+                    .appText(.bodySm)
                     .foregroundStyle(.secondary)
             } else {
                 Chart(categoryCounts, id: \.category) { item in
                     SectorMark(
-                        angle: .value("件数", item.count),
+                        angle: .value("Count", item.count),
                         innerRadius: .ratio(0.55),
                         angularInset: 2
                     )
                     .foregroundStyle(item.category.pinColor)
                     .annotation(position: .overlay) {
                         Text("\(item.count)")
-                            .font(.mono(10, bold: true))
+                            .appText(.codeXxsBold)
                             .foregroundStyle(.black)
                     }
                 }
@@ -201,7 +207,7 @@ struct DashboardView: View {
                         HStack(spacing: 6) {
                             Circle().fill(item.category.pinColor).frame(width: 8, height: 8)
                             Text("\(item.category.displayName) (\(item.count))")
-                                .font(.body(12))
+                                .appText(.bodyXs)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -215,11 +221,11 @@ struct DashboardView: View {
     private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.body(15, weight: .bold))
+                .appText(.bodyBaseBold)
                 .foregroundStyle(Color.textPrimary)
             if let sub = subtitle {
                 Text(sub)
-                    .font(.body(12))
+                    .appText(.bodyXs)
                     .foregroundStyle(.tertiary)
             }
             Spacer()
@@ -236,10 +242,10 @@ struct DashboardView: View {
         if h >= 24 {
             let days = h / 24
             let remH = h % 24
-            return "\(days)日\(remH)時間"
+            return "\(days)d \(remH)h"
         }
-        if h > 0 { return "\(h)時間\(m)分" }
-        return "\(m)分"
+        if h > 0 { return "\(h)h \(m)m" }
+        return "\(m)m"
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
@@ -266,15 +272,15 @@ private struct StatCard: View {
                 .frame(width: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.body(11))
+                    .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(value)
-                        .font(.display(26))
+                        .appText(.codeMd)
                         .foregroundStyle(Color.textPrimary)
                     if !unit.isEmpty {
                         Text(unit)
-                            .font(.body(11))
+                            .appText(.bodyXs)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -302,23 +308,23 @@ private struct PBCard: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(category.displayName)
-                    .font(.body(11))
+                    .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 Text(result.race?.name ?? "—")
-                    .font(.body(14, weight: .bold))
+                    .appText(.bodySmBold)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
                 Text(result.raceDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(.body(11))
+                    .appText(.bodyXs)
                     .foregroundStyle(.tertiary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formatDuration(result.finishTimeSec ?? 0))
-                    .font(.display(24))
+                    .appText(.codeLg)
                     .foregroundStyle(Color.accentPrimary)
                 Text("PB")
-                    .font(.monoCaption)
+                    .appText(.badgeNumeric)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Color.pbBadge, in: Capsule())
@@ -351,7 +357,8 @@ private struct DashboardFilterPill: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.body(12, weight: isActive ? .bold : .medium))
+                .appText(.displayXs)
+                .fontWeight(isActive ? .bold : nil)
                 .foregroundStyle(isActive ? Color.black : Color.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)

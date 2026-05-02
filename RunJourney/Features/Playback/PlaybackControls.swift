@@ -13,7 +13,7 @@ struct PlaybackControls: View {
             // シークバー
             HStack(spacing: 8) {
                 Text(formatDuration(controller.currentTime))
-                    .font(.mono(11))
+                    .appText(.codeXs)
                     .foregroundStyle(.secondary)
                     .frame(width: 56, alignment: .leading)
 
@@ -37,7 +37,7 @@ struct PlaybackControls: View {
                 .tint(Color.accentPrimary)
 
                 Text(formatDuration(controller.totalDuration))
-                    .font(.mono(11))
+                    .appText(.codeXs)
                     .foregroundStyle(.secondary)
                     .frame(width: 56, alignment: .trailing)
             }
@@ -82,7 +82,7 @@ struct PlaybackControls: View {
                 Image(systemName: "speedometer")
                     .font(.system(size: 14))
                 Text("\(formatSpeed(controller.speed))×")
-                    .font(.mono(13, bold: true))
+                    .appText(.codeSmBold)
             }
             .foregroundStyle(Color.accentPrimary)
             .padding(.horizontal, 10)

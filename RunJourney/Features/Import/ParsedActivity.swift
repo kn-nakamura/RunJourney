@@ -40,10 +40,10 @@ enum ImportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedFormat(let ext): return "対応していないファイル形式: .\(ext)"
-        case .parseFailed(let detail): return "パースに失敗しました: \(detail)"
-        case .noTrackPoints: return "ファイルにGPSトラックが含まれていません"
-        case .fileAccessDenied: return "ファイルにアクセスできませんでした"
+        case .unsupportedFormat(let ext): return "Unsupported file format: .\(ext)"
+        case .parseFailed(let detail): return "Parse failed: \(detail)"
+        case .noTrackPoints: return "File has no GPS track"
+        case .fileAccessDenied: return "Could not access the file"
         }
     }
 }

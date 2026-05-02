@@ -11,11 +11,11 @@ enum Condition: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .great: return "絶好調"
-        case .good: return "良い"
-        case .average: return "普通"
-        case .poor: return "悪い"
-        case .bad: return "最悪"
+        case .great: return "Great"
+        case .good: return "Good"
+        case .average: return "Average"
+        case .poor: return "Poor"
+        case .bad: return "Bad"
         }
     }
 

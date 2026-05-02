@@ -21,6 +21,7 @@
 		<string>DMSans-Medium.ttf</string>
 		<string>DMSans-Bold.ttf</string>
 		<string>JetBrainsMono-Regular.ttf</string>
+		<string>JetBrainsMono-Medium.ttf</string>
 		<string>JetBrainsMono-Bold.ttf</string>
 	</array>
 	<key>ATSApplicationFontsPath</key>

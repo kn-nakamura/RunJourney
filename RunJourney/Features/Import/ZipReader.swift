@@ -18,7 +18,7 @@ enum ZipReader {
 
     static func extractAll(from data: Data) throws -> [Entry] {
         guard let eocdOffset = findEOCD(in: data) else {
-            throw ImportError.parseFailed("ZIP: End of Central Directory が見つかりません（破損したZIPの可能性）")
+            throw ImportError.parseFailed("ZIP: End of Central Directory not found (file may be corrupted).")
         }
 
         // EOCD layout (LE):
@@ -38,7 +38,7 @@ enum ZipReader {
 
         for _ in 0..<totalEntries {
             guard pos + 46 <= data.count else {
-                throw ImportError.parseFailed("ZIP: central directory が破損しています")
+                throw ImportError.parseFailed("ZIP: central directory is corrupted.")
             }
             let sig = readUInt32LE(data: data, at: pos)
             guard sig == 0x02014b50 else {
@@ -66,7 +66,7 @@ enum ZipReader {
             let nameStart = pos + 46
             let nameEnd = nameStart + nameLen
             guard nameEnd <= data.count else {
-                throw ImportError.parseFailed("ZIP: ファイル名がはみ出しています")
+                throw ImportError.parseFailed("ZIP: file name overflow.")
             }
             let name = String(data: data.subdata(in: nameStart..<nameEnd), encoding: .utf8) ?? "(unknown)"
 
@@ -78,11 +78,11 @@ enum ZipReader {
 
             // Local file header から data の正確な開始位置を求める
             guard localOffset + 30 <= data.count else {
-                throw ImportError.parseFailed("ZIP: local header offset が不正 (\(name))")
+                throw ImportError.parseFailed("ZIP: invalid local header offset (\(name))")
             }
             let localSig = readUInt32LE(data: data, at: localOffset)
             guard localSig == 0x04034b50 else {
-                throw ImportError.parseFailed("ZIP: local file header signature 不一致 (\(name))")
+                throw ImportError.parseFailed("ZIP: local file header signature mismatch (\(name))")
             }
             let localNameLen = Int(readUInt16LE(data: data, at: localOffset + 26))
             let localExtraLen = Int(readUInt16LE(data: data, at: localOffset + 28))
@@ -90,7 +90,7 @@ enum ZipReader {
             let dataStart = localOffset + 30 + localNameLen + localExtraLen
             let dataEnd = dataStart + compressedSize
             guard dataEnd <= data.count else {
-                throw ImportError.parseFailed("ZIP: 圧縮データがはみ出しています (\(name))")
+                throw ImportError.parseFailed("ZIP: compressed data overflow (\(name))")
             }
             let chunk = data.subdata(in: dataStart..<dataEnd)
 
@@ -101,13 +101,13 @@ enum ZipReader {
             case 8: // deflate
                 payload = try inflate(chunk, expectedSize: uncompressedSize)
             default:
-                throw ImportError.parseFailed("ZIP: 未対応の圧縮方式 \(method) (\(name))")
+                throw ImportError.parseFailed("ZIP: unsupported compression method \(method) (\(name))")
             }
             entries.append(Entry(name: name, data: payload))
         }
 
         if entries.isEmpty {
-            throw ImportError.parseFailed("ZIP: 取り込み可能なファイルが見つかりません")
+            throw ImportError.parseFailed("ZIP: no importable files found.")
         }
         return entries
     }
@@ -118,7 +118,7 @@ enum ZipReader {
         if let match = entries.first(where: { ($0.name as NSString).pathExtension.lowercased() == lower }) {
             return match
         }
-        throw ImportError.parseFailed("ZIP: .\(ext) が見つかりません — 含まれるファイル: \(entries.map(\.name).joined(separator: ", "))")
+        throw ImportError.parseFailed("ZIP: .\(ext) not found — entries: \(entries.map(\.name).joined(separator: ", "))")
     }
 
     // MARK: - Private helpers
@@ -175,7 +175,7 @@ enum ZipReader {
                     return Data(bytes: dst, count: result)
                 }
             } else if attempt == 2 {
-                throw ImportError.parseFailed("ZIP: deflate decode failed (出力\(bufferSize)bytes でも不足、または破損)")
+                throw ImportError.parseFailed("ZIP: deflate decode failed (\(bufferSize) bytes was insufficient, or data is corrupted)")
             }
             bufferSize *= 4
         }

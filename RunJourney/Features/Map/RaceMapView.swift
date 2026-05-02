@@ -4,6 +4,11 @@ import MapKit
 
 /// メインの地図画面。全レースを色分けピンで表示し、タップで詳細を開く。
 /// マップ右下の Layers ボタンから `MapStylePanel` を開いてスタイル/ピンをカスタマイズできる。
+///
+/// 重要: SwiftUI 標準の `Map` ビューは iOS 26 でタブバーアピアランスを内部から壊し、
+/// MAP タブだけタブラベル書体がシステムフォントに戻る不具合を起こすため使えない。
+/// 地図は `RaceListMapView`（MKMapView を `UIViewRepresentable` で直接ラップ）を使う。
+/// この副作用は SwiftUI Map 特有で、MKMapView を介すと発生しない。
 struct RaceMapView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
@@ -11,7 +16,9 @@ struct RaceMapView: View {
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
 
-    @State private var cameraPosition: MapCameraPosition = .region(Self.japanRegion)
+    /// MKMapView へ渡す「一回限りの region 変更要求」。fit 操作時にセットし、
+    /// 反映後は MKMapView 側で nil に戻される。
+    @State private var requestedRegion: MKCoordinateRegion?
     @State private var selectedRace: Race?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
@@ -31,82 +38,14 @@ struct RaceMapView: View {
     }
 
     var body: some View {
-        // MapKit の内部 UIView は SwiftUI の preferredColorScheme より UIKit 由来の
-        // overrideUserInterfaceStyle を見るので、ColorSchemeOverride で包んで強制する。
-        ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
-            Map(position: $cameraPosition, selection: $selectedRace) {
-                ForEach(races) { race in
-                    Annotation(
-                        race.name.isEmpty ? "レース" : race.name,
-                        coordinate: race.coordinate,
-                        anchor: pinSettings.shape == .pin ? .bottom : .center
-                    ) {
-                        RaceAnnotationView(
-                            race: race,
-                            isSelected: selectedRace == race,
-                            settings: pinSettings
-                        )
-                    }
-                    .tag(race)
-                }
-
-                if let race = selectedRace, !selectedRouteCoordinates.isEmpty {
-                    MapPolyline(coordinates: selectedRouteCoordinates)
-                        .stroke(race.category.pinColor, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                }
-            }
-            .mapStyle(mapSettings.mapStyle)
-            .mapControls {
-                MapUserLocationButton()
-                MapCompass()
-                MapScaleView()
-            }
+        ZStack {
+            mapLayer
+            overlayLayer
         }
-        // フルスクリーン: ナビゲーションバーと TabBar の下まで地図を広げる。
-        .ignoresSafeArea(.container, edges: [.top, .bottom])
-        .overlay(alignment: .topLeading) {
-            // 左上: ハンバーガー → レース一覧ドロワー
-            HamburgerButton(action: { showRaceList = true })
-                .padding(.top, 12)
-                .padding(.leading, 12)
-        }
-        .overlay(alignment: .topTrailing) {
-            // 右上のフロート: Layers ボタン
-            LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
-                .padding(.top, 12)
-                .padding(.trailing, 12)
-        }
-        .overlay(alignment: .bottomTrailing) {
-            // 右下フロートのアクションクラスタ: インポート / ダミー追加 / フィット / 日本表示。
-            // (元はナビゲーションバーのツールバーにあったが、フルスクリーン化のため画面内に移動)
-            MapActionsCluster(
-                onImport: nil, // FileImportButton を内部で使うため不要
-                onAddDummy: addDummyRaceNearTokyo,
-                onFitAll: fitAllRaces,
-                onFitRoute: fitSelectedRoute,
-                onResetJapan: {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        cameraPosition = .region(Self.japanRegion)
-                    }
-                },
-                canFitAll: !races.isEmpty,
-                canFitRoute: !selectedRouteCoordinates.isEmpty
-            )
-            .padding(.trailing, 12)
-            .padding(.bottom, 96)   // TabBar 高さ + safe area 分を確保
-        }
-        .overlay(alignment: .top) {
-            if races.isEmpty {
-                Text("右下の ↓ から TCX / GPX を取り込み、または + でダミーレースを追加")
-                    .font(.callout)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.top, 64)
-                    .padding(.horizontal, 16)
-                    .transition(.opacity)
-            }
-        }
+        // 上下とも safe area を尊重: status bar / Dynamic Island や TabBar の裏に
+        // 地図がはみ出さないようにする。
+        // (top の ignoresSafeArea は status bar 領域に地図が透けて読みづらくなるため撤去。
+        //  bottom の ignoresSafeArea は iOS 26 タブバーアピアランスを壊すため不可。)
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
@@ -127,21 +66,19 @@ struct RaceMapView: View {
                 RaceDetailView(race: race)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("閉じる") { selectedRace = nil }
+                            Button("Close") { selectedRace = nil }
                         }
                     }
             }
             .presentationDetents([.medium, .large])
         }
         .onAppear {
-            // 初回のみ、レースがあればそこにフィット。0 件なら Japan region のまま見せる。
             if !hasFitInitialRaces, !races.isEmpty {
                 hasFitInitialRaces = true
                 fitAllRaces()
             }
         }
         .onChange(of: races.count) { _, newCount in
-            // インポート直後など、レースが追加されたら一度だけフィット
             if !hasFitInitialRaces, newCount > 0 {
                 hasFitInitialRaces = true
                 fitAllRaces()
@@ -149,16 +86,81 @@ struct RaceMapView: View {
         }
     }
 
+    // MARK: - Layers
+
+    @ViewBuilder
+    private var mapLayer: some View {
+#if os(iOS)
+        RaceListMapView(
+            races: races,
+            selectedRace: $selectedRace,
+            requestedRegion: $requestedRegion,
+            selectedRouteCoords: selectedRouteCoordinates,
+            mapSettings: mapSettings,
+            pinSettings: pinSettings
+        )
+#else
+        Color.bgSecondary
+            .overlay(Text("Map (iOS only)").foregroundStyle(.secondary))
+#endif
+    }
+
+    @ViewBuilder
+    private var overlayLayer: some View {
+        // 上下とも safe area 尊重なので SwiftUI が自動で safeAreaInsets を補正する。
+        // GeometryReader での手動補正は不要。
+        VStack {
+            HStack {
+                HamburgerButton(action: { showRaceList = true })
+                Spacer()
+                LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
+            Spacer()
+
+            if races.isEmpty {
+                Text("Import TCX / GPX from the toolbar, or tap + to add a sample race")
+                    .font(.callout)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.horizontal, 16)
+                    .transition(.opacity)
+            }
+
+            HStack {
+                Spacer()
+                MapActionsCluster(
+                    onImport: nil,
+                    onAddDummy: addDummyRaceNearTokyo,
+                    onFitAll: fitAllRaces,
+                    onFitRoute: fitSelectedRoute,
+                    onResetJapan: {
+                        requestedRegion = Self.japanRegion
+                    },
+                    canFitAll: !races.isEmpty,
+                    canFitRoute: !selectedRouteCoordinates.isEmpty
+                )
+            }
+            .padding(.trailing, 12)
+            .padding(.bottom, 12)
+        }
+    }
+
+    // MARK: - Actions
+
     /// MVP用ダミー追加。Phase 3 で TCX/GPX/FIT 取り込みダイアログに置き換える。
     private func addDummyRaceNearTokyo() {
         let samples: [(String, RaceCategory, Double, Double, String)] = [
-            ("東京マラソン", .fullMarathon, 35.6909, 139.6917, "Tokyo"),
-            ("湘南国際マラソン", .fullMarathon, 35.3220, 139.4811, "Fujisawa"),
-            ("大阪マラソン", .fullMarathon, 34.6937, 135.5023, "Osaka"),
-            ("北海道マラソン", .fullMarathon, 43.0667, 141.3500, "Sapporo"),
-            ("ハセツネカップ", .trail, 35.7375, 139.1453, "Tokyo"),
-            ("青梅マラソン", .halfMarathon, 35.7878, 139.2756, "Ome"),
-            ("板橋Cityマラソン", .fullMarathon, 35.7611, 139.6833, "Itabashi"),
+            ("Tokyo Marathon", .fullMarathon, 35.6909, 139.6917, "Tokyo"),
+            ("Shonan International Marathon", .fullMarathon, 35.3220, 139.4811, "Fujisawa"),
+            ("Osaka Marathon", .fullMarathon, 34.6937, 135.5023, "Osaka"),
+            ("Hokkaido Marathon", .fullMarathon, 43.0667, 141.3500, "Sapporo"),
+            ("Hasetsune Cup", .trail, 35.7375, 139.1453, "Tokyo"),
+            ("Ome Marathon", .halfMarathon, 35.7878, 139.2756, "Ome"),
+            ("Itabashi City Marathon", .fullMarathon, 35.7611, 139.6833, "Itabashi"),
             ("UTMF", .ultraCustom, 35.4361, 138.7186, "Fujikawaguchiko"),
         ]
         let pick = samples[races.count % samples.count]
@@ -177,19 +179,7 @@ struct RaceMapView: View {
     private func fitSelectedRoute() {
         let coords = selectedRouteCoordinates
         guard coords.count >= 2 else { return }
-        let lats = coords.map(\.latitude)
-        let lngs = coords.map(\.longitude)
-        let center = CLLocationCoordinate2D(
-            latitude: (lats.min()! + lats.max()!) / 2,
-            longitude: (lngs.min()! + lngs.max()!) / 2
-        )
-        let span = MKCoordinateSpan(
-            latitudeDelta: max(lats.max()! - lats.min()!, 0.005) * 1.4,
-            longitudeDelta: max(lngs.max()! - lngs.min()!, 0.005) * 1.4
-        )
-        withAnimation(.easeInOut(duration: 0.6)) {
-            cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
-        }
+        animate(toRegion: regionFitting(coords))
     }
 
     /// レース 1 件にフィットする。トラックポイントがあればルート全体にフィットし、
@@ -198,52 +188,41 @@ struct RaceMapView: View {
         let coords = (race.results?.first(where: { !$0.trackPoints.isEmpty })?.trackPoints ?? [])
             .map(\.coordinate)
         if coords.count >= 2 {
-            let lats = coords.map(\.latitude)
-            let lngs = coords.map(\.longitude)
-            let center = CLLocationCoordinate2D(
-                latitude: (lats.min()! + lats.max()!) / 2,
-                longitude: (lngs.min()! + lngs.max()!) / 2
-            )
-            let span = MKCoordinateSpan(
-                latitudeDelta: max(lats.max()! - lats.min()!, 0.005) * 1.4,
-                longitudeDelta: max(lngs.max()! - lngs.min()!, 0.005) * 1.4
-            )
-            withAnimation(.easeInOut(duration: 0.6)) {
-                cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
-            }
+            animate(toRegion: regionFitting(coords))
         } else {
-            withAnimation(.easeInOut(duration: 0.6)) {
-                cameraPosition = .region(MKCoordinateRegion(
-                    center: race.coordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                ))
-            }
+            animate(toRegion: MKCoordinateRegion(
+                center: race.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+            ))
         }
     }
 
     private func fitAllRaces() {
         guard !races.isEmpty else { return }
-        let lats = races.map(\.lat)
-        let lngs = races.map(\.lng)
-        let minLat = lats.min()!
-        let maxLat = lats.max()!
-        let minLng = lngs.min()!
-        let maxLng = lngs.max()!
+        let coords = races.map(\.coordinate)
+        animate(toRegion: regionFitting(coords, minSpan: 0.05))
+    }
+
+    private func regionFitting(_ coords: [CLLocationCoordinate2D], minSpan: Double = 0.005) -> MKCoordinateRegion {
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
         let center = CLLocationCoordinate2D(
-            latitude: (minLat + maxLat) / 2,
-            longitude: (minLng + maxLng) / 2
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
         )
         let span = MKCoordinateSpan(
-            latitudeDelta: max(maxLat - minLat, 0.05) * 1.5,
-            longitudeDelta: max(maxLng - minLng, 0.05) * 1.5
+            latitudeDelta: max(lats.max()! - lats.min()!, minSpan) * 1.5,
+            longitudeDelta: max(lngs.max()! - lngs.min()!, minSpan) * 1.5
         )
-        withAnimation(.easeInOut(duration: 0.6)) {
-            cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
-        }
+        return MKCoordinateRegion(center: center, span: span)
+    }
+
+    private func animate(toRegion region: MKCoordinateRegion) {
+        // RaceListMapView (UIViewRepresentable) は requestedRegion バインディングを
+        // 監視して setRegion(animated: true) を呼ぶ。SwiftUI の withAnimation は不要。
+        requestedRegion = region
     }
 }
-
-// （RaceDetailView, RaceResultRow は Features/Detail/ 配下に移動）
 
 // MARK: - Floating overlay components
 
@@ -266,12 +245,11 @@ struct HamburgerButton: View {
                 .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("レース一覧")
+        .accessibilityLabel("Races")
     }
 }
 
-/// 元はナビゲーションバーのツールバー項目だった「インポート / ダミー追加 / フィット / 日本表示」を
-/// 縦に積んだフロート群。マップフルスクリーン化に伴い右下に移動した。
+/// 右下のアクションクラスタ: インポート / ダミー追加 / フィット / 日本表示。
 struct MapActionsCluster: View {
     let onImport: (() -> Void)?           // 外部から差し替えたい場合用 (現状は内部 FileImportButton)
     let onAddDummy: () -> Void
@@ -283,8 +261,6 @@ struct MapActionsCluster: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // インポート: FileImportButton はピッカー UI を内包する独自 Button なので、
-            // labelStyle.iconOnly + tint で見た目を浮きボタンに揃える
             FileImportButton()
                 .labelStyle(.iconOnly)
                 .font(.system(size: 16, weight: .semibold))
@@ -297,14 +273,14 @@ struct MapActionsCluster: View {
                 )
                 .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
 
-            floatButton(systemName: "plus", label: "ダミー追加", action: onAddDummy)
-            floatButton(systemName: "scope", label: "全レースを表示", action: onFitAll)
+            floatButton(systemName: "plus", label: "Add Sample", action: onAddDummy)
+            floatButton(systemName: "scope", label: "Fit All Races", action: onFitAll)
                 .opacity(canFitAll ? 1 : 0.4)
                 .disabled(!canFitAll)
-            floatButton(systemName: "arrow.up.left.and.arrow.down.right", label: "ルートにフィット", action: onFitRoute)
+            floatButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Fit Route", action: onFitRoute)
                 .opacity(canFitRoute ? 1 : 0.4)
                 .disabled(!canFitRoute)
-            floatButton(systemName: "globe.asia.australia", label: "日本全体", action: onResetJapan)
+            floatButton(systemName: "globe.asia.australia", label: "View Japan", action: onResetJapan)
         }
     }
 

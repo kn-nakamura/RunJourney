@@ -20,36 +20,46 @@ struct SettingsView: View {
         var id: String { rawValue }
         var displayName: String {
             switch self {
-            case .results: return "結果のみ"
-            case .races: return "大会と結果"
-            case .plans: return "ペースプランのみ"
-            case .everything: return "すべて"
+            case .results: return "Results Only"
+            case .races: return "Races & Results"
+            case .plans: return "Pace Plans Only"
+            case .everything: return "Everything"
             }
         }
         var summary: String {
             switch self {
-            case .results: return "登録された結果（タイム・ルート）を全て削除します。大会マスターは残ります。"
-            case .races: return "大会マスターと、それに紐付くすべての結果を削除します。"
-            case .plans: return "保存したペース計算プランを全て削除します。"
-            case .everything: return "全データ（大会・結果・ペースプラン）を削除します。元に戻せません。"
+            case .results: return "Deletes all registered results (times, routes). Race entries are kept."
+            case .races: return "Deletes race entries and all linked results."
+            case .plans: return "Deletes all saved pace plans."
+            case .everything: return "Deletes everything (races, results, pace plans). Cannot be undone."
             }
         }
     }
 
     var body: some View {
-        Form {
-            statsSection
-            dataSection
-            iCloudSection
-            aboutSection
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Settings")
+                .appText(.displayLg)
+                .foregroundStyle(Color.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .background(Color.bgPrimary)
+            Form {
+                statsSection
+                dataSection
+                iCloudSection
+                aboutSection
+            }
         }
-        .navigationTitle("設定")
+        .background(Color.bgPrimary)
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.hidden, for: .navigationBar)
 #endif
-        .alert("\(deleteScope.displayName) を削除しますか？", isPresented: $showingDeleteAllAlert) {
-            Button("キャンセル", role: .cancel) { }
-            Button("削除", role: .destructive) { performDelete() }
+        .alert("Delete \(deleteScope.displayName)?", isPresented: $showingDeleteAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { performDelete() }
         } message: {
             Text(deleteScope.summary)
         }
@@ -58,10 +68,10 @@ struct SettingsView: View {
     // MARK: - Stats
 
     private var statsSection: some View {
-        Section("登録データ") {
-            statRow(symbol: "flag.checkered", label: "大会", count: races.count, color: .accentPrimary)
-            statRow(symbol: "figure.run", label: "結果", count: results.count, color: .cat10K)
-            statRow(symbol: "bookmark.fill", label: "ペースプラン", count: plans.count, color: .catHalfMarathon)
+        Section("Library") {
+            statRow(symbol: "flag.checkered", label: "Races", count: races.count, color: .accentPrimary)
+            statRow(symbol: "figure.run", label: "Results", count: results.count, color: .cat10K)
+            statRow(symbol: "bookmark.fill", label: "Pace Plans", count: plans.count, color: .catHalfMarathon)
         }
     }
 
@@ -73,7 +83,7 @@ struct SettingsView: View {
             Text(label)
             Spacer()
             Text("\(count)")
-                .font(.mono(15, bold: true))
+                .appText(.codeBaseBold)
                 .foregroundStyle(.secondary)
         }
     }
@@ -89,14 +99,14 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Image(systemName: "trash")
-                        Text(scope.displayName + " を削除")
+                        Text("Delete \(scope.displayName)")
                     }
                 }
             }
         } header: {
-            Text("データ管理")
+            Text("Data Management")
         } footer: {
-            Text("CloudKit同期がオンの場合は、すべての連携端末からも削除されます。")
+            Text("If iCloud sync is enabled, deletions also propagate to all linked devices.")
         }
     }
 
@@ -109,34 +119,34 @@ struct SettingsView: View {
                     .foregroundStyle(Color.cat5K)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("iCloud 同期")
-                        .font(.body(14))
-                    Text("MVP初期はローカル保存のみ")
-                        .font(.body(11))
+                    Text("iCloud Sync")
+                        .appText(.bodySm)
+                    Text("Local storage only in MVP")
+                        .appText(.bodyXs)
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
-                Text("オフ")
-                    .font(.mono(11))
+                Text("OFF")
+                    .appText(.codeXs)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.bgTertiary, in: Capsule())
             }
         } header: {
-            Text("同期")
+            Text("Sync")
         } footer: {
-            Text("Apple Developer Program 加入後、ModelConfiguration を cloudKitDatabase: .private に切り替えると有効化されます。複数端末（iPhone・iPad・Mac）で記録を共有可能。")
+            Text("Once Apple Developer Program is enabled, switch ModelConfiguration to cloudKitDatabase: .private to share records across iPhone / iPad / Mac.")
         }
     }
 
     // MARK: - About
 
     private var aboutSection: some View {
-        Section("アプリ情報") {
-            LabeledContent("バージョン", value: appVersion)
-            LabeledContent("ビルド", value: buildNumber)
+        Section("About") {
+            LabeledContent("Version", value: appVersion)
+            LabeledContent("Build", value: buildNumber)
             Link(destination: URL(string: "https://github.com/kn-nakamura/run-journey-ios")!) {
-                Label("GitHubリポジトリ", systemImage: "link")
+                Label("GitHub Repository", systemImage: "link")
             }
         }
     }

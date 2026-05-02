@@ -78,7 +78,7 @@ struct RouteFlythruView: View {
             .padding(.bottom, 16)
         }
         .background(Color.bgPrimary)
-        .navigationTitle(result.race?.name ?? "再生")
+        .navigationTitle(result.race?.name ?? "Playback")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif

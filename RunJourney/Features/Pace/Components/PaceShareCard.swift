@@ -46,11 +46,10 @@ struct PaceShareCard: View {
     private var header: some View {
         VStack(spacing: 4) {
             Text("RUN JOURNEY")
-                .font(.body(11, weight: .bold))
-                .tracking(4)
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-            Text(raceType.labelJa.uppercased())
-                .font(.display(28))
+            Text(raceType.labelLong)
+                .appText(.displaySm)
                 .foregroundStyle(Color.accentPrimary)
         }
         .padding(.bottom, 28)
@@ -61,15 +60,14 @@ struct PaceShareCard: View {
     private var heroBlock: some View {
         VStack(spacing: 12) {
             Text("AVERAGE PACE")
-                .font(.body(10, weight: .bold))
-                .tracking(3)
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(PaceUtils.formatPaceSimple(pacePerKm))
-                    .font(.display(110))
+                    .appText(.codeHero)
                     .foregroundStyle(Color.accentPrimary)
                 Text("/ km")
-                    .font(.body(20, weight: .medium))
+                    .appText(.bodyLg)
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 12)
             }
@@ -96,16 +94,15 @@ struct PaceShareCard: View {
     private func metricColumn(label: String, value: String, suffix: String?) -> some View {
         VStack(spacing: 4) {
             Text(label)
-                .font(.body(9, weight: .bold))
-                .tracking(2)
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.display(30))
+                    .appText(.codeMd)
                     .foregroundStyle(Color.textPrimary)
                 if let suffix {
                     Text(suffix)
-                        .font(.body(13, weight: .medium))
+                        .appText(.bodySm)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -117,8 +114,7 @@ struct PaceShareCard: View {
     private var lapsBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("SPLITS")
-                .font(.body(10, weight: .bold))
-                .tracking(3)
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 4)
@@ -126,14 +122,15 @@ struct PaceShareCard: View {
             // 最大 12 行に絞って画像内に収める。多い時は等間隔で間引く。
             let displayed = downsample(laps, max: 12)
             ForEach(displayed) { lap in
+                let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
                 HStack {
                     Text(lap.distanceLabel)
-                        .font(.mono(11, bold: lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"))
+                        .appText(isMilestone ? .codeXsBold : .codeXs)
                         .foregroundStyle(lapColor(lap))
                         .frame(width: 60, alignment: .leading)
                     Spacer()
                     Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
-                        .font(.mono(13, bold: true))
+                        .appText(.codeSmBold)
                         .foregroundStyle(Color.textPrimary)
                 }
             }
@@ -176,7 +173,7 @@ struct PaceShareCard: View {
     private var footer: some View {
         VStack(spacing: 4) {
             Text("Generated with RunJourney iOS")
-                .font(.body(10, weight: .medium))
+                .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 28)

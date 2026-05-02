@@ -18,7 +18,7 @@ struct FileImportButton: View {
         Button {
             isImporterPresented = true
         } label: {
-            Label("ファイル取り込み", systemImage: "square.and.arrow.down")
+            Label("Import File", systemImage: "square.and.arrow.down")
         }
         .disabled(isProcessing)
         .fileImporter(
@@ -46,7 +46,7 @@ struct FileImportButton: View {
             )
             .interactiveDismissDisabled()
         }
-        .alert("取り込み完了", isPresented: Binding(
+        .alert("Import Complete", isPresented: Binding(
             get: { importedSummary != nil },
             set: { if !$0 { importedSummary = nil } }
         ), presenting: importedSummary) { _ in
@@ -54,7 +54,7 @@ struct FileImportButton: View {
         } message: { summary in
             Text(summary.message)
         }
-        .alert("取り込みエラー", isPresented: Binding(
+        .alert("Import Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         ), presenting: errorMessage) { _ in
@@ -104,7 +104,7 @@ struct FileImportButton: View {
                     fileName: url.lastPathComponent
                 ))
             } catch let importError as ImportError {
-                failures.append((url.lastPathComponent, importError.errorDescription ?? "不明なエラー"))
+                failures.append((url.lastPathComponent, importError.errorDescription ?? "Unknown error"))
             } catch {
                 failures.append((url.lastPathComponent, error.localizedDescription))
             }
@@ -119,7 +119,7 @@ struct FileImportButton: View {
 
         // パース失敗が一部だけある場合もユーザーに伝える
         if !failures.isEmpty {
-            errorMessage = "一部のファイルでパースに失敗しました:\n" + failures.map { "・\($0.name): \($0.reason)" }.joined(separator: "\n")
+            errorMessage = "Some files failed to parse:\n" + failures.map { "• \($0.name): \($0.reason)" }.joined(separator: "\n")
         }
 
         pendingImports = items
@@ -155,7 +155,7 @@ struct FileImportButton: View {
             pendingImports = []
             currentIndex = 0
             if savedCount > 0 {
-                importedSummary = ImportedSummary(message: "\(savedCount) 件のアクティビティを取り込みました")
+                importedSummary = ImportedSummary(message: "Imported \(savedCount) activity / activities")
             }
         }
         // それ以外（残ファイルあり）は currentPendingBinding が次のシートを自動表示

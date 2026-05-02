@@ -13,7 +13,7 @@ enum GPXParser {
         parser.shouldReportNamespacePrefixes = false
 
         guard parser.parse() else {
-            let detail = parser.parserError?.localizedDescription ?? "不明なXMLエラー"
+            let detail = parser.parserError?.localizedDescription ?? "Unknown XML error"
             throw ImportError.parseFailed(detail)
         }
 

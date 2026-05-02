@@ -14,13 +14,13 @@ enum RaceCategory: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .fiveK: return "5km"
-        case .tenK: return "10km"
-        case .halfMarathon: return "ハーフマラソン"
-        case .fullMarathon: return "フルマラソン"
-        case .trail: return "トレイル"
-        case .ultra100K: return "100km"
-        case .ultraCustom: return "ウルトラ"
+        case .fiveK: return "5K"
+        case .tenK: return "10K"
+        case .halfMarathon: return "Half"
+        case .fullMarathon: return "Full"
+        case .trail: return "Trail"
+        case .ultra100K: return "Ultra 100K"
+        case .ultraCustom: return "Ultra"
         }
     }
 

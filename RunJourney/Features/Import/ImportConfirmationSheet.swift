@@ -61,16 +61,16 @@ struct ImportConfirmationSheet: View {
                     existingRaceSection
                 }
             }
-            .navigationTitle("取り込み確認")
+            .navigationTitle("CONFIRM IMPORT")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { onCancel() }
+                    Button("Cancel") { onCancel() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("取り込む") { confirm() }
+                    Button("Import") { confirm() }
                         .disabled(!canConfirm)
                 }
             }
@@ -91,48 +91,48 @@ struct ImportConfirmationSheet: View {
 
     @ViewBuilder
     private var activitySummarySection: some View {
-        Section("アクティビティ概要") {
+        Section("Activity Summary") {
             if let date = activity.startDate {
-                LabeledContent("日付", value: date.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent("Date", value: date.formatted(date: .abbreviated, time: .shortened))
             }
-            LabeledContent("距離", value: String(format: "%.2f km", activity.totalDistanceKm))
+            LabeledContent("Distance", value: String(format: "%.2f km", activity.totalDistanceKm))
             if let sec = activity.finishTimeSec {
-                LabeledContent("タイム", value: formatDuration(sec))
+                LabeledContent("Time", value: formatDuration(sec))
             }
-            LabeledContent("推定カテゴリ", value: activity.estimatedCategory.displayName)
+            LabeledContent("Category (auto)", value: activity.estimatedCategory.displayName)
             if let coord = activity.startCoordinate {
-                LabeledContent("開始地点", value: String(format: "%.4f, %.4f", coord.latitude, coord.longitude))
+                LabeledContent("Start", value: String(format: "%.4f, %.4f", coord.latitude, coord.longitude))
             }
-            LabeledContent("トラックポイント", value: "\(activity.trackPoints.count)")
-            LabeledContent("ラップ", value: "\(activity.laps.count)")
+            LabeledContent("Track Points", value: "\(activity.trackPoints.count)")
+            LabeledContent("Laps", value: "\(activity.laps.count)")
         }
     }
 
     @ViewBuilder
     private var modePickerSection: some View {
         Section {
-            Picker("保存先", selection: $mode) {
-                Text("新しい大会として作成").tag(Mode.newRace)
-                Text("既存の大会に結果を追加")
+            Picker("Save To", selection: $mode) {
+                Text("New Race").tag(Mode.newRace)
+                Text("Attach to Existing Race")
                     .tag(Mode.existingRace)
             }
             .pickerStyle(.segmented)
             .disabled(existingRaces.isEmpty)
         } footer: {
             if existingRaces.isEmpty {
-                Text("まだ大会が登録されていないので「新しい大会として作成」のみ選択できます。")
+                Text("No races registered yet — only \"New Race\" is available.")
             } else if mode == .existingRace, !nearbyRaces.isEmpty {
-                Text("開始地点から5km以内の大会が \(nearbyRaces.count) 件あります（年別比較に便利）")
+                Text("\(nearbyRaces.count) race(s) within 5 km of the start (great for year-over-year comparison).")
             }
         }
     }
 
     @ViewBuilder
     private var newRaceSection: some View {
-        Section("新しい大会") {
+        Section("New Race") {
             raceNameField
-            LabeledContent("カテゴリ", value: activity.estimatedCategory.displayName)
-            Text("カテゴリと開始地点はアクティビティから自動推定されます。あとで詳細画面で編集できます。")
+            LabeledContent("Category", value: activity.estimatedCategory.displayName)
+            Text("Category and start location are auto-inferred from the activity. Edit later from the detail view.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -142,11 +142,11 @@ struct ImportConfirmationSheet: View {
     @ViewBuilder
     private var raceNameField: some View {
 #if os(iOS)
-        TextField("大会名", text: $newRaceName)
+        TextField("Race Name", text: $newRaceName)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
 #else
-        TextField("大会名", text: $newRaceName)
+        TextField("Race Name", text: $newRaceName)
             .autocorrectionDisabled()
 #endif
     }
@@ -155,7 +155,7 @@ struct ImportConfirmationSheet: View {
     private var existingRaceSection: some View {
         Section {
             if !nearbyRaces.isEmpty {
-                Text("開始地点周辺")
+                Text("Nearby Races")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                 ForEach(nearbyRaces) { race in
@@ -163,7 +163,7 @@ struct ImportConfirmationSheet: View {
                 }
             }
             if !existingRaces.filter({ !nearbyRaces.contains($0) }).isEmpty {
-                Text("その他の大会")
+                Text("Other Races")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                 ForEach(existingRaces.filter { !nearbyRaces.contains($0) }) { race in
@@ -171,7 +171,7 @@ struct ImportConfirmationSheet: View {
                 }
             }
         } header: {
-            Text("追加先の大会を選択")
+            Text("Pick a race to attach")
         }
     }
 
@@ -190,10 +190,10 @@ struct ImportConfirmationSheet: View {
                     HStack(spacing: 6) {
                         Text(race.category.displayName)
                         if let count = race.results?.count, count > 0 {
-                            Text("・ 結果 \(count)件")
+                            Text("· \(count) result(s)")
                         }
                         if isNearby {
-                            Text("・ 近場")
+                            Text("· nearby")
                                 .foregroundStyle(.tint)
                         }
                     }

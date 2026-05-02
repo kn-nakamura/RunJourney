@@ -12,9 +12,9 @@ struct ElevationProfileChart: View {
     var body: some View {
         if validPoints.isEmpty {
             ContentUnavailableView(
-                "標高データなし",
+                "No Elevation Data",
                 systemImage: "mountain.2",
-                description: Text("ファイルに高度データが含まれていません")
+                description: Text("This file has no altitude data.")
             )
             .frame(height: 100)
         } else {
@@ -25,8 +25,8 @@ struct ElevationProfileChart: View {
     private var chart: some View {
         Chart(validPoints) { p in
             AreaMark(
-                x: .value("距離 (km)", p.distanceM / 1000),
-                y: .value("標高 (m)", p.altitudeM ?? 0)
+                x: .value("Distance (km)", p.distanceM / 1000),
+                y: .value("Elevation (m)", p.altitudeM ?? 0)
             )
             .foregroundStyle(.linearGradient(
                 colors: [Color.cat10K.opacity(0.7), Color.cat10K.opacity(0.05)],
@@ -36,8 +36,8 @@ struct ElevationProfileChart: View {
             .interpolationMethod(.monotone)
 
             LineMark(
-                x: .value("距離 (km)", p.distanceM / 1000),
-                y: .value("標高 (m)", p.altitudeM ?? 0)
+                x: .value("Distance (km)", p.distanceM / 1000),
+                y: .value("Elevation (m)", p.altitudeM ?? 0)
             )
             .foregroundStyle(Color.cat10K)
             .lineStyle(.init(lineWidth: 1.5))
@@ -46,7 +46,7 @@ struct ElevationProfileChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 5)) { _ in
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
-                AxisValueLabel().font(.mono(10))
+                AxisValueLabel().font(.appFont(.codeXxs))
             }
         }
         .chartYAxis {
@@ -55,7 +55,7 @@ struct ElevationProfileChart: View {
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
                         Text(String(format: "%.0f m", raw))
-                            .font(.mono(10))
+                            .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -76,9 +76,9 @@ struct HeartRateChart: View {
     var body: some View {
         if validPoints.isEmpty {
             ContentUnavailableView(
-                "心拍データなし",
+                "No Heart Rate Data",
                 systemImage: "heart",
-                description: Text("ファイルに心拍データが含まれていません")
+                description: Text("This file has no heart rate data.")
             )
             .frame(height: 100)
         } else {
@@ -89,8 +89,8 @@ struct HeartRateChart: View {
     private var chart: some View {
         Chart(validPoints) { p in
             LineMark(
-                x: .value("時間 (分)", p.timeSec / 60),
-                y: .value("心拍 (bpm)", p.heartRate ?? 0)
+                x: .value("Time (min)", p.timeSec / 60),
+                y: .value("HR (bpm)", p.heartRate ?? 0)
             )
             .foregroundStyle(Color.catFullMarathon)
             .lineStyle(.init(lineWidth: 1.8))
@@ -99,13 +99,13 @@ struct HeartRateChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 5)) { _ in
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
-                AxisValueLabel().font(.mono(10))
+                AxisValueLabel().font(.appFont(.codeXxs))
             }
         }
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { value in
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
-                AxisValueLabel().font(.mono(10))
+                AxisValueLabel().font(.appFont(.codeXxs))
             }
         }
         .frame(height: 140)
@@ -135,9 +135,9 @@ struct MultiResultLapPaceChart: View {
     var body: some View {
         if validResults.count < 2 {
             ContentUnavailableView(
-                "比較できる結果が不足",
+                "Need at Least 2 Results",
                 systemImage: "chart.line.uptrend.xyaxis",
-                description: Text("同じ大会に2件以上の結果が必要です")
+                description: Text("Add 2+ results to the same race to compare.")
             )
             .frame(height: 100)
         } else {
@@ -152,16 +152,16 @@ struct MultiResultLapPaceChart: View {
                 let color = Self.palette[item.idx % Self.palette.count]
                 ForEach(item.result.lapData.filter { $0.paceSecPerKm > 0 }, id: \.lapIndex) { lap in
                     LineMark(
-                        x: .value("ラップ", lap.lapIndex),
-                        y: .value("ペース", lap.paceSecPerKm),
-                        series: .value("年", label)
+                        x: .value("Lap", lap.lapIndex),
+                        y: .value("Pace", lap.paceSecPerKm),
+                        series: .value("Year", label)
                     )
                     .foregroundStyle(color)
                     .lineStyle(.init(lineWidth: 2))
                     .interpolationMethod(.monotone)
                     PointMark(
-                        x: .value("ラップ", lap.lapIndex),
-                        y: .value("ペース", lap.paceSecPerKm)
+                        x: .value("Lap", lap.lapIndex),
+                        y: .value("Pace", lap.paceSecPerKm)
                     )
                     .foregroundStyle(color)
                     .symbolSize(20)
@@ -179,7 +179,7 @@ struct MultiResultLapPaceChart: View {
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
                         Text(formatPace(raw))
-                            .font(.mono(10))
+                            .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -188,7 +188,7 @@ struct MultiResultLapPaceChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
-                AxisValueLabel().font(.mono(10))
+                AxisValueLabel().font(.appFont(.codeXxs))
             }
         }
         .frame(height: 220)
@@ -196,7 +196,7 @@ struct MultiResultLapPaceChart: View {
 
     private func yearLabel(for result: RaceResult) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy"
         return f.string(from: result.raceDate)
     }
@@ -236,14 +236,14 @@ struct FinishTimeComparisonChart: View {
                 let label = dateLabel(result)
                 let isPB = result.finishTimeSec == pbSec
                 BarMark(
-                    x: .value("日付", label),
-                    y: .value("タイム", result.finishTimeSec ?? 0)
+                    x: .value("Date", label),
+                    y: .value("Time", result.finishTimeSec ?? 0)
                 )
                 .foregroundStyle(isPB ? Color.accentPrimary : Color.bgTertiary.opacity(0.85))
                 .cornerRadius(4)
                 .annotation(position: .top) {
                     Text(formatDuration(result.finishTimeSec ?? 0))
-                        .font(.mono(10, bold: isPB))
+                        .appText(isPB ? .codeXxsBold : .codeXxs)
                         .foregroundStyle(isPB ? Color.accentPrimary : .secondary)
                 }
             }
@@ -254,21 +254,21 @@ struct FinishTimeComparisonChart: View {
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
                         Text(formatDuration(raw))
-                            .font(.mono(10))
+                            .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
         }
         .chartXAxis {
-            AxisMarks { _ in AxisValueLabel().font(.mono(10)) }
+            AxisMarks { _ in AxisValueLabel().font(.appFont(.codeXxs)) }
         }
         .frame(height: 180)
     }
 
     private func dateLabel(_ result: RaceResult) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy/MM/dd"
         return f.string(from: result.raceDate)
     }

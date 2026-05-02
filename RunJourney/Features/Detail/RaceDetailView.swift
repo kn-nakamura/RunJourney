@@ -32,7 +32,7 @@ struct RaceDetailView: View {
             }
             deleteSection
         }
-        .navigationTitle(race.name.isEmpty ? "(無題)" : race.name)
+        .navigationTitle(race.name.isEmpty ? "(Untitled)" : race.name)
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -41,20 +41,20 @@ struct RaceDetailView: View {
     // MARK: - Basic info
 
     private var basicInfoSection: some View {
-        Section("基本情報") {
-            TextField("レース名", text: $race.name)
-            Picker("カテゴリ", selection: $race.category) {
+        Section("Race Info") {
+            TextField("Race Name", text: $race.name)
+            Picker("Category", selection: $race.category) {
                 ForEach(RaceCategory.allCases) { cat in
                     Label(cat.displayName, systemImage: cat.symbolName)
                         .tag(cat)
                 }
             }
             if let km = race.distanceKm {
-                LabeledContent("距離", value: String(format: "%.2f km", km))
+                LabeledContent("Distance", value: String(format: "%.2f km", km))
             }
-            LabeledContent("地点", value: String(format: "%.4f, %.4f", race.lat, race.lng))
+            LabeledContent("Location", value: String(format: "%.4f, %.4f", race.lat, race.lng))
             if let city = race.city {
-                LabeledContent("都市", value: city)
+                LabeledContent("City", value: city)
             }
         }
     }
@@ -64,9 +64,9 @@ struct RaceDetailView: View {
     private var resultsSection: some View {
         Section {
             if sortedResults.isEmpty {
-                Text("まだ結果が登録されていません")
+                Text("No results yet")
                     .foregroundStyle(.secondary)
-                Text("地図のツールバー ↓ から TCX/GPX/FIT/ZIP を取り込むと、確認シートで「既存の大会に結果を追加」を選んでこの大会の結果として登録できます。")
+                Text("Import TCX / GPX / FIT / ZIP from the Map toolbar, then choose \"Attach to existing race\" in the import confirmation sheet to associate the result with this race.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {
@@ -86,14 +86,14 @@ struct RaceDetailView: View {
             }
         } header: {
             HStack {
-                Text("結果一覧")
+                Text("Results")
                 Spacer()
-                Text("\(sortedResults.count)件")
+                Text("\(sortedResults.count)")
                     .foregroundStyle(.secondary)
             }
         } footer: {
             if sortedResults.count >= 2 {
-                Text("行をタップで詳細・チャート表示。下の「比較」セクションで重ね合わせ表示できます。")
+                Text("Tap a row for details and charts. Open \"Year-over-Year\" below to overlay multiple results.")
             }
         }
     }
@@ -105,14 +105,14 @@ struct RaceDetailView: View {
             DisclosureGroup(isExpanded: $showComparison) {
                 VStack(alignment: .leading, spacing: 12) {
                     if sortedResults.contains(where: { ($0.finishTimeSec ?? 0) > 0 }) {
-                        Text("フィニッシュタイム")
-                            .font(.body(13, weight: .bold))
+                        Text("Finish Time")
+                            .appText(.bodySmBold)
                             .foregroundStyle(.secondary)
                         FinishTimeComparisonChart(results: sortedResults)
                     }
                     if sortedResults.contains(where: { !$0.lapData.isEmpty }) {
-                        Text("ラップ別ペース重ね合わせ")
-                            .font(.body(13, weight: .bold))
+                        Text("Lap Pace Overlay")
+                            .appText(.bodySmBold)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
                         MultiResultLapPaceChart(results: sortedResults)
@@ -120,8 +120,8 @@ struct RaceDetailView: View {
                 }
                 .padding(.vertical, 4)
             } label: {
-                Label("年別比較", systemImage: "chart.line.uptrend.xyaxis")
-                    .font(.body(15, weight: .bold))
+                Label("Year-over-Year", systemImage: "chart.line.uptrend.xyaxis")
+                    .appText(.bodyBaseBold)
             }
         }
     }
@@ -135,11 +135,11 @@ struct RaceDetailView: View {
                 try? modelContext.save()
                 dismiss()
             } label: {
-                Label("大会を削除", systemImage: "trash")
+                Label("Delete Race", systemImage: "trash")
             }
         } footer: {
             if !sortedResults.isEmpty {
-                Text("削除すると \(sortedResults.count) 件の結果も一緒に消えます。")
+                Text("Deleting also removes the \(sortedResults.count) linked result(s).")
             }
         }
     }
@@ -154,10 +154,10 @@ struct RaceResultRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(result.raceDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(.body(15, weight: .bold))
+                    .appText(.bodyBaseBold)
                 if isPB {
                     Text("PB")
-                        .font(.monoCaption)
+                        .appText(.badgeNumeric)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.pbBadge, in: Capsule())
@@ -166,7 +166,7 @@ struct RaceResultRow: View {
                 Spacer()
                 if let sec = result.finishTimeSec {
                     Text(formatDuration(sec))
-                        .font(.display(28))
+                        .appText(.codeLg)
                         .foregroundStyle(Color.accentPrimary)
                 } else if result.isDNF {
                     Text("DNF").foregroundStyle(.red)
@@ -177,15 +177,15 @@ struct RaceResultRow: View {
             HStack(spacing: 12) {
                 if let dist = result.summary?.totalDistanceM {
                     Label(String(format: "%.2f km", dist / 1000), systemImage: "ruler")
-                        .font(.mono(12))
+                        .appText(.codeXs)
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
                     Label(formatPace(pace), systemImage: "speedometer")
-                        .font(.mono(12))
+                        .appText(.codeXs)
                 }
                 if let hr = result.summary?.avgHeartRate {
                     Label("\(hr) bpm", systemImage: "heart.fill")
-                        .font(.mono(12))
+                        .appText(.codeXs)
                         .foregroundStyle(.red.opacity(0.85))
                 }
             }
@@ -194,10 +194,10 @@ struct RaceResultRow: View {
             if !result.lapData.isEmpty || !result.trackPoints.isEmpty {
                 HStack(spacing: 12) {
                     if !result.lapData.isEmpty {
-                        Text("ラップ \(result.lapData.count)")
+                        Text("\(result.lapData.count) laps")
                     }
                     if !result.trackPoints.isEmpty {
-                        Text("ポイント \(result.trackPoints.count)")
+                        Text("\(result.trackPoints.count) pts")
                     }
                     if let elev = result.summary?.elevationGainM {
                         Text(String(format: "↑ %.0f m", elev))
@@ -206,7 +206,7 @@ struct RaceResultRow: View {
                         Text(String(format: "%.0f kcal", cal))
                     }
                 }
-                .font(.mono(11))
+                .font(.appFont(.codeXs))
                 .foregroundStyle(.tertiary)
             }
         }

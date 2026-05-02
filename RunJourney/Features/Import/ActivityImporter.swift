@@ -43,7 +43,7 @@ enum ActivityImporter {
                     return try parse(data: entry.data, ext: preferred)
                 }
             }
-            throw ImportError.parseFailed("ZIP: アクティビティファイル(.fit/.tcx/.gpx)が含まれていません — 含まれるエントリ: \(entries.map(\.name).joined(separator: ", "))")
+            throw ImportError.parseFailed("ZIP: no activity file (.fit/.tcx/.gpx) found — entries: \(entries.map(\.name).joined(separator: ", "))")
         default:
             throw ImportError.unsupportedFormat(ext)
         }
@@ -122,10 +122,10 @@ enum ActivityImporter {
         }
         if let date = activity.startDate {
             let f = DateFormatter()
-            f.locale = Locale(identifier: "ja_JP")
+            f.locale = Locale(identifier: "en_US_POSIX")
             f.dateFormat = "yyyy/MM/dd"
             return "\(activity.estimatedCategory.displayName) (\(f.string(from: date)))"
         }
-        return "新しい大会"
+        return "New Race"
     }
 }

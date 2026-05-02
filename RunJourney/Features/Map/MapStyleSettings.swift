@@ -10,9 +10,9 @@ struct MapStyleSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .standard: return "標準"
-            case .hybrid:   return "ハイブリッド"
-            case .imagery:  return "航空写真"
+            case .standard: return "Standard"
+            case .hybrid:   return "Hybrid"
+            case .imagery:  return "Imagery"
             }
         }
         var symbol: String {
@@ -36,7 +36,7 @@ struct MapStyleSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .auto:  return "自動"
+            case .auto:  return "Auto"
             case .dark:  return "Dark"
             case .light: return "Light"
             }
@@ -55,9 +55,9 @@ struct MapStyleSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .none:    return "なし"
-            case .minimal: return "最小"
-            case .all:     return "すべて"
+            case .none:    return "Off"
+            case .minimal: return "Min"
+            case .all:     return "All"
             }
         }
         var symbol: String {

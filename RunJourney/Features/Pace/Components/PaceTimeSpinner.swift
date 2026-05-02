@@ -18,10 +18,8 @@ struct PaceTimeSpinner: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(title)
-                .font(.body(10, weight: .medium))
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             switch mode {
@@ -33,7 +31,7 @@ struct PaceTimeSpinner: View {
 
             if let derived = derivedGoalTimeSeconds {
                 Text("→ \(PaceUtils.formatTimeSimple(derived))")
-                    .font(.mono(11))
+                    .appText(.codeXs)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -68,7 +66,7 @@ struct PaceTimeSpinner: View {
 
     private var colon: some View {
         Text(":")
-            .font(.mono(22, bold: false))
+            .appText(.codeLg)
             .foregroundStyle(.secondary)
             .padding(.bottom, 2)
     }
@@ -91,7 +89,7 @@ struct PaceTimeSpinner: View {
             .buttonStyle(.plain)
 
             Text(String(format: format, value))
-                .font(.mono(22, bold: true))
+                .appText(.codeLgBold)
                 .foregroundStyle(Color.textPrimary)
                 .frame(minWidth: 32)
                 .contentTransition(.numericText())

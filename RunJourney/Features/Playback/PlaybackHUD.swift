@@ -10,50 +10,50 @@ struct PlaybackHUD: View {
             // 経過時間 / 総時間
             VStack(alignment: .leading, spacing: 1) {
                 Text(formatDuration(controller.currentTime))
-                    .font(.display(28))
+                    .appText(.codeLg)
                     .foregroundStyle(Color.accentPrimary)
                 Text("/ \(formatDuration(controller.totalDuration))")
-                    .font(.mono(10))
+                    .appText(.codeXxs)
                     .foregroundStyle(.secondary)
             }
             Divider().frame(height: 36).background(.white.opacity(0.15))
             // 距離
             VStack(alignment: .leading, spacing: 2) {
-                Text("距離")
-                    .font(.body(10))
+                Text("Distance")
+                    .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 Text(distanceText)
-                    .font(.mono(15, bold: true))
+                    .appText(.codeBaseBold)
                     .foregroundStyle(Color.textPrimary)
             }
             // ペース（直近の速度から逆算）
             VStack(alignment: .leading, spacing: 2) {
-                Text("ペース")
-                    .font(.body(10))
+                Text("Pace")
+                    .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 Text(paceText)
-                    .font(.mono(15, bold: true))
+                    .appText(.codeBaseBold)
                     .foregroundStyle(Color.textPrimary)
             }
             // 心拍
             if hrText != nil {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("心拍")
-                        .font(.body(10))
+                    Text("HR")
+                        .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                     Text(hrText ?? "—")
-                        .font(.mono(15, bold: true))
+                        .appText(.codeBaseBold)
                         .foregroundStyle(Color.catFullMarathon)
                 }
             }
             // 標高
             if elevText != nil {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("標高")
-                        .font(.body(10))
+                    Text("Elevation")
+                        .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                     Text(elevText ?? "—")
-                        .font(.mono(15, bold: true))
+                        .appText(.codeBaseBold)
                         .foregroundStyle(Color.cat10K)
                 }
             }

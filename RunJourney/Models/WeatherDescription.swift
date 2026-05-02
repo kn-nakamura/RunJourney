@@ -11,11 +11,11 @@ enum WeatherDescription: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .sunny: return "晴れ"
-        case .cloudy: return "曇り"
-        case .rainy: return "雨"
-        case .windy: return "風強い"
-        case .snowy: return "雪"
+        case .sunny: return "Sunny"
+        case .cloudy: return "Cloudy"
+        case .rainy: return "Rainy"
+        case .windy: return "Windy"
+        case .snowy: return "Snowy"
         }
     }
 

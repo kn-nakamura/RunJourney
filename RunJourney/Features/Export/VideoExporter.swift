@@ -29,7 +29,7 @@ final class VideoExporter {
 
     func startRecording() async {
         guard recorder.isAvailable else {
-            state = .error("この端末では画面録画が利用できません（iOS 実機で再試行してください）")
+            state = .error("Screen recording is not available on this device (try on a real iOS device).")
             return
         }
         if recorder.isRecording {
@@ -45,7 +45,7 @@ final class VideoExporter {
             }
         } catch {
             await MainActor.run {
-                self.state = .error("録画開始に失敗: \(error.localizedDescription)")
+                self.state = .error("Failed to start recording: \(error.localizedDescription)")
             }
         }
     }
@@ -64,7 +64,7 @@ final class VideoExporter {
             return preview
         } catch {
             await MainActor.run {
-                self.state = .error("録画停止に失敗: \(error.localizedDescription)")
+                self.state = .error("Failed to stop recording: \(error.localizedDescription)")
                 self.startedAt = nil
             }
             return nil
@@ -105,7 +105,7 @@ final class VideoExporter {
                     continuation.resume(throwing: NSError(
                         domain: "VideoExporter",
                         code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "プレビューが返されませんでした"]
+                        userInfo: [NSLocalizedDescriptionKey: "Recording preview was not returned"]
                     ))
                 }
             }
@@ -114,7 +114,7 @@ final class VideoExporter {
 #else
     var isAvailable: Bool { false }
     func startRecording() async {
-        state = .error("画面録画は iOS のみ対応です")
+        state = .error("Screen recording is iOS only.")
     }
     func stopRecording() async -> Any? { nil }
     func discardRecording() async {}

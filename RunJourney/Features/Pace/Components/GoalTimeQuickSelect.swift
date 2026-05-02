@@ -24,11 +24,9 @@ struct GoalTimeQuickSelect: View {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                Text("目標タイム — クイック設定")
-                    .font(.body(10, weight: .medium))
+                Text("Goal Time — Quick Select")
+                    .appText(.eyebrow)
                     .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(1)
 
                 VStack(spacing: 6) {
                     ForEach(Array(groups.enumerated()), id: \.offset) { idx, group in
@@ -52,7 +50,7 @@ struct GoalTimeQuickSelect: View {
                         } label: {
                             HStack {
                                 Text(group.groupLabel)
-                                    .font(.body(13, weight: .bold))
+                                    .appText(.displaySm)
                                     .foregroundStyle(activeGroup?.groupLabel == group.groupLabel ? Color.accentPrimary : Color.textPrimary)
                                 Spacer()
                             }
@@ -81,7 +79,7 @@ private struct SubTargetButton: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.mono(12, bold: isActive))
+                .appText(isActive ? .codeXsBold : .codeXs)
                 .foregroundStyle(isActive ? Color.black : Color.textPrimary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)

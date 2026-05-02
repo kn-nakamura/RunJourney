@@ -16,13 +16,13 @@ struct MapStylePanel: View {
                 pinSection
                 resetSection
             }
-            .navigationTitle("レイヤー")
+            .navigationTitle("LAYERS")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完了") { dismiss() }
+                    Button("Done") { dismiss() }
                 }
             }
         }
@@ -34,9 +34,9 @@ struct MapStylePanel: View {
         Section {
             // Style — アイコンのみ。Standard / Hybrid / Imagery
             HStack {
-                Label("スタイル", systemImage: "map")
+                Label("Style", systemImage: "map")
                 Spacer()
-                Picker("スタイル", selection: $mapSettings.base) {
+                Picker("Style", selection: $mapSettings.base) {
                     ForEach(MapStyleSettings.Base.allCases) { base in
                         Image(systemName: base.symbol).tag(base)
                     }
@@ -47,9 +47,9 @@ struct MapStylePanel: View {
 
             // Color
             HStack {
-                Label("カラー", systemImage: "paintbrush")
+                Label("Color", systemImage: "paintbrush")
                 Spacer()
-                Picker("カラー", selection: $mapSettings.colorMode) {
+                Picker("Color", selection: $mapSettings.colorMode) {
                     ForEach(MapStyleSettings.ColorMode.allCases) { mode in
                         Image(systemName: mode.symbol).tag(mode)
                     }
@@ -62,9 +62,9 @@ struct MapStylePanel: View {
 
             // Elevation
             HStack {
-                Label("起伏", systemImage: "mountain.2")
+                Label("Elevation", systemImage: "mountain.2")
                 Spacer()
-                Picker("起伏", selection: $mapSettings.elevation) {
+                Picker("Elevation", selection: $mapSettings.elevation) {
                     ForEach(MapStyleSettings.Elevation.allCases) { elev in
                         Text(elev.label).tag(elev)
                     }
@@ -75,9 +75,9 @@ struct MapStylePanel: View {
 
             // POI（施設マーカー）
             HStack {
-                Label("施設", systemImage: "tag")
+                Label("POI", systemImage: "tag")
                 Spacer()
-                Picker("施設", selection: $mapSettings.poi) {
+                Picker("POI", selection: $mapSettings.poi) {
                     ForEach(MapStyleSettings.POIMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -90,14 +90,14 @@ struct MapStylePanel: View {
 
             // Traffic
             Toggle(isOn: $mapSettings.showsTraffic) {
-                Label("交通情報", systemImage: "car.fill")
+                Label("Traffic", systemImage: "car.fill")
             }
             .disabled(!mapSettings.allowsTraffic)
             .opacity(mapSettings.allowsTraffic ? 1 : 0.4)
         } header: {
-            Text("マップ")
+            Text("Map")
         } footer: {
-            Text("「施設」はカフェ・公園などのアイコンを抑制します。市町村名などの地理ラベルはApple Mapsの仕様で常に表示されます。")
+            Text("\"POI\" hides cafe / park glyphs. City and place name labels are always shown by Apple Maps.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -106,12 +106,12 @@ struct MapStylePanel: View {
     // MARK: - Pin
 
     private var pinSection: some View {
-        Section("ピン") {
+        Section("Pin") {
             // Shape
             HStack {
-                Label("形", systemImage: "circle.fill")
+                Label("Shape", systemImage: "circle.fill")
                 Spacer()
-                Picker("形", selection: $pinSettings.shape) {
+                Picker("Shape", selection: $pinSettings.shape) {
                     ForEach(PinSettings.Shape.allCases) { s in
                         Image(systemName: s.symbol).tag(s)
                     }
@@ -122,9 +122,9 @@ struct MapStylePanel: View {
 
             // Symbol
             HStack {
-                Label("シンボル", systemImage: "figure.run")
+                Label("Symbol", systemImage: "figure.run")
                 Spacer()
-                Picker("シンボル", selection: $pinSettings.symbolMode) {
+                Picker("Symbol", selection: $pinSettings.symbolMode) {
                     ForEach(PinSettings.SymbolMode.allCases) { m in
                         Text(m.label).tag(m)
                     }
@@ -135,9 +135,9 @@ struct MapStylePanel: View {
 
             // Color
             HStack {
-                Label("色", systemImage: "paintpalette")
+                Label("Color", systemImage: "paintpalette")
                 Spacer()
-                Picker("色", selection: $pinSettings.colorSource) {
+                Picker("Color", selection: $pinSettings.colorSource) {
                     ForEach(PinSettings.ColorSource.allCases) { c in
                         Text(c.label).tag(c)
                     }
@@ -148,9 +148,9 @@ struct MapStylePanel: View {
 
             // Size
             HStack {
-                Label("サイズ", systemImage: "arrow.up.left.and.arrow.down.right")
+                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right")
                 Spacer()
-                Picker("サイズ", selection: $pinSettings.size) {
+                Picker("Size", selection: $pinSettings.size) {
                     ForEach(PinSettings.Size.allCases) { s in
                         Text(s.label).tag(s)
                     }
@@ -160,18 +160,18 @@ struct MapStylePanel: View {
             }
 
             Toggle(isOn: $pinSettings.showBorder) {
-                Label("白枠", systemImage: "circle.dashed")
+                Label("Border", systemImage: "circle.dashed")
             }
 
             Toggle(isOn: $pinSettings.showName) {
-                Label("名前ラベル", systemImage: "text.below.photo")
+                Label("Name Label", systemImage: "text.below.photo")
             }
 
             // プレビュー
             HStack {
                 Spacer()
                 VStack(spacing: 8) {
-                    Text("プレビュー")
+                    Text("Preview")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 24) {
@@ -204,7 +204,7 @@ struct MapStylePanel: View {
                 mapSettings = .default
                 pinSettings = .default
             } label: {
-                Label("デフォルトに戻す", systemImage: "arrow.uturn.backward")
+                Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
             }
         }
     }
@@ -232,7 +232,7 @@ struct LayersButton: View {
                 .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("レイヤー")
+        .accessibilityLabel("Layers")
         .sheet(isPresented: $showingPanel) {
             MapStylePanel(mapSettings: $mapSettings, pinSettings: $pinSettings)
                 .presentationDetents([.medium, .large])

@@ -50,7 +50,7 @@ struct RaceListDrawer: View {
                 content
             }
             .background(Color.bgPrimary)
-            .navigationTitle("レース一覧 (\(filteredRaces.count))")
+            .navigationTitle("RACES (\(filteredRaces.count))")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -63,9 +63,9 @@ struct RaceListDrawer: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("レース名・都市で検索", text: $searchText)
+            TextField("Search by name or city", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.body(14))
+                .font(.appFont(.bodySm))
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -85,7 +85,7 @@ struct RaceListDrawer: View {
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterPill(label: "すべて", isActive: selectedCategory == nil, color: .accentPrimary) {
+                FilterPill(label: "All", isActive: selectedCategory == nil, color: .accentPrimary) {
                     selectedCategory = nil
                 }
                 ForEach(RaceCategory.allCases) { cat in
@@ -106,7 +106,7 @@ struct RaceListDrawer: View {
     private var yearRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterPill(label: "全期間", isActive: selectedYear == nil, color: .accentPrimary) {
+                FilterPill(label: "All Years", isActive: selectedYear == nil, color: .accentPrimary) {
                     selectedYear = nil
                 }
                 ForEach(availableYears, id: \.self) { yr in
@@ -131,8 +131,8 @@ struct RaceListDrawer: View {
                 Image(systemName: "magnifyingglass.circle")
                     .font(.system(size: 36))
                     .foregroundStyle(.tertiary)
-                Text(races.isEmpty ? "まだレースがありません" : "該当するレースがありません")
-                    .font(.body(13))
+                Text(races.isEmpty ? "No races yet" : "No matching races")
+                    .appText(.bodySm)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -175,16 +175,16 @@ private struct RaceListRow: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(race.name.isEmpty ? "(無名)" : race.name)
-                    .font(.body(14, weight: .bold))
+                Text(race.name.isEmpty ? "(Untitled)" : race.name)
+                    .appText(.bodySmBold)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     Text(race.category.displayName)
-                        .font(.body(11))
+                        .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                     if let city = race.city, !city.isEmpty {
-                        Text("・\(city)").font(.body(11)).foregroundStyle(.tertiary)
+                        Text("· \(city)").appText(.bodyXs).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -193,7 +193,7 @@ private struct RaceListRow: View {
 
             if resultCount > 0 {
                 Text("\(resultCount)")
-                    .font(.mono(11, bold: true))
+                    .appText(.badgeNumeric)
                     .foregroundStyle(.black)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
@@ -217,7 +217,7 @@ private struct FilterPill: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.body(12, weight: isActive ? .bold : .medium))
+                .appText(.displayXs)
                 .foregroundStyle(isActive ? Color.black : Color.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)

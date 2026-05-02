@@ -18,10 +18,10 @@ struct ContentView: View {
         var id: String { rawValue }
         var displayName: String {
             switch self {
-            case .map: return "地図"
-            case .dashboard: return "ダッシュボード"
-            case .pace: return "ペース"
-            case .settings: return "設定"
+            case .map: return "MAP"
+            case .dashboard: return "DASHBOARD"
+            case .pace: return "PACE"
+            case .settings: return "SETTINGS"
             }
         }
         var symbolName: String {

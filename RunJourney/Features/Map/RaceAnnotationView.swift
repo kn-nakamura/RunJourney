@@ -11,7 +11,7 @@ struct RaceAnnotationView: View {
             shape
 
             if isSelected && settings.showName {
-                Text(race.name.isEmpty ? "レース" : race.name)
+                Text(race.name.isEmpty ? "Race" : race.name)
                     .font(.caption2.bold())
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -182,7 +182,7 @@ struct Teardrop: Shape {
 }
 
 #Preview("Pin shapes") {
-    let dummy = Race(name: "東京マラソン", category: .fullMarathon, lat: 35.69, lng: 139.69)
+    let dummy = Race(name: "Tokyo Marathon", category: .fullMarathon, lat: 35.69, lng: 139.69)
     return ScrollView {
         VStack(spacing: 24) {
             ForEach(PinSettings.Shape.allCases) { shape in

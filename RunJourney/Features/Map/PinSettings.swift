@@ -8,10 +8,10 @@ struct PinSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .dot:    return "ドット"
-            case .ring:   return "リング"
-            case .pin:    return "ピン"
-            case .square: return "四角"
+            case .dot:    return "Dot"
+            case .ring:   return "Ring"
+            case .pin:    return "Pin"
+            case .square: return "Square"
             }
         }
         var symbol: String {
@@ -29,9 +29,9 @@ struct PinSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .never:        return "なし"
-            case .selectedOnly: return "選択時"
-            case .always:       return "常時"
+            case .never:        return "Off"
+            case .selectedOnly: return "Selected"
+            case .always:       return "Always"
             }
         }
         var symbol: String {
@@ -48,9 +48,9 @@ struct PinSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .category: return "カテゴリ"
-            case .accent:   return "アクセント"
-            case .mono:     return "モノクロ"
+            case .category: return "Category"
+            case .accent:   return "Accent"
+            case .mono:     return "Mono"
             }
         }
         var symbol: String {
@@ -67,9 +67,9 @@ struct PinSettings: Codable, Equatable {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .small:  return "小"
-            case .medium: return "中"
-            case .large:  return "大"
+            case .small:  return "S"
+            case .medium: return "M"
+            case .large:  return "L"
             }
         }
         /// 通常時の直径 (pt)
@@ -108,7 +108,9 @@ extension PinSettings {
 
 @propertyWrapper
 struct StoredPinSettings: DynamicProperty {
-    @AppStorage("pinSettings_v1") private var raw: String = ""
+    // v2 で互換破棄: MKMapView ベース移行に伴い既定値を確実に dot に戻すため
+    // ストレージキーをバンプして旧 (v1) の永続化値を捨てる。
+    @AppStorage("pinSettings_v2") private var raw: String = ""
 
     var wrappedValue: PinSettings {
         get {

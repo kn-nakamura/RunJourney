@@ -67,6 +67,10 @@ struct PaceCalculatorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                Text("Pace Calculator")
+                    .appText(.displayLg)
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 distanceSection
                 if raceType == .custom {
                     customDistanceField
@@ -95,9 +99,8 @@ struct PaceCalculatorView: View {
             .padding(.vertical, 16)
         }
         .background(Color.bgPrimary)
-        .navigationTitle("ペース計算")
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
 #endif
         .onChange(of: raceType) { _, newType in
             applyDefaultsForRaceType(newType)
@@ -135,11 +138,9 @@ struct PaceCalculatorView: View {
 
     private var distanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("距離")
-                .font(.body(10, weight: .medium))
+            Text("Distance")
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(PaceConstants.order) { type in
@@ -156,24 +157,24 @@ struct PaceCalculatorView: View {
 
     private var customDistanceField: some View {
         HStack {
-            Text("カスタム距離")
-                .font(.body(13))
+            Text("Custom Distance")
+                .appText(.bodySm)
                 .foregroundStyle(.secondary)
             Spacer()
 #if os(iOS)
             TextField("km", value: $customDistanceKm, format: .number)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
-                .font(.mono(16, bold: true))
+                .font(.appFont(.codeBaseBold))
                 .frame(width: 80)
 #else
             TextField("km", value: $customDistanceKm, format: .number)
                 .multilineTextAlignment(.trailing)
-                .font(.mono(16, bold: true))
+                .font(.appFont(.codeBaseBold))
                 .frame(width: 80)
 #endif
             Text("km")
-                .font(.body(13))
+                .appText(.bodySm)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
@@ -204,22 +205,20 @@ struct PaceCalculatorView: View {
 
     private var resultHero: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("平均ペース /km")
-                .font(.body(10, weight: .medium))
+            Text("Average Pace / km")
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
             HStack(alignment: .firstTextBaseline) {
                 Text(PaceUtils.formatPaceSimple(pacePerKm))
-                    .font(.display(56))
+                    .appText(.codeXl)
                     .foregroundStyle(Color.accentPrimary)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(String(format: "%.3f", distanceKm)) km")
-                        .font(.mono(13))
+                        .appText(.codeSm)
                         .foregroundStyle(.secondary)
                     Text(PaceUtils.formatTimeSimple(goalTimeSeconds))
-                        .font(.display(28))
+                        .appText(.codeMd)
                         .foregroundStyle(Color.textPrimary)
                 }
             }
@@ -233,21 +232,20 @@ struct PaceCalculatorView: View {
 
     private var splitsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("スプリット (累積時間)")
-                .font(.body(10, weight: .medium))
+            Text("Splits (cumulative)")
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
             VStack(spacing: 4) {
                 ForEach(laps) { lap in
+                    let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
                     HStack {
                         Text(lap.distanceLabel)
-                            .font(.mono(13, bold: lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"))
+                            .appText(isMilestone ? .codeSmBold : .codeSm)
                             .foregroundStyle(lapLabelColor(for: lap))
                             .frame(width: 64, alignment: .leading)
                         Spacer()
                         Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
-                            .font(.mono(15, bold: true))
+                            .appText(.codeBaseBold)
                             .foregroundStyle(Color.textPrimary)
                     }
                     .padding(.horizontal, 12)
@@ -275,8 +273,8 @@ struct PaceCalculatorView: View {
             HStack {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 16, weight: .semibold))
-                Text("画像で共有")
-                    .font(.body(15, weight: .bold))
+                Text("Share Image")
+                    .appText(.bodyBaseBold)
             }
             .foregroundStyle(Color.bgPrimary)
             .frame(maxWidth: .infinity)
@@ -290,13 +288,11 @@ struct PaceCalculatorView: View {
 
     private var saveSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("プラン保存")
-                .font(.body(10, weight: .medium))
+            Text("Save Plan")
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
             HStack(spacing: 8) {
-                TextField("プラン名 (例: サブ4)", text: $planName)
+                TextField("Plan name (e.g. Sub 4)", text: $planName)
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -320,11 +316,9 @@ struct PaceCalculatorView: View {
 
     private var savedPlansSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("保存済みプラン")
-                .font(.body(10, weight: .medium))
+            Text("Saved Plans")
+                .appText(.eyebrow)
                 .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
             VStack(spacing: 6) {
                 ForEach(savedPlans) { plan in
                     Button {
@@ -338,13 +332,13 @@ struct PaceCalculatorView: View {
                             modelContext.delete(plan)
                             try? modelContext.save()
                         } label: {
-                            Label("削除", systemImage: "trash")
+                            Label("Delete", systemImage: "trash")
                         }
                     }
                 }
             }
-            Text("行をタップで読み込み、長押し / スワイプで削除")
-                .font(.body(11))
+            Text("Tap a row to load, swipe to delete")
+                .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -420,7 +414,7 @@ private struct DistanceTab: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.display(18))
+                .appText(.displayXs)
                 .foregroundStyle(isActive ? Color.bgPrimary : Color.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -444,16 +438,16 @@ private struct SavedPlanRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(plan.name)
-                    .font(.body(14, weight: .bold))
+                    .appText(.bodySmBold)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
-                Text("\(String(format: "%.2f km", plan.targetDistanceKm)) ・ \(PaceUtils.formatTimeSimple(Int(plan.targetTimeSec)))")
-                    .font(.mono(11))
+                Text("\(String(format: "%.2f km", plan.targetDistanceKm)) · \(PaceUtils.formatTimeSimple(Int(plan.targetTimeSec)))")
+                    .appText(.codeXs)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text(PaceUtils.formatPaceSimple(Int(plan.paceSecPerKm)))
-                .font(.display(22))
+                .appText(.codeMd)
                 .foregroundStyle(Color.accentPrimary)
         }
         .padding(.horizontal, 12)

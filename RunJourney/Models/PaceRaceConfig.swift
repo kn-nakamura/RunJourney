@@ -19,20 +19,20 @@ enum PaceRaceType: String, CaseIterable, Identifiable, Hashable {
         case .tenK:      return "10K"
         case .half:      return "Half"
         case .full:      return "Full"
-        case .ultra100k: return "Ultra"
+        case .ultra100k: return "Ultra 100K"
         case .custom:    return "Custom"
         }
     }
 
-    /// 詳細表示用の日本語ラベル
-    var labelJa: String {
+    /// 詳細表示用の長いラベル (Bebas Neue で UPPERCASE 表示する想定)
+    var labelLong: String {
         switch self {
-        case .fiveK:     return "5キロ"
-        case .tenK:      return "10キロ"
-        case .half:      return "ハーフマラソン"
-        case .full:      return "フルマラソン"
-        case .ultra100k: return "ウルトラ100K"
-        case .custom:    return "カスタム"
+        case .fiveK:     return "5K"
+        case .tenK:      return "10K"
+        case .half:      return "Half Marathon"
+        case .full:      return "Full Marathon"
+        case .ultra100k: return "Ultra 100K"
+        case .custom:    return "Custom"
         }
     }
 }

@@ -36,19 +36,19 @@ struct PaceShareSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
 
-                    Text("Instagram Story / X 等で共有できる縦長画像 (1080×1920) を生成します")
-                        .font(.body(11))
+                    Text("Generate a 1080×1920 portrait image for Instagram Story / X")
+                        .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
 
 #if os(iOS)
                     if let image = renderImage() {
-                        ShareLink(item: Image(uiImage: image), preview: SharePreview("ペースプラン", image: Image(uiImage: image))) {
+                        ShareLink(item: Image(uiImage: image), preview: SharePreview("Pace Plan", image: Image(uiImage: image))) {
                             HStack {
                                 Image(systemName: "square.and.arrow.up")
-                                Text("共有 / 写真に保存")
-                                    .font(.body(15, weight: .bold))
+                                Text("Share / Save to Photos")
+                                    .appText(.bodyBaseBold)
                             }
                             .foregroundStyle(Color.bgPrimary)
                             .frame(maxWidth: .infinity)
@@ -58,13 +58,13 @@ struct PaceShareSheet: View {
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
                     } else {
-                        Text("画像生成に失敗しました")
-                            .font(.body(13))
+                        Text("Failed to render image")
+                            .appText(.bodySm)
                             .foregroundStyle(.red)
                     }
 #else
-                    Text("画像出力は iOS のみ対応しています")
-                        .font(.body(13))
+                    Text("Image export is iOS only")
+                        .appText(.bodySm)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 24)
 #endif
@@ -72,13 +72,13 @@ struct PaceShareSheet: View {
                 .padding(.vertical, 16)
             }
             .background(Color.bgPrimary)
-            .navigationTitle("画像で共有")
+            .navigationTitle("SHARE")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
+                    Button("Close") { dismiss() }
                 }
             }
         }

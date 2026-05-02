@@ -23,7 +23,7 @@ struct RaceResultDetailView: View {
             .padding()
         }
         .background(Color.bgPrimary)
-        .navigationTitle(result.race?.name ?? "結果")
+        .navigationTitle(result.race?.name ?? "Result")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -35,11 +35,11 @@ struct RaceResultDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(result.raceDate.formatted(date: .complete, time: .omitted))
-                    .font(.body(13, weight: .medium))
+                    .appText(.bodySm)
                     .foregroundStyle(.secondary)
                 if result.isPB {
                     Text("PB")
-                        .font(.monoCaption)
+                        .appText(.badgeNumeric)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.pbBadge, in: Capsule())
@@ -47,7 +47,7 @@ struct RaceResultDetailView: View {
                 }
                 if result.isSB {
                     Text("SB")
-                        .font(.monoCaption)
+                        .appText(.badgeNumeric)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.sbBadge, in: Capsule())
@@ -56,20 +56,20 @@ struct RaceResultDetailView: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(timeText)
-                    .font(.displayHero)
+                    .appText(.codeXl)
                     .foregroundStyle(Color.accentPrimary)
                 if let dnf = dnfLabel {
                     Text(dnf)
-                        .font(.body(14, weight: .bold))
+                        .appText(.bodySmBold)
                         .foregroundStyle(.red)
                 }
             }
             HStack(spacing: 14) {
                 if let dist = result.summary?.totalDistanceM {
-                    inlineMetric(value: String(format: "%.2f km", dist / 1000), label: "距離")
+                    inlineMetric(value: String(format: "%.2f km", dist / 1000), label: "Distance")
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
-                    inlineMetric(value: formatPace(pace), label: "平均ペース")
+                    inlineMetric(value: formatPace(pace), label: "Avg Pace")
                 }
             }
             .foregroundStyle(.secondary)
@@ -89,8 +89,8 @@ struct RaceResultDetailView: View {
 
     private func inlineMetric(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.mono(15, bold: true)).foregroundStyle(Color.textPrimary)
-            Text(label).font(.body(11)).foregroundStyle(.tertiary)
+            Text(value).appText(.codeBaseBold).foregroundStyle(Color.textPrimary)
+            Text(label).appText(.bodyXs).foregroundStyle(.tertiary)
         }
     }
 
@@ -110,28 +110,28 @@ struct RaceResultDetailView: View {
         let s = result.summary
 
         if let hr = s?.avgHeartRate {
-            arr.append(AnyView(StatCell(label: "平均HR", value: "\(hr)", unit: "bpm", symbol: "heart.fill", color: .catFullMarathon)))
+            arr.append(AnyView(StatCell(label: "Avg HR", value: "\(hr)", unit: "bpm", symbol: "heart.fill", color: .catFullMarathon)))
         }
         if let hr = s?.maxHeartRate {
-            arr.append(AnyView(StatCell(label: "最大HR", value: "\(hr)", unit: "bpm", symbol: "heart.circle.fill", color: .catFullMarathon)))
+            arr.append(AnyView(StatCell(label: "Max HR", value: "\(hr)", unit: "bpm", symbol: "heart.circle.fill", color: .catFullMarathon)))
         }
         if let elev = s?.elevationGainM {
-            arr.append(AnyView(StatCell(label: "上昇", value: String(format: "%.0f", elev), unit: "m", symbol: "arrow.up.right.circle.fill", color: .cat10K)))
+            arr.append(AnyView(StatCell(label: "Ascent", value: String(format: "%.0f", elev), unit: "m", symbol: "arrow.up.right.circle.fill", color: .cat10K)))
         }
         if let elev = s?.elevationLossM {
-            arr.append(AnyView(StatCell(label: "下降", value: String(format: "%.0f", elev), unit: "m", symbol: "arrow.down.right.circle.fill", color: .cat5K)))
+            arr.append(AnyView(StatCell(label: "Descent", value: String(format: "%.0f", elev), unit: "m", symbol: "arrow.down.right.circle.fill", color: .cat5K)))
         }
         if let cad = s?.avgCadence {
-            arr.append(AnyView(StatCell(label: "平均ケイデンス", value: "\(cad)", unit: "spm", symbol: "figure.run", color: .accentPrimary)))
+            arr.append(AnyView(StatCell(label: "Avg Cadence", value: "\(cad)", unit: "spm", symbol: "figure.run", color: .accentPrimary)))
         }
         if let pow = s?.avgPowerW {
-            arr.append(AnyView(StatCell(label: "平均パワー", value: String(format: "%.0f", pow), unit: "W", symbol: "bolt.fill", color: .catHalfMarathon)))
+            arr.append(AnyView(StatCell(label: "Avg Power", value: String(format: "%.0f", pow), unit: "W", symbol: "bolt.fill", color: .catHalfMarathon)))
         }
         if let cal = s?.totalCalories {
-            arr.append(AnyView(StatCell(label: "カロリー", value: String(format: "%.0f", cal), unit: "kcal", symbol: "flame.fill", color: .catUltra100K)))
+            arr.append(AnyView(StatCell(label: "Calories", value: String(format: "%.0f", cal), unit: "kcal", symbol: "flame.fill", color: .catUltra100K)))
         }
         if let temp = s?.avgTemperatureC {
-            arr.append(AnyView(StatCell(label: "気温", value: String(format: "%.1f", temp), unit: "°C", symbol: "thermometer", color: .cat5K)))
+            arr.append(AnyView(StatCell(label: "Temp", value: String(format: "%.1f", temp), unit: "°C", symbol: "thermometer", color: .cat5K)))
         }
         return arr
     }
@@ -143,7 +143,7 @@ struct RaceResultDetailView: View {
         return Group {
             if coords.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
-                    sectionHeader("ルート", subtitle: "タップしてフライスルー再生")
+                    sectionHeader("Route", subtitle: "Tap to play flythrough")
                     NavigationLink {
                         RouteFlythruView(result: result)
                     } label: {
@@ -195,21 +195,21 @@ struct RaceResultDetailView: View {
 
     private var lapChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("ラップ別ペース", subtitle: result.lapData.isEmpty ? nil : "\(result.lapData.count) ラップ")
+            sectionHeader("Lap Pace", subtitle: result.lapData.isEmpty ? nil : "\(result.lapData.count) laps")
             LapPaceChart(laps: result.lapData)
         }
     }
 
     private var elevationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("標高プロファイル")
+            sectionHeader("Elevation Profile")
             ElevationProfileChart(trackPoints: result.trackPoints)
         }
     }
 
     private var heartRateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("心拍推移")
+            sectionHeader("Heart Rate")
             HeartRateChart(trackPoints: result.trackPoints)
         }
     }
@@ -222,7 +222,7 @@ struct RaceResultDetailView: View {
             try? modelContext.save()
             dismiss()
         } label: {
-            Label("この結果を削除", systemImage: "trash")
+            Label("Delete This Result", systemImage: "trash")
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
@@ -235,11 +235,11 @@ struct RaceResultDetailView: View {
     private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.body(15, weight: .bold))
+                .appText(.bodyBaseBold)
                 .foregroundStyle(Color.textPrimary)
             if let sub = subtitle {
                 Text(sub)
-                    .font(.body(12))
+                    .appText(.bodyXs)
                     .foregroundStyle(.tertiary)
             }
             Spacer()
@@ -279,14 +279,14 @@ private struct StatCell: View {
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.body(11))
+                    .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text(value)
-                        .font(.mono(17, bold: true))
+                        .appText(.codeMdBold)
                         .foregroundStyle(Color.textPrimary)
                     Text(unit)
-                        .font(.body(10))
+                        .appText(.bodyXs)
                         .foregroundStyle(.tertiary)
                 }
             }

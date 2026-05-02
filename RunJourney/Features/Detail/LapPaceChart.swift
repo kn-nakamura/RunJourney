@@ -19,9 +19,9 @@ struct LapPaceChart: View {
     var body: some View {
         if validLaps.isEmpty {
             ContentUnavailableView(
-                "ラップデータなし",
+                "No Lap Data",
                 systemImage: "list.dash",
-                description: Text("ファイルに区切りデータが含まれていません")
+                description: Text("This file has no lap split data.")
             )
             .frame(height: compact ? 100 : 140)
         } else {
@@ -34,27 +34,27 @@ struct LapPaceChart: View {
         Chart {
             ForEach(validLaps, id: \.lapIndex) { lap in
                 BarMark(
-                    x: .value("ラップ", lap.lapIndex),
-                    y: .value("ペース (秒/km)", lap.paceSecPerKm)
+                    x: .value("Lap", lap.lapIndex),
+                    y: .value("Pace (sec/km)", lap.paceSecPerKm)
                 )
                 .foregroundStyle(barColor(for: lap))
                 .cornerRadius(4)
                 .annotation(position: .top, alignment: .center, spacing: 2) {
                     if !compact {
                         Text(formatPace(lap.paceSecPerKm))
-                            .font(.mono(9))
+                            .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
 
             if let avg = averagePace {
-                RuleMark(y: .value("平均", avg))
+                RuleMark(y: .value("Average", avg))
                     .foregroundStyle(.white.opacity(0.35))
                     .lineStyle(.init(lineWidth: 1, dash: [4, 3]))
                     .annotation(position: .topTrailing, alignment: .trailing, spacing: 0) {
-                        Text("平均 \(formatPace(avg))")
-                            .font(.mono(9))
+                        Text("Avg \(formatPace(avg))")
+                            .appText(.codeXxs)
                             .foregroundStyle(.tertiary)
                     }
             }
@@ -65,7 +65,7 @@ struct LapPaceChart: View {
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
                         Text(formatPace(raw))
-                            .font(.mono(10))
+                            .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -74,7 +74,7 @@ struct LapPaceChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: min(8, validLaps.count))) { _ in
                 AxisGridLine().foregroundStyle(.white.opacity(0.05))
-                AxisValueLabel().font(.mono(10))
+                AxisValueLabel().font(.appFont(.codeXxs))
             }
         }
         .frame(height: compact ? 120 : 200)

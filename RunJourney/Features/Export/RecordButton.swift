@@ -28,7 +28,7 @@ struct RecordButton: View {
                 }
                 .ignoresSafeArea()
             }
-            .alert("録画エラー", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
+            .alert("Recording Error", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
                 Button("OK") { errorMessage = nil }
             } message: { msg in
                 Text(msg)
@@ -64,7 +64,7 @@ struct RecordButton: View {
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isRecording)
         }
         .disabled(isBusy)
-        .accessibilityLabel(isRecording ? "録画停止" : "録画開始")
+        .accessibilityLabel(isRecording ? "Stop Recording" : "Start Recording")
     }
 
     private var isRecording: Bool {
