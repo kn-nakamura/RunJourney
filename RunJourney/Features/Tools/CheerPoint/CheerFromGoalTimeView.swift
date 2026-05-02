@@ -35,10 +35,12 @@ struct CheerFromGoalTimeView: View {
                 kmField($raceText, commit: commitRace, label: unit.label)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Goal Time")
-                HMSField(totalSeconds: $goalTimeSec)
-            }
+            PaceTimeSpinner(
+                title: "Goal Time",
+                mode: .goalTime,
+                seconds: $goalTimeSec,
+                derivedGoalTimeSeconds: nil
+            )
 
             startTimeRow
 
@@ -163,8 +165,7 @@ struct CheerFromGoalTimeView: View {
     }
 
     private func formatKmText(_ km: Double) -> String {
-        let v = km.displayed(in: unit)
-        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
+        PaceUtils.formatDistanceValue(km: km, in: unit)
     }
 
     private func commitCheer() {

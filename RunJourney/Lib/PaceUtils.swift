@@ -35,18 +35,29 @@ enum PaceUtils {
 
     // MARK: - Unit-aware formatters (km / mi)
 
-    /// 内部 km 値をユーザー表示単位で「値 + unit ラベル」に整形 (例: "42.20 km", "26.22 mi")
+    /// 内部 km 値をユーザー表示単位で「値 + unit ラベル」に整形 (例: "42.195 km", "26.219 mi")
     static func formatDistance(km: Double, in u: DistanceUnit) -> String {
-        let v = km.displayed(in: u)
-        let fmt = abs(v) >= 10 ? "%.1f" : "%.2f"
-        return "\(String(format: fmt, v)) \(u.label)"
+        return "\(formatDistanceValue(km: km, in: u)) \(u.label)"
     }
 
-    /// 内部 km 値だけを単位変換して数値文字列で返す (suffix は呼び出し側で付ける)
+    /// 内部 km 値を表示単位の数値だけにする (suffix は呼び出し側で付ける)
+    /// 整数値はそのまま、小数は3桁まで保持して末尾の 0 を削る (42.195, 21.098, 5 など)
     static func formatDistanceValue(km: Double, in u: DistanceUnit) -> String {
-        let v = km.displayed(in: u)
-        let fmt = abs(v) >= 10 ? "%.1f" : "%.2f"
-        return String(format: fmt, v)
+        return formatDistanceNumber(km.displayed(in: u))
+    }
+
+    /// 数値を「3 桁丸め + 末尾 0/. 削除」した文字列に整形。100 以上は 1 桁。
+    private static func formatDistanceNumber(_ v: Double) -> String {
+        if v == v.rounded() {
+            return String(format: "%.0f", v)
+        }
+        if abs(v) >= 100 {
+            return String(format: "%.1f", v)
+        }
+        var s = String(format: "%.3f", v)
+        while s.hasSuffix("0") { s.removeLast() }
+        if s.hasSuffix(".") { s.removeLast() }
+        return s
     }
 
     /// ペース (秒/km) を表示単位の秒/単位に変換。mi のときは × kmPerMile。
@@ -79,6 +90,18 @@ enum PaceUtils {
         let s = Int(total) % 60
         let hundredths = Int((total - floor(total)) * 100)
         return String(format: "%d'%02d\"%02d", m, s, hundredths)
+    }
+
+    /// Double 秒 (秒/km) をユーザー単位に変換した秒数を返す。
+    /// 例: 256.07 (sec/km) を mi で → 256.07 * 1.609344 = 412.00... (sec/mi)
+    static func paceSecondsPerUnitPrecise(secPerKm: Double, in u: DistanceUnit) -> Double {
+        u == .km ? secPerKm : secPerKm * kmPerMile
+    }
+
+    /// Double 秒/km からユーザー単位の `M'SS"FF /unit` 文字列にする。
+    static func formatPaceHundredths(secPerKm: Double, in u: DistanceUnit) -> String {
+        let secPerUnit = paceSecondsPerUnitPrecise(secPerKm: secPerKm, in: u)
+        return "\(formatPaceTrackHundredths(secPerUnit))\(u.perLabel)"
     }
 
     /// 0:00'00" 形式 (Cheer Point の表示用 — 時:分'秒")

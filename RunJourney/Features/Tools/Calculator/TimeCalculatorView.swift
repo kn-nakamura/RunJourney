@@ -44,11 +44,13 @@ struct TimeCalculatorView: View {
                 distanceField
             }
 
-            // Time row
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Time")
-                HMSField(totalSeconds: $timeSec)
-            }
+            // Time row — PaceTimeSpinner で chevron 入力
+            PaceTimeSpinner(
+                title: "Time",
+                mode: .goalTime,
+                seconds: $timeSec,
+                derivedGoalTimeSeconds: nil
+            )
 
             // Operation
             VStack(alignment: .leading, spacing: 6) {
@@ -62,11 +64,16 @@ struct TimeCalculatorView: View {
             }
 
             // Operand
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Operand")
-                if operandIsTime {
-                    HMSField(totalSeconds: $operandTimeSec)
-                } else {
+            if operandIsTime {
+                PaceTimeSpinner(
+                    title: "Operand",
+                    mode: .goalTime,
+                    seconds: $operandTimeSec,
+                    derivedGoalTimeSeconds: nil
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader(title: "Operand")
                     operandField
                 }
             }
@@ -144,8 +151,7 @@ struct TimeCalculatorView: View {
     }
 
     private func formatDistanceText() -> String {
-        let v = distanceKm.displayed(in: unit)
-        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
+        PaceUtils.formatDistanceValue(km: distanceKm, in: unit)
     }
 
     private func commitDistance() {
@@ -178,10 +184,10 @@ struct TimeCalculatorView: View {
             let total = Int((Double(timeSec) / operand).rounded())
             resultText = PaceUtils.formatTimeSimple(total)
         case .divKm:
-            // time ÷ distance → pace
+            // time ÷ distance → pace (端数を保持して hundredths 表示)
             guard distanceKm > 0, timeSec > 0 else { resultText = "—"; return }
-            let pace = PaceUtils.goalTimeToPace(goalTimeSeconds: timeSec, distanceKm: distanceKm)
-            resultText = PaceUtils.formatPace(secPerKm: pace, in: unit)
+            let secPerKm = Double(timeSec) / distanceKm
+            resultText = PaceUtils.formatPaceHundredths(secPerKm: secPerKm, in: unit)
         case .mulKm:
             // time × distance → trip total (treat time as pace per km)
             guard distanceKm > 0 else { resultText = "—"; return }

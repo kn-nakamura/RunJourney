@@ -11,9 +11,10 @@ struct PaceFromDistanceTimeView: View {
 
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
-    private var pacePerKm: Int {
+    /// Double 秒/km — 端数を保持して結果カードで hundredths 表示する
+    private var paceSecPerKm: Double {
         guard distanceKm > 0, timeSec > 0 else { return 0 }
-        return Int((Double(timeSec) / distanceKm).rounded())
+        return Double(timeSec) / distanceKm
     }
 
     var body: some View {
@@ -24,17 +25,27 @@ struct PaceFromDistanceTimeView: View {
                 distanceField
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Time")
-                HMSField(totalSeconds: $timeSec)
-            }
+            PaceTimeSpinner(
+                title: "Time",
+                mode: .goalTime,
+                seconds: $timeSec,
+                derivedGoalTimeSeconds: nil
+            )
 
             ToolsResultCard(title: "Pace / Speed") {
                 VStack(alignment: .leading, spacing: 10) {
-                    metricRow(value: PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: pacePerKm, in: unit)), unit: unit.perLabel, detail: "(\(String(format: "%.2f", PaceUtils.speed(secPerKm: pacePerKm, in: unit))) \(unit.speedLabel))")
-                    metricRow(value: PaceUtils.formatPaceTrackHundredths(PaceUtils.lapTime400m(secPerKm: pacePerKm)), unit: "/ 400m Track", detail: nil)
                     metricRow(
-                        value: PaceUtils.formatTimeSimple(Int((Double(pacePerKm) * customDistanceKm).rounded())),
+                        value: PaceUtils.formatPaceTrackHundredths(PaceUtils.paceSecondsPerUnitPrecise(secPerKm: paceSecPerKm, in: unit)),
+                        unit: unit.perLabel,
+                        detail: "(\(String(format: "%.2f", PaceUtils.speed(secPerKm: Int(paceSecPerKm.rounded()), in: unit))) \(unit.speedLabel))"
+                    )
+                    metricRow(
+                        value: PaceUtils.formatPaceTrackHundredths(paceSecPerKm * 0.4),
+                        unit: "/ 400m Track",
+                        detail: nil
+                    )
+                    metricRow(
+                        value: PaceUtils.formatTimeSimple(Int((paceSecPerKm * customDistanceKm).rounded())),
                         unit: "/ \(PaceUtils.formatDistance(km: customDistanceKm, in: unit))",
                         detail: nil
                     )
@@ -90,8 +101,7 @@ struct PaceFromDistanceTimeView: View {
     }
 
     private func formatDistanceText() -> String {
-        let v = distanceKm.displayed(in: unit)
-        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
+        PaceUtils.formatDistanceValue(km: distanceKm, in: unit)
     }
 
     private func commitDistance() {
