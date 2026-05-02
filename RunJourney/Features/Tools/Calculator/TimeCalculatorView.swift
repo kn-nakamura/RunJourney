@@ -87,6 +87,7 @@ struct TimeCalculatorView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .tint(Color.accentPrimary)
+                    .foregroundStyle(Color.bgPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
 

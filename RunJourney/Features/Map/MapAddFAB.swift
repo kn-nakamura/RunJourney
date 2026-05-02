@@ -32,7 +32,7 @@ struct MapAddFAB: View {
             showActionSheet = true
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 26, weight: .heavy))
+                .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(Color.bgPrimary)
                 .frame(width: 60, height: 60)
                 .background(
