@@ -24,12 +24,30 @@ struct ColorSchemeOverride<Content: View>: View {
 }
 
 #if os(iOS)
+/// `UIHostingController` のサブクラス。`safeAreaInsets` を常に `.zero` に強制する。
+/// SwiftUI 親で `.ignoresSafeArea(.all, edges: .top)` をかけても、
+/// UIHostingController 内に閉じた SwiftUI 階層では再びシステムの safe area
+/// (ステータスバー領域) が現れてフルスクリーン描画を阻害する。
+/// このクラスでホスト境界の safe area を無効化することで、内側の SwiftUI ビュー
+/// (例: MKMapView) が画面上端まで広がる。
+private final class FullBleedHostingController<Content: View>: UIHostingController<Content> {
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        // `additionalSafeAreaInsets` を負方向にセットして system inset を打ち消す。
+        // top のみ。bottom はタブバー・ホームインジケータを尊重するため触らない。
+        let top = view.safeAreaInsets.top - additionalSafeAreaInsets.top
+        if top > 0 {
+            additionalSafeAreaInsets = UIEdgeInsets(top: -top, left: 0, bottom: 0, right: 0)
+        }
+    }
+}
+
 private struct OverrideRepresentable<Content: View>: UIViewControllerRepresentable {
     let scheme: ColorScheme?
     let content: () -> Content
 
     func makeUIViewController(context: Context) -> UIHostingController<Content> {
-        let host = UIHostingController(rootView: content())
+        let host = FullBleedHostingController(rootView: content())
         host.view.backgroundColor = .clear
         host.overrideUserInterfaceStyle = uiStyle(scheme)
         return host

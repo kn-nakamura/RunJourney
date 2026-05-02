@@ -10,9 +10,15 @@ import MapKit
 /// 地図は `RaceListMapView`（MKMapView を `UIViewRepresentable` で直接ラップ）を使う。
 /// この副作用は SwiftUI Map 特有で、MKMapView を介すと発生しない。
 struct RaceMapView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(SplashCoordinator.self) private var splashCoordinator
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
+
+    /// 地図に出すレース (lat/lng が未設定の `(0, 0)` レースは除外)。
+    /// "+ → Add Race" で作った直後のレースは位置未確定なので、ユーザが
+    /// LocationSearchField で住所を確定するまでピンを立てない。
+    private var mappableRaces: [Race] {
+        races.filter { !($0.lat == 0 && $0.lng == 0) }
+    }
 
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
@@ -36,6 +42,13 @@ struct RaceMapView: View {
     @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
+    /// 親→子のズーム指示。`MapZoomCommand` をセットすると `RaceListMapView` が
+    /// 一度だけ setRegion を呼び、終わったら nil に戻す。
+    @State private var requestedZoom: MapZoomCommand? = nil
+    /// 子→親で逐次更新される現在の地図中心。AddRaceSheet 初期地点等に使う。
+    @State private var currentMapCenter: CLLocationCoordinate2D = CLLocationCoordinate2D(
+        latitude: 36.5, longitude: 138.0
+    )
 
     /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
     private static let japanRegion = MKCoordinateRegion(
@@ -44,14 +57,21 @@ struct RaceMapView: View {
     )
 
     var body: some View {
+        // 構造のキモ:
+        // - ColorSchemeOverride は UIHostingController でラップする副作用で、
+        //   その内部の `.ignoresSafeArea` はホスト境界より外に届かない。
+        //   そこで ColorSchemeOverride＋mapLayer を ZStack の 1 レイヤーに閉じ、
+        //   外側で `.ignoresSafeArea(edges: .top)` をかけて status bar まで広げる。
+        // - overlayLayer は ZStack 直下に置き safe area 内に保持。
+        //   ハンバーガー / Layers / FAB がステータスバーやタブバーに被らない。
         ZStack {
-            mapLayer
+            ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
+                mapLayer
+            }
+            .ignoresSafeArea(edges: .top)
+
             overlayLayer
         }
-        // 上下とも safe area を尊重: status bar / Dynamic Island や TabBar の裏に
-        // 地図がはみ出さないようにする。
-        // (top の ignoresSafeArea は status bar 領域に地図が透けて読みづらくなるため撤去。
-        //  bottom の ignoresSafeArea は iOS 26 タブバーアピアランスを壊すため不可。)
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
@@ -145,14 +165,20 @@ struct RaceMapView: View {
     private var mapLayer: some View {
 #if os(iOS)
         RaceListMapView(
-            races: races,
+            races: mappableRaces,
             selectedRace: $selectedRace,
             iconifiedRace: iconifiedRace,
             requestedRegion: $requestedRegion,
             requestedRegionUpperHalf: requestedRegionUpperHalf,
+            requestedZoom: $requestedZoom,
+            currentCenter: $currentMapCenter,
             mapSettings: mapSettings,
             pinSettings: pinSettings
         )
+        // ColorSchemeOverride 内側でも `.ignoresSafeArea` を入れる。UIHostingController で
+        // ホスト境界が独自の safeArea を持つため、外側だけだと MKMapView が status bar
+        // 領域までフレームを伸ばさない。両側で指定して確実に画面上端まで描画させる。
+        .ignoresSafeArea(.all, edges: .top)
 #else
         Color.bgSecondary
             .overlay(Text("Map (iOS only)").foregroundStyle(.secondary))
@@ -175,8 +201,9 @@ struct RaceMapView: View {
             Spacer()
 
             if races.isEmpty {
-                Text("Import TCX / GPX from the toolbar, or tap + to load sample races")
+                Text("Tap + to import a workout file, or load sample races from Settings → Developer.")
                     .font(.callout)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.regularMaterial, in: Capsule())
@@ -184,17 +211,20 @@ struct RaceMapView: View {
                     .transition(.opacity)
             }
 
-            HStack {
+            HStack(alignment: .bottom) {
                 Spacer()
-                MapActionsCluster(
-                    onImport: nil,
-                    onAddDummy: addDummyRaceNearTokyo,
-                    onFitAll: fitAllRaces,
-                    onResetJapan: {
-                        animate(toRegion: Self.japanRegion)
-                    },
-                    canFitAll: !races.isEmpty
-                )
+                VStack(spacing: 10) {
+                    MapActionsCluster(
+                        onZoomIn: { requestedZoom = .in },
+                        onZoomOut: { requestedZoom = .out },
+                        onFitAll: fitAllRaces,
+                        onResetJapan: {
+                            animate(toRegion: Self.japanRegion)
+                        },
+                        canFitAll: !mappableRaces.isEmpty
+                    )
+                    MapAddFAB(races: races)
+                }
             }
             .padding(.trailing, 12)
             .padding(.bottom, 12)
@@ -202,34 +232,6 @@ struct RaceMapView: View {
     }
 
     // MARK: - Actions
-
-    /// MVP用ダミー追加。Phase 3 で TCX/GPX/FIT 取り込みダイアログに置き換える。
-    /// 既登録の名前は重複追加しないので、何度押しても 8 件に揃う。
-    private func addDummyRaceNearTokyo() {
-        let samples: [(String, RaceCategory, Double, Double, String)] = [
-            ("Tokyo Marathon", .fullMarathon, 35.6909, 139.6917, "Tokyo"),
-            ("Shonan International Marathon", .fullMarathon, 35.3220, 139.4811, "Fujisawa"),
-            ("Osaka Marathon", .fullMarathon, 34.6937, 135.5023, "Osaka"),
-            ("Hokkaido Marathon", .fullMarathon, 43.0667, 141.3500, "Sapporo"),
-            ("Hasetsune Cup", .trail, 35.7375, 139.1453, "Tokyo"),
-            ("Ome Marathon", .halfMarathon, 35.7878, 139.2756, "Ome"),
-            ("Itabashi City Marathon", .fullMarathon, 35.7611, 139.6833, "Itabashi"),
-            ("UTMF", .ultraCustom, 35.4361, 138.7186, "Fujikawaguchiko"),
-        ]
-        let existingNames = Set(races.map(\.name))
-        for sample in samples where !existingNames.contains(sample.0) {
-            let race = Race(
-                name: sample.0,
-                category: sample.1,
-                address: sample.4,
-                city: sample.4,
-                country: "Japan",
-                lat: sample.2,
-                lng: sample.3
-            )
-            modelContext.insert(race)
-        }
-    }
 
     /// レース 1 件にフィットする。ピン位置を画面上半分の中央に置く近接ズーム。
     /// 直後にシートが下半分を覆う前提で、シートに隠れない位置にピンを寄せておく。
@@ -245,8 +247,10 @@ struct RaceMapView: View {
     }
 
     private func fitAllRaces() {
-        guard !races.isEmpty else { return }
-        let coords = races.map(\.coordinate)
+        // 位置未設定 (0,0) のレースを fit 対象に含めると、center が大幅にズレるので除外。
+        let mapped = mappableRaces
+        guard !mapped.isEmpty else { return }
+        let coords = mapped.map(\.coordinate)
         animate(toRegion: regionFitting(coords, minSpan: 0.05))
     }
 
@@ -299,34 +303,53 @@ struct HamburgerButton: View {
     }
 }
 
-/// 右下のアクションクラスタ: インポート / ダミー追加 / フィット / 日本表示。
+/// 右下の小さめアクションクラスタ: ズーム / フィット / 日本表示。
+/// レース・結果の追加は別途 `MapAddFAB` (大型ネオン FAB) が担当する。
+/// デモサンプル投入は Settings → Developer に移設した。
 struct MapActionsCluster: View {
-    let onImport: (() -> Void)?           // 外部から差し替えたい場合用 (現状は内部 FileImportButton)
-    let onAddDummy: () -> Void
+    let onZoomIn: () -> Void
+    let onZoomOut: () -> Void
     let onFitAll: () -> Void
     let onResetJapan: () -> Void
     let canFitAll: Bool
 
     var body: some View {
         VStack(spacing: 8) {
-            FileImportButton()
-                .labelStyle(.iconOnly)
-                .font(.system(size: 16, weight: .semibold))
-                .tint(.white)
-                .frame(width: 40, height: 40)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                )
-                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+            // ズーム IN/OUT は同じカード内に二段で詰めて、フィット系と視覚的に分ける。
+            VStack(spacing: 0) {
+                floatIconButton(systemName: "plus", label: "Zoom in", action: onZoomIn)
+                Rectangle()
+                    .fill(.white.opacity(0.18))
+                    .frame(height: 0.5)
+                    .frame(maxWidth: 28)
+                floatIconButton(systemName: "minus", label: "Zoom out", action: onZoomOut)
+            }
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
 
-            floatButton(systemName: "plus", label: "Add Sample", action: onAddDummy)
             floatButton(systemName: "scope", label: "Fit All Races", action: onFitAll)
                 .opacity(canFitAll ? 1 : 0.4)
                 .disabled(!canFitAll)
             floatButton(systemName: "globe.asia.australia", label: "View Japan", action: onResetJapan)
         }
+    }
+
+    /// ズームボタン専用の中身 (背景はクラスタ側でまとめてかける)。
+    @ViewBuilder
+    private func floatIconButton(systemName: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     @ViewBuilder

@@ -28,14 +28,17 @@ extension Color {
     /// SB（Season Best）バッジ色 — シルバー
     static let sbBadge = Color(hex: 0xC0C0C0)
 
-    // MARK: - Race category palette (Tailwind 400)
-    static let cat5K            = Color(hex: 0x60A5FA)  // blue-400
-    static let cat10K           = Color(hex: 0x34D399)  // emerald-400
-    static let catHalfMarathon  = Color(hex: 0xFBBF24)  // amber-400
-    static let catFullMarathon  = Color(hex: 0xF87171)  // red-400
-    static let catTrail         = Color(hex: 0xA78BFA)  // violet-400
-    static let catUltra100K     = Color(hex: 0xFB923C)  // orange-400
-    static let catUltraCustom   = Color(hex: 0xFB923C)  // orange-400 (same family)
+    // MARK: - Race category palette (Neon / fluorescent)
+    // ブランドアクセント (#E8FF47 蛍光イエロー) と並べて違和感のない高彩度ネオン系で
+    // カテゴリごとに識別。Tailwind 400 系より明度・彩度を上げて夜間ダーク地図上で
+    // 視認性を確保する。
+    static let cat5K            = Color(hex: 0x00E5FF)  // neon cyan
+    static let cat10K           = Color(hex: 0x39FF7A)  // neon green
+    static let catHalfMarathon  = Color(hex: 0xE8FF47)  // accent yellow (= brand)
+    static let catFullMarathon  = Color(hex: 0xFF3F8E)  // neon pink
+    static let catTrail         = Color(hex: 0xC770FF)  // neon violet
+    static let catUltra100K     = Color(hex: 0xFF8A00)  // neon orange
+    static let catUltraCustom   = Color(hex: 0xFF8A00)  // neon orange (same family)
 
     // MARK: - Hex helpers
 

@@ -6,6 +6,7 @@ import SwiftData
 /// (Bebas Neue 24pt) を使う。Form ではなく独自レイアウトなので、行は角丸ダーク背景の
 /// カード (`Color.bgSecondary` + RoundedRectangle 12pt) でくるむ。
 struct SettingsView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var races: [Race]
     @Query private var results: [RaceResult]
     @Query private var plans: [PacePlan]
@@ -15,6 +16,7 @@ struct SettingsView: View {
 
     @State private var showDataSheet = false
     @State private var showStorageSwitchAlert = false
+    @State private var sampleLoadMessage: String?
 
     enum DeleteScope: String, CaseIterable, Identifiable {
         case results
@@ -51,6 +53,7 @@ struct SettingsView: View {
                 librarySection
                 iCloudSection
                 aboutSection
+                developerSection
                 dataSection
             }
             .padding()
@@ -70,6 +73,57 @@ struct SettingsView: View {
             }
         } message: {
             Text("Switching does not migrate existing data. Quit and reopen RunJourney to pick a new storage location.")
+        }
+        .alert("Sample Data", isPresented: Binding(
+            get: { sampleLoadMessage != nil },
+            set: { if !$0 { sampleLoadMessage = nil } }
+        ), presenting: sampleLoadMessage) { _ in
+            Button("OK") { sampleLoadMessage = nil }
+        } message: { msg in
+            Text(msg)
+        }
+    }
+
+    // MARK: - Developer (sample data)
+    //
+    // 旧 Map 画面の「+ Add Sample」を移設。プロダクションでは目立たない位置 (About の下)
+    // に置き、開発・デモ用途として明示する。
+
+    private var developerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Developer")
+            Button {
+                let added = RaceSampleLoader.loadJapanSamples(
+                    into: modelContext,
+                    existing: races
+                )
+                sampleLoadMessage = added > 0
+                    ? "Added \(added) sample race\(added == 1 ? "" : "s")."
+                    : "All sample races are already loaded."
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "shippingbox")
+                        .foregroundStyle(Color.accentPrimary)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Load Sample Races (Japan)")
+                            .appText(.bodyBase)
+                            .foregroundStyle(Color.textPrimary)
+                        Text("Adds 8 demo races across Japan. Skips duplicates.")
+                            .appText(.bodyXs)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(Color.accentPrimary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

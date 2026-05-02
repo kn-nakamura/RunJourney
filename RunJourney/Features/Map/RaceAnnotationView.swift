@@ -8,19 +8,36 @@ struct RaceAnnotationView: View {
 
     var body: some View {
         VStack(spacing: 4) {
+            // shape は自然なサイズ (isSelected で大きさが変わる) で描画する。
+            // 透明 padding でキャンバスを膨らませると MKMapView の annotation hit-test が
+            // 隣ピンに乗り上げてしまうため、コンテナはここで作らず applyImage 側で
+            // ImageRenderer の `.padding()` (= shadow 余白 8pt) のみに留める。
             shape
 
             if isSelected && settings.showName {
                 Text(race.name.isEmpty ? "Race" : race.name)
                     .font(.caption2.bold())
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.regularMaterial, in: Capsule())
+                    .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule().fill(Color.bgPrimary.opacity(0.82))
+                    )
+                    .overlay(
+                        Capsule().strokeBorder(Color.accentPrimary.opacity(0.55), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.45), radius: 4, y: 1)
+                    .fixedSize(horizontal: true, vertical: true)
             }
         }
         .animation(.spring(response: 0.3), value: isSelected)
     }
+
+    /// showName 時のラベル予約高さ。caption2 (~12pt) + 上下 padding(3+3) + capsule の余裕。
+    /// `applyImage` から canvasH 計算で参照する。
+    static let labelReservedHeight: CGFloat = 22
 
     // MARK: - Geometry
 

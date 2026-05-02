@@ -3,6 +3,10 @@ import SwiftUI
 import SwiftData
 import MapKit
 
+/// マップ操作用のズーム命令。SwiftUI 親が `requestedZoom` バインディングをセットすると、
+/// `RaceListMapView.updateUIView` が現在のリージョンに対して係数倍率で `setRegion` を呼ぶ。
+enum MapZoomCommand: Equatable { case `in`, out }
+
 /// レース一覧用の MKMapView ラッパー。
 ///
 /// SwiftUI 標準の `Map` ビュー（iOS 17+）は **iOS 26 でタブバーアピアランスを内部的に
@@ -30,6 +34,12 @@ struct RaceListMapView: UIViewRepresentable {
     /// 画面上半分の中央に来るようにする (ピンタップ → ズーム時に使う)。
     /// `false` (既定) は四方均等パディングで通常フィット。
     var requestedRegionUpperHalf: Bool = false
+    /// 親から要求された一回限りのズーム指示。`in`/`out` に応じて現在 region の span を
+    /// 半分/倍にして `setRegion` する。反映後は nil に戻す。
+    @Binding var requestedZoom: MapZoomCommand?
+    /// 現在の地図中心座標 (任意)。指定時は `regionDidChangeAnimated` で逐次更新される。
+    /// AddRaceSheet 等が「現在の視点」を初期地点にしたいときに使う。
+    var currentCenter: Binding<CLLocationCoordinate2D>? = nil
     let mapSettings: MapStyleSettings
     let pinSettings: PinSettings
 
@@ -95,6 +105,21 @@ struct RaceListMapView: UIViewRepresentable {
                 self.requestedRegion = nil
             }
         }
+
+        // 親が要求したズーム命令を適用。現在 region の span を係数倍 (0.5 / 2.0) して
+        // setRegion(animated:) する。係数は MKMapView の最小・最大 span に丸められる。
+        if let zoom = requestedZoom {
+            var region = mapView.region
+            let factor: CLLocationDegrees = (zoom == .in) ? 0.5 : 2.0
+            region.span = MKCoordinateSpan(
+                latitudeDelta: max(0.0008, min(170, region.span.latitudeDelta * factor)),
+                longitudeDelta: max(0.0008, min(170, region.span.longitudeDelta * factor))
+            )
+            mapView.setRegion(region, animated: true)
+            DispatchQueue.main.async {
+                self.requestedZoom = nil
+            }
+        }
     }
 
     /// `MKCoordinateRegion` (center+span) を `MKMapRect` に変換する。
@@ -135,8 +160,8 @@ struct RaceListMapView: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let raceAnno = annotation as? RaceAnnotation else { return nil }
             let identifier = "RacePin"
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
-                ?? MKAnnotationView(annotation: raceAnno, reuseIdentifier: identifier)
+            let view = (mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? RacePinAnnotationView)
+                ?? RacePinAnnotationView(annotation: raceAnno, reuseIdentifier: identifier)
             view.annotation = raceAnno
             view.canShowCallout = false
             view.displayPriority = .required
@@ -167,38 +192,32 @@ struct RaceListMapView: UIViewRepresentable {
             } else {
                 iconifiedIDs.remove(id)
             }
-            // showName は snapshot 時のアンカー計算を複雑にするので強制 OFF。
-            var settings = parent.pinSettings
-            settings.showName = false
-            // ImageRenderer は SwiftUI の `.shadow()` を view の bounds 外側へ
-            // 描画した分まで含めずに切ってしまうことがある（ピンの上端が削れて見える原因）。
-            // 透明 padding を被せることでシャドウ全体を画像内に収める。
-            let padding: CGFloat = 8
+            let settings = parent.pinSettings
+            // ImageRenderer は SwiftUI の `.shadow()` を view bounds の外側に少し溢れさせるので、
+            // 透明 padding を被せて切れないようにする。これは shadow 用の最小余白。
+            // (透明 padding を大きくすると MKMapView の hit-test が隣ピンに乗り上げて
+            // 「タップしたピンと違うレースが選ばれる」バグの原因になるため、shadow 用に
+            // 必要な分だけ最小化する。)
+            let padding: CGFloat = 6
 
-            // 固定キャンバス: 選択前/後で画像の外形サイズが変わると、
-            // クロスフェードに合わせて `centerOffset` も変わってしまい、
-            // 「アイコン化の瞬間にピンが一瞬上にずれる」現象が起きる。
-            // そこで常に「選択時の最大サイズ」のキャンバスで描画し、
-            // 小さいピンは pin 形状なら下寄せ、それ以外なら中央に配置する。
-            // これで両状態の画像の外形が一致し、`centerOffset` が定数になり、
-            // クロスフェード中もピン位置が動かなくなる。
-            let canvasDim = parent.pinSettings.size.selectedDimension
-            let canvasHeight: CGFloat
-            let canvasAlignment: Alignment
-            switch parent.pinSettings.shape {
-            case .pin:
-                canvasHeight = canvasDim * 1.35
-                canvasAlignment = .bottom
-            case .dot, .ring, .square:
-                canvasHeight = canvasDim
-                canvasAlignment = .center
-            }
+            // 可視サイズ: 非選択時 = `dimension`, 選択時 = `selectedDimension`。
+            // canvas は可視ピン + (選択時のみ) ラベル領域に絞る。これで MKAnnotationView の
+            // frame (= image size) が実際のピン外形にほぼ一致し、隣接ピンの hit area が
+            // 透明領域に被られることがなくなる。
+            let visibleDim: CGFloat = isSelected ? settings.size.selectedDimension : settings.size.dimension
+            let visibleH: CGFloat = (settings.shape == .pin) ? visibleDim * 1.35 : visibleDim
+
+            let labelExtra: CGFloat = (isSelected && settings.showName) ? (4 + RaceAnnotationView.labelReservedHeight) : 0
+            // 選択中＆ラベル ON のときだけ canvas 幅を広げる (英字 ~14 文字想定)。
+            let canvasW: CGFloat = (isSelected && settings.showName) ? max(visibleDim, 140) : visibleDim
+            let canvasH: CGFloat = visibleH + labelExtra
+
             let swiftUIView = RaceAnnotationView(
                 race: raceAnno.race,
                 isSelected: isSelected,
                 settings: settings
             )
-            .frame(width: canvasDim, height: canvasHeight, alignment: canvasAlignment)
+            .frame(width: canvasW, height: canvasH, alignment: .top)
             .padding(padding)
             let renderer = ImageRenderer(content: swiftUIView)
             renderer.scale = view.traitCollection.displayScale
@@ -219,13 +238,52 @@ struct RaceListMapView: UIViewRepresentable {
                 view.image = image
             }
 
-            // 固定キャンバスで画像高さは選択前/後とも同じ。pin (teardrop) は
-            // 尖り先 (= 画像下端から padding 分上) を座標に合わせる。それ以外の形
-            // (dot/ring/square) は画像中央を座標に合わせる。
-            if parent.pinSettings.shape == .pin {
-                view.centerOffset = CGPoint(x: 0, y: -image.size.height / 2 + padding)
+            // shape のアンカー (pin = 尖り先 / dot = 中心) を地図座標に合わせる。
+            //   公式: centerOffset.y = imageH/2 - anchorY_in_image
+            //     centerOffset.y > 0 → view 中心が coord の下 (画面 y は下が正)
+            // shape は canvas の最上段に貼り付く。
+            //   pin (teardrop): tip = padding + visibleH (shape の底辺)
+            //   dot/ring/square: 中心 = padding + visibleH/2
+            let imageH: CGFloat = image.size.height
+            let imageW: CGFloat = image.size.width
+            let anchorY: CGFloat
+            if settings.shape == .pin {
+                anchorY = padding + visibleH
             } else {
-                view.centerOffset = .zero
+                anchorY = padding + visibleH / 2
+            }
+            let centerOffsetY: CGFloat = imageH / 2 - anchorY
+            view.centerOffset = CGPoint(x: 0, y: centerOffsetY)
+
+            // hit-test 矩形: 透明 padding を除いた、実際の可視ピン本体。
+            // canvas が可視ピンサイズに絞られているので、image 全面 (= view bounds) も
+            // ほぼ可視ピン外形になる。それでも 6pt の shadow padding ぶん隣に乗り上げる
+            // 余地は残るので、point(inside:) で更にタイトに絞る。
+            let hitOriginX: CGFloat = imageW / 2 - visibleDim / 2
+            let hitOriginY: CGFloat
+            if settings.shape == .pin {
+                hitOriginY = anchorY - visibleH
+            } else {
+                hitOriginY = anchorY - visibleH / 2
+            }
+            (view as? RacePinAnnotationView)?.visibleHitRect = CGRect(
+                x: hitOriginX,
+                y: hitOriginY,
+                width: visibleDim,
+                height: visibleH
+            )
+        }
+
+        // MARK: Region
+
+        /// 地図の region 変更が落ち着いたタイミングで親 (SwiftUI) に現在中心を返す。
+        /// `currentCenter` バインディングが指定されているときだけ通知する。
+        /// AddRaceSheet 等で「いま見えている視点」を初期地点に使うのに利用。
+        nonisolated func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            let center = mapView.region.center
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.parent.currentCenter?.wrappedValue = center
             }
         }
 
@@ -241,6 +299,35 @@ struct RaceListMapView: UIViewRepresentable {
             // didSelect が走るようにしておく (sheet 閉じた後の挙動を素直にする)。
             mapView.deselectAnnotation(view.annotation, animated: false)
         }
+    }
+}
+
+// MARK: - RacePinAnnotationView
+
+/// `MKAnnotationView` のサブクラス。タップ判定を「実際に見えているピンの矩形」だけに
+/// 絞る。`point(inside:with:)` と `hitTest(_:with:)` の両方を override する:
+/// - `point(inside:)` は UIKit ヒット判定の標準 API。
+/// - `hitTest(_:)` は MKMapView 内部の annotation ピックアップが直接呼ぶ場合に備える。
+/// 両者を上書きすることで、image の透明 padding 領域が隣接ピンのタップを横取りしないよう
+/// 二重に防御する。
+private final class RacePinAnnotationView: MKAnnotationView {
+    /// 可視ピンの bounding rect (本ビューの bounds 座標系)。
+    /// `.null` のときは super の挙動に委譲する。
+    var visibleHitRect: CGRect = .null
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if visibleHitRect.isNull {
+            return super.point(inside: point, with: event)
+        }
+        return visibleHitRect.contains(point)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if visibleHitRect.isNull {
+            return super.hitTest(point, with: event)
+        }
+        // 可視矩形外は nil を返して、隣接ピンや地図本体側にタップを譲る。
+        return visibleHitRect.contains(point) ? self : nil
     }
 }
 

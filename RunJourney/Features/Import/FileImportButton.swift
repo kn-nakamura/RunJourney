@@ -16,23 +16,44 @@ struct FileImportButton: View {
     /// 取り込み成功時に親へ通知するクロージャ。設定されている場合、内部の "Import Complete" アラートは出さず、
     /// 親側でシートを閉じる等の処理を行う前提となる（AddResultSheet からの呼び出し用）。
     var onCompleted: (() -> Void)? = nil
+    /// 外部から `.fileImporter` をトリガーするための binding。指定すると本ボタンの可視 UI は非表示扱いに
+    /// なり、`true` をセットされたタイミングで `.fileImporter` が開く。FAB 等の別 UI から
+    /// インポートフローを起動するための入口。
+    var externalTrigger: Binding<Bool>? = nil
+    /// `externalTrigger` を使う場合に本体ボタンの見た目を消すフラグ (true = 不可視)。
+    var hidesButtonUI: Bool = false
 
-    @State private var isImporterPresented = false
+    @State private var isImporterPresentedInternal = false
     @State private var isProcessing = false
     @State private var pendingImports: [PendingImport] = []
     @State private var currentIndex = 0
     @State private var importedSummary: ImportedSummary?
     @State private var errorMessage: String?
 
+    /// 実体としてバインドされる「インポータ表示中」状態。外部 binding があればそれを優先。
+    private var isImporterPresented: Binding<Bool> {
+        externalTrigger ?? Binding(
+            get: { isImporterPresentedInternal },
+            set: { isImporterPresentedInternal = $0 }
+        )
+    }
+
     var body: some View {
-        Button {
-            isImporterPresented = true
-        } label: {
-            Label(labelText, systemImage: iconName)
+        Group {
+            if hidesButtonUI {
+                // 外部トリガー専用モード。可視ボタンは出さず .fileImporter のフックだけ生やす。
+                Color.clear.frame(width: 0, height: 0)
+            } else {
+                Button {
+                    isImporterPresented.wrappedValue = true
+                } label: {
+                    Label(labelText, systemImage: iconName)
+                }
+            }
         }
         .disabled(isProcessing)
         .fileImporter(
-            isPresented: $isImporterPresented,
+            isPresented: isImporterPresented,
             allowedContentTypes: Self.allowedTypes,
             allowsMultipleSelection: true
         ) { result in

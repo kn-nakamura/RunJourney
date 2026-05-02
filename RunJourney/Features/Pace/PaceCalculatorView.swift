@@ -231,33 +231,13 @@ struct PaceCalculatorView: View {
 
     private var splitsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Splits (cumulative)")
-            VStack(spacing: 4) {
-                ForEach(laps) { lap in
-                    let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
-                    HStack {
-                        Text(lap.distanceLabel)
-                            .appText(isMilestone ? .codeSmBold : .codeSm)
-                            .foregroundStyle(lapLabelColor(for: lap))
-                            .frame(width: 64, alignment: .leading)
-                        Spacer()
-                        Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
-                            .appText(.codeBaseBold)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 8))
-                }
-            }
-        }
-    }
-
-    private func lapLabelColor(for lap: PaceLapSegment) -> Color {
-        switch lap.distanceLabel {
-        case "GOAL": return Color.accentPrimary
-        case "HALF": return .orange
-        default: return .secondary
+            SectionHeader(title: "Splits")
+            PaceTable(
+                laps: laps,
+                raceLabel: raceType == .custom
+                    ? "\(PaceUtils.formatDistanceLabel(distanceKm)) km"
+                    : raceType.labelLong
+            )
         }
     }
 

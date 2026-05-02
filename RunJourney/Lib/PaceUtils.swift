@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Web 版 marathon-record-app の `src/lib/paceUtils.ts` を Swift 化したもの。
 /// 純粋関数の集合 (副作用なし)。
@@ -117,5 +118,37 @@ extension PaceUtils {
         }
 
         return laps
+    }
+
+    // MARK: - Lap table helpers (PaceTable visualization)
+
+    /// `upToIndex` 行までの累積平均ペース (秒/km)。Web 版 paceUtils.ts:112-124 と同じ。
+    /// 累積走行時間 / 累積距離。距離が 0 のときは 0。
+    static func getAveragePace(laps: [PaceLapSegment], upToIndex: Int) -> Int {
+        guard upToIndex >= 0, upToIndex < laps.count else { return 0 }
+        let slice = laps[0...upToIndex]
+        let totalTime = slice.reduce(0.0) { $0 + $1.lapTime }
+        let totalKm = slice.reduce(0.0) { $0 + $1.segmentKm }
+        guard totalKm > 0 else { return 0 }
+        return Int((totalTime / totalKm).rounded())
+    }
+
+    /// ペースバーの色。Web 版 paceUtils.ts:288-299 と同じ 3 段階分岐。
+    /// `min == max` のとき (一定ペース) は teal で固定。
+    static func paceBarColor(pace: Int, minPace: Int, maxPace: Int) -> Color {
+        guard maxPace > minPace else { return Color(hex: 0x4ECDC4) }
+        let ratio = Double(pace - minPace) / Double(maxPace - minPace)
+        if ratio < 0.33 { return Color(hex: 0x00D4AA) } // emerald (fast)
+        if ratio < 0.66 { return Color(hex: 0x4ECDC4) } // teal (medium)
+        return Color(hex: 0xE94560)                     // red (slow)
+    }
+
+    /// バー幅 (0..1)。Web 版と同じ計算で、最小 4% を下限とする。
+    static func paceBarRatio(pace: Int, minPace: Int, maxPace: Int) -> Double {
+        guard maxPace > minPace else { return 0.5 }
+        let lo = Double(minPace) * 0.9
+        let hi = Double(maxPace) * 1.1
+        let raw = (Double(pace) - lo) / (hi - lo)
+        return max(0.04, min(1.0, raw))
     }
 }
