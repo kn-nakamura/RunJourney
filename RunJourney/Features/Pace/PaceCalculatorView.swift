@@ -36,6 +36,19 @@ struct PaceCalculatorView: View {
 
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
+    /// PaceTimeSpinner 用: 表示単位の sec ↔ 内部 sec/km をブリッジ。
+    /// km → そのまま。mi → displayed sec/mi を sec/km に逆変換 (× 1/1.609344)。
+    private var pacePerUnitBinding: Binding<Int> {
+        Binding(
+            get: { PaceUtils.paceSecondsPerUnit(secPerKm: pacePerKm, in: unit) },
+            set: { displayed in
+                pacePerKm = unit == .km
+                    ? displayed
+                    : Int((Double(displayed) / kmPerMile).rounded())
+            }
+        )
+    }
+
     /// 内部同期のサプレスフラグ。goalTime → pace と pace → goalTime の双方向に
     /// .onChange を貼ると無限ループするので、片方を変える時だけサプレスする。
     @State private var suppressSync = false
@@ -249,9 +262,9 @@ struct PaceCalculatorView: View {
                 derivedGoalTimeSeconds: nil
             )
             PaceTimeSpinner(
-                title: "Pace / km",
+                title: "Pace \(unit.perLabel)",
                 mode: .pace,
-                seconds: $pacePerKm,
+                seconds: pacePerUnitBinding,
                 derivedGoalTimeSeconds: PaceUtils.paceToGoalTime(pacePerKm: pacePerKm, distanceKm: distanceKm)
             )
         }

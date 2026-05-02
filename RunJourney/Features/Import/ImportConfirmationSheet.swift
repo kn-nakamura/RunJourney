@@ -127,7 +127,7 @@ struct ImportConfirmationSheet: View {
             if existingRaces.isEmpty {
                 Text("No races registered yet — only \"New Race\" is available.")
             } else if mode == .existingRace, !nearbyRaces.isEmpty {
-                Text("\(nearbyRaces.count) race(s) within 5 km of the start (great for year-over-year comparison).")
+                Text("\(nearbyRaces.count) race(s) within \(PaceUtils.formatDistance(km: 5, in: unit)) of the start (great for year-over-year comparison).")
             }
         }
     }
