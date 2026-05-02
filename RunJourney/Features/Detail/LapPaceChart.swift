@@ -18,12 +18,11 @@ struct LapPaceChart: View {
 
     var body: some View {
         if validLaps.isEmpty {
-            ContentUnavailableView(
-                "No Lap Data",
-                systemImage: "list.dash",
-                description: Text("This file has no lap split data.")
-            )
-            .frame(height: compact ? 100 : 140)
+            Text("— no lap data")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
         } else {
             chart
         }

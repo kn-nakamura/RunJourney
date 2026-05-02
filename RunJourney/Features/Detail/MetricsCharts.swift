@@ -11,12 +11,11 @@ struct ElevationProfileChart: View {
 
     var body: some View {
         if validPoints.isEmpty {
-            ContentUnavailableView(
-                "No Elevation Data",
-                systemImage: "mountain.2",
-                description: Text("This file has no altitude data.")
-            )
-            .frame(height: 100)
+            Text("— no elevation data")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
         } else {
             chart
         }
@@ -75,12 +74,11 @@ struct HeartRateChart: View {
 
     var body: some View {
         if validPoints.isEmpty {
-            ContentUnavailableView(
-                "No Heart Rate Data",
-                systemImage: "heart",
-                description: Text("This file has no heart rate data.")
-            )
-            .frame(height: 100)
+            Text("— no heart rate data")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
         } else {
             chart
         }
@@ -134,12 +132,11 @@ struct MultiResultLapPaceChart: View {
 
     var body: some View {
         if validResults.count < 2 {
-            ContentUnavailableView(
-                "Need at Least 2 Results",
-                systemImage: "chart.line.uptrend.xyaxis",
-                description: Text("Add 2+ results to the same race to compare.")
-            )
-            .frame(height: 100)
+            Text("— need 2+ results with lap data to compare")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
         } else {
             chart
         }

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 /// `RaceDetailView` の Results セクション "+" から開く、新規 RaceResult 追加シート。
 /// 手動入力が基本フローで、最上部の "Import (Optional)" から FIT/GPX/TCX/ZIP を取り込んで
@@ -23,12 +24,22 @@ struct AddResultSheet: View {
     @State private var ageGroupPlace: Int?
     @State private var comment: String = ""
 
+    // Weather
+    @State private var weatherTempC: Double?
+    @State private var weatherDescription: WeatherDescription?
+    @State private var weatherCondition: Condition?
+    @State private var weatherCode: Int?
+    @State private var isFetchingWeather = false
+    @State private var weatherFetchInfo: String?
+    @State private var weatherFetchError: String?
+
     var body: some View {
         NavigationStack {
             Form {
                 importSection
                 timeSection
                 placesSection
+                weatherSection
                 commentSection
             }
             .navigationTitle("Add Result")
@@ -157,6 +168,62 @@ struct AddResultSheet: View {
         }
     }
 
+    private var weatherSection: some View {
+        Section {
+            HStack {
+                Button {
+                    Task { await fetchWeather() }
+                } label: {
+                    Label(isFetchingWeather ? "Fetching…" : "Fetch from race location", systemImage: "cloud.sun")
+                        .appText(.bodySmBold)
+                }
+                .disabled(isFetchingWeather)
+                Spacer()
+                if isFetchingWeather {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if let info = weatherFetchInfo {
+                Text(info)
+                    .appText(.bodyXs)
+                    .foregroundStyle(.tertiary)
+            }
+            if let err = weatherFetchError {
+                Text(err)
+                    .appText(.bodyXs)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Text("Temp")
+                Spacer()
+                TextField("°C", value: $weatherTempC, format: .number)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.decimalPad)
+                    .frame(maxWidth: 100)
+                Text("°C")
+                    .appText(.codeXs)
+                    .foregroundStyle(.secondary)
+            }
+            Picker("Sky", selection: $weatherDescription) {
+                Text("—").tag(WeatherDescription?.none)
+                ForEach(WeatherDescription.allCases) { d in
+                    Label(d.displayName, systemImage: d.symbolName).tag(WeatherDescription?.some(d))
+                }
+            }
+            Picker("Condition", selection: $weatherCondition) {
+                Text("—").tag(Condition?.none)
+                ForEach(Condition.allCases) { c in
+                    Text(c.displayName).tag(Condition?.some(c))
+                }
+            }
+        } header: {
+            SectionHeader(title: "Weather (Optional)")
+        } footer: {
+            Text("Tap fetch to auto-fill the temperature and sky for the race date and start location, or enter values manually.")
+        }
+    }
+
     // MARK: - Actions
 
     private var totalFinishSeconds: Int {
@@ -178,6 +245,10 @@ struct AddResultSheet: View {
         result.ageGroupPlace = ageGroupPlace
         let trimmedComment = comment.trimmingCharacters(in: .whitespacesAndNewlines)
         result.comment = trimmedComment.isEmpty ? nil : trimmedComment
+        result.weatherTempC = weatherTempC
+        result.weatherDescription = weatherDescription
+        result.weatherCode = weatherCode
+        result.condition = weatherCondition
 
         modelContext.insert(result)
         if race.results?.contains(result) == false {
@@ -185,6 +256,37 @@ struct AddResultSheet: View {
         }
         try? modelContext.save()
         dismiss()
+    }
+
+    /// レース座標 + raceDate を使って 0〜23 時の天気を取得し、raceDate にもっとも近い時刻を採用する。
+    /// `WeatherSection` のスライダー UI までは出さず、シンプルにオートフィルする。
+    @MainActor
+    private func fetchWeather() async {
+        isFetchingWeather = true
+        weatherFetchError = nil
+        weatherFetchInfo = nil
+        defer { isFetchingWeather = false }
+
+        do {
+            let coord = CLLocationCoordinate2D(latitude: race.lat, longitude: race.lng)
+            let response = try await WeatherFetcher.fetchHourly(at: coord, on: raceDate)
+            guard !response.hours.isEmpty else {
+                weatherFetchError = "No weather data for this date / location."
+                return
+            }
+            let nearest = response.hours.min(by: {
+                abs($0.hour.timeIntervalSince(raceDate)) < abs($1.hour.timeIntervalSince(raceDate))
+            })!
+            weatherTempC = nearest.tempC
+            weatherDescription = nearest.description
+            weatherCode = nearest.code
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "HH:mm"
+            weatherFetchInfo = "Filled \(f.string(from: nearest.hour)) sample (\(response.source.rawValue))"
+        } catch {
+            weatherFetchError = error.localizedDescription
+        }
     }
 
     private func formatDuration(_ totalSec: Double) -> String {
