@@ -43,15 +43,34 @@ struct RaceDetailView: View {
     private var basicInfoSection: some View {
         Section {
             // 1. Race Name
-            TextField("Race Name", text: $race.name)
+            HStack {
+                Text("Race Name")
+                Spacer()
+                TextField("Race Name", text: $race.name)
+                    .multilineTextAlignment(.trailing)
+            }
 
             // 2. Category
-            Picker("Category", selection: $race.category) {
-                ForEach(RaceCategory.allCases) { cat in
-                    Label(cat.displayName, systemImage: cat.symbolName)
-                        .tag(cat)
+            Menu {
+                Picker("Category", selection: $race.category) {
+                    ForEach(RaceCategory.allCases) { cat in
+                        Label(cat.displayName, systemImage: cat.symbolName).tag(cat)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Category")
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    Label(race.category.displayName, systemImage: race.category.symbolName)
+                        .appText(.bodyBaseBold)
+                        .foregroundStyle(Color.accentPrimary)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
+            .buttonStyle(.plain)
 
             // 3. Distance — 5K/10K/Half/Full/Ultra100K は自動、Trail/UltraCustom は手動入力
             distanceField
@@ -137,7 +156,7 @@ struct RaceDetailView: View {
             if sortedResults.isEmpty {
                 Text("No results yet")
                     .foregroundStyle(.secondary)
-                Text("Import TCX / GPX / FIT / ZIP from the Map toolbar, then choose \"Attach to existing race\" in the import confirmation sheet to associate the result with this race.")
+                Text("Tap + to import a TCX / GPX / FIT / ZIP file and attach it to this race.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {
@@ -156,7 +175,12 @@ struct RaceDetailView: View {
                 }
             }
         } header: {
-            SectionHeader(title: "Results", subtitle: "\(sortedResults.count)")
+            SectionHeader(title: "Results", subtitle: "\(sortedResults.count)") {
+                FileImportButton(attachTo: race, iconName: "plus", labelText: "Add Result")
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Color.accentPrimary)
+            }
         } footer: {
             if sortedResults.count >= 2 {
                 Text("Tap a row for details and charts. Open \"Year-over-Year\" below to overlay multiple results.")

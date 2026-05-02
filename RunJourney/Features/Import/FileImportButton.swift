@@ -4,8 +4,15 @@ import UniformTypeIdentifiers
 
 /// ツールバーに置く「ファイル取り込み」ボタン。
 /// `.fileImporter` で TCX/GPX/FIT/ZIP を選択 → パース → 確認シートで保存先（新規大会 / 既存大会）を選択 → 保存。
+///
+/// `attachTo` をセットすると確認シートをスキップして、直接そのレースに RaceResult を追加する。
+/// RaceDetailView の Results セクションヘッダの「+」ボタン用途。
 struct FileImportButton: View {
     @Environment(\.modelContext) private var modelContext
+
+    var attachTo: Race? = nil
+    var iconName: String = "square.and.arrow.down"
+    var labelText: String = "Import File"
 
     @State private var isImporterPresented = false
     @State private var isProcessing = false
@@ -18,7 +25,7 @@ struct FileImportButton: View {
         Button {
             isImporterPresented = true
         } label: {
-            Label("Import File", systemImage: "square.and.arrow.down")
+            Label(labelText, systemImage: iconName)
         }
         .disabled(isProcessing)
         .fileImporter(
@@ -120,6 +127,15 @@ struct FileImportButton: View {
         // パース失敗が一部だけある場合もユーザーに伝える
         if !failures.isEmpty {
             errorMessage = "Some files failed to parse:\n" + failures.map { "• \($0.name): \($0.reason)" }.joined(separator: "\n")
+        }
+
+        // attachTo が指定されているときは確認シートをスキップして即追加。
+        if let race = attachTo {
+            for item in items {
+                _ = ActivityImporter.appendResult(item.activity, to: race, context: modelContext)
+            }
+            importedSummary = ImportedSummary(message: "Imported \(items.count) activity / activities")
+            return
         }
 
         pendingImports = items

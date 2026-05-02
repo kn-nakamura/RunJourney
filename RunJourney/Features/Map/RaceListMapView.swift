@@ -15,13 +15,20 @@ import MapKit
 /// 複雑になるため snapshot 時に無効化している（ピンタップ時はシートが開くので冗長）。
 struct RaceListMapView: UIViewRepresentable {
     let races: [Race]
+    /// ピンタップで親に伝える「カメラを動かしたい対象」。シート表示用 `sheetRace` とは分離。
     @Binding var selectedRace: Race?
+    /// シート表示中レース。アイコン化／ルート描画はこちらをソースにすることで、
+    /// ズーム完了 (≒ シート出現) 後にピンが拡大するよう自然に遅延させる。
+    @Binding var sheetRace: Race?
     /// 親から要求された一回限りのカメラ region 変更。`nil` = 何もしない。
     /// 反映後はバインディング側で `nil` に戻す。
     @Binding var requestedRegion: MKCoordinateRegion?
     let selectedRouteCoords: [CLLocationCoordinate2D]
     let mapSettings: MapStyleSettings
     let pinSettings: PinSettings
+    /// シートが地図下部を覆う高さ (pt)。`setVisibleMapRect` の bottom edge padding に流す。
+    /// 0 のときはシートなしの通常フィット動作。
+    var bottomInset: CGFloat = 0
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -70,22 +77,47 @@ struct RaceListMapView: UIViewRepresentable {
             context.coordinator.applyImage(to: view, for: raceAnno)
         }
 
-        // ポリライン同期
+        // ポリライン同期 (シート表示中のレース＝ `sheetRace` のルートを描画する)
         let oldOverlays = mapView.overlays.compactMap { $0 as? RoutePolyline }
         mapView.removeOverlays(oldOverlays)
-        if !selectedRouteCoords.isEmpty, let race = selectedRace {
+        if !selectedRouteCoords.isEmpty, let race = sheetRace {
             let line = RoutePolyline(coordinates: selectedRouteCoords, count: selectedRouteCoords.count)
             line.strokeColor = UIColor(race.category.pinColor)
             mapView.addOverlay(line)
         }
 
-        // 親が要求した region 変更があれば反映
+        // 親が要求した region 変更があれば反映。bottomInset>0 のときは
+        // setVisibleMapRect に edgePadding を渡して、シート上の見える領域に
+        // フィットさせる (ピンがシートに隠れないようカメラを上にずらす)。
         if let region = requestedRegion {
-            mapView.setRegion(region, animated: true)
+            let mapRect = Self.makeMapRect(region: region)
+            let padding = UIEdgeInsets(top: 32, left: 32, bottom: max(bottomInset, 0), right: 32)
+            mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
             DispatchQueue.main.async {
                 self.requestedRegion = nil
             }
         }
+    }
+
+    /// `MKCoordinateRegion` (center+span) を `MKMapRect` に変換する。
+    /// `setVisibleMapRect:edgePadding:animated:` は `MKMapRect` を要求するため。
+    private static func makeMapRect(region: MKCoordinateRegion) -> MKMapRect {
+        let topLeft = CLLocationCoordinate2D(
+            latitude: region.center.latitude + region.span.latitudeDelta / 2,
+            longitude: region.center.longitude - region.span.longitudeDelta / 2
+        )
+        let bottomRight = CLLocationCoordinate2D(
+            latitude: region.center.latitude - region.span.latitudeDelta / 2,
+            longitude: region.center.longitude + region.span.longitudeDelta / 2
+        )
+        let topLeftPoint = MKMapPoint(topLeft)
+        let bottomRightPoint = MKMapPoint(bottomRight)
+        return MKMapRect(
+            x: min(topLeftPoint.x, bottomRightPoint.x),
+            y: min(topLeftPoint.y, bottomRightPoint.y),
+            width: abs(bottomRightPoint.x - topLeftPoint.x),
+            height: abs(bottomRightPoint.y - topLeftPoint.y)
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -114,10 +146,14 @@ struct RaceListMapView: UIViewRepresentable {
             return view
         }
 
-        /// 現在の `selectedRace` / `pinSettings` で SwiftUI `RaceAnnotationView` を
+        /// 現在の `sheetRace` / `pinSettings` で SwiftUI `RaceAnnotationView` を
         /// 描画して `MKAnnotationView.image` に流し込む。アンカー位置も pin 形状で調整。
+        ///
+        /// `isSelected` のソースは `selectedRace` ではなく `sheetRace` を使うことで、
+        /// ズーム完了 (= シート表示開始) 後にピンが拡大／アイコン化するよう自然に遅延する。
+        /// (タップ直後の `selectedRace = race` からズーム中はピンは小さいまま。)
         func applyImage(to view: MKAnnotationView, for raceAnno: RaceAnnotation) {
-            let isSelected = parent.selectedRace?.persistentModelID == raceAnno.race.persistentModelID
+            let isSelected = parent.sheetRace?.persistentModelID == raceAnno.race.persistentModelID
             // showName は snapshot 時のアンカー計算を複雑にするので強制 OFF。
             var settings = parent.pinSettings
             settings.showName = false

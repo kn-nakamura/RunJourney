@@ -27,6 +27,10 @@ struct RaceMapView: View {
     @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
+    /// シート表示前提でカメラをずらしたいときに使う bottom edge padding (pt)。
+    /// `.medium` detent はおおよそ画面の半分なので `screen.height * 0.5` を使う。
+    /// 0 のときはシートなしの通常フィット。
+    @State private var bottomInsetHint: CGFloat = 0
 
     /// レース 0 件で起動したときに見せるデフォルト region。日本全体がふんわり収まるサイズ。
     private static let japanRegion = MKCoordinateRegion(
@@ -34,9 +38,11 @@ struct RaceMapView: View {
         span: MKCoordinateSpan(latitudeDelta: 15.0, longitudeDelta: 13.0)
     )
 
-    /// 選択中レースの最初のトラックポイント付き結果のルートを描画する。
+    /// シート表示中レースの最初のトラックポイント付き結果のルートを描画する。
+    /// `selectedRace` ではなく `sheetRace` を使うことで、`zoomThenPresent` 後の
+    /// `selectedRace = nil` でルートが消えないようにする。
     private var selectedRouteCoordinates: [CLLocationCoordinate2D] {
-        guard let race = selectedRace,
+        guard let race = sheetRace,
               let result = race.results?.first(where: { !$0.trackPoints.isEmpty })
         else { return [] }
         return result.trackPoints.map(\.coordinate)
@@ -107,13 +113,27 @@ struct RaceMapView: View {
         .onChange(of: sheetRace) { _, race in
             // シートが閉じたら全体ビューに戻す。Web 版と同じ挙動。
             if race == nil, !races.isEmpty {
+                bottomInsetHint = 0
                 fitAllRaces()
             }
         }
     }
 
+    /// `.medium` detent はおおよそ画面の半分。シートの真上にピンを置きたいので、
+    /// その分だけ bottom edge padding を入れて `setVisibleMapRect` でカメラを上にずらす。
+    private var expectedSheetHeight: CGFloat {
+#if os(iOS)
+        UIScreen.main.bounds.height * 0.5
+#else
+        0
+#endif
+    }
+
     /// ピン選択 → ターゲットへ約 5km ズーム（ルートあれば全体フィット）→ 450ms 後にシート表示。
+    /// シート分の bottomInsetHint を先に立てておくことで、ズーム時点でカメラが
+    /// シート上の見える領域に合わせて上にずれる。
     private func zoomThenPresent(_ race: Race) async {
+        bottomInsetHint = expectedSheetHeight
         fitRace(race)
         try? await Task.sleep(for: .milliseconds(450))
         guard !Task.isCancelled else { return }
@@ -130,10 +150,12 @@ struct RaceMapView: View {
         RaceListMapView(
             races: races,
             selectedRace: $selectedRace,
+            sheetRace: $sheetRace,
             requestedRegion: $requestedRegion,
             selectedRouteCoords: selectedRouteCoordinates,
             mapSettings: mapSettings,
-            pinSettings: pinSettings
+            pinSettings: pinSettings,
+            bottomInset: bottomInsetHint
         )
 #else
         Color.bgSecondary

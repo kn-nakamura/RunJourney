@@ -11,13 +11,19 @@ import SwiftUI
 // 文字列ルール: title は English ASCII 固定。Bebas Neue は日本語グリフを持たないので、
 // 動的（race.name 等）には使わない（必要なら DM Sans の `.bodyBaseBold` を直接当てる）。
 
-struct SectionHeader: View {
+struct SectionHeader<Trailing: View>: View {
     let title: String
     let subtitle: String?
+    let trailing: () -> Trailing
 
-    init(title: String, subtitle: String? = nil) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
         self.title = title
         self.subtitle = subtitle
+        self.trailing = trailing
     }
 
     var body: some View {
@@ -31,6 +37,7 @@ struct SectionHeader: View {
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
+            trailing()
         }
         // Form の `header:` スロットに渡されると SwiftUI が自動で uppercase を再適用するが、
         // token 側で適用済みなので無害。textCase(nil) を強制すると意図しない場面で崩れるため触らない。
