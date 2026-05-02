@@ -28,7 +28,10 @@ struct RaceDetailView: View {
 
     var body: some View {
         Form {
+            headerSection
             basicInfoSection
+            attachmentsSection
+            photosSection
             resultsSection
             if sortedResults.count >= 2 {
                 comparisonSection
@@ -58,7 +61,11 @@ struct RaceDetailView: View {
         ) {
             Button("Delete", role: .destructive) {
                 if let offsets = pendingDeleteOffsets {
-                    for o in offsets { modelContext.delete(sortedResults[o]) }
+                    for o in offsets {
+                        let result = sortedResults[o]
+                        AttachmentStore.deleteAll(ownerID: result.id)
+                        modelContext.delete(result)
+                    }
                     try? modelContext.save()
                 }
                 pendingDeleteOffsets = nil
@@ -95,39 +102,52 @@ struct RaceDetailView: View {
         }
     }
 
+    // MARK: - Header
+
+    private var headerSection: some View {
+        Section {
+            RaceHeaderView(race: race)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+        }
+    }
+
     // MARK: - Basic info
 
     private var basicInfoSection: some View {
         Section {
             // 1. Race Name
-            HStack {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Race Name")
-                Spacer()
-                TextField("Race Name", text: $race.name)
-                    .multilineTextAlignment(.trailing)
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                TextField("e.g. Tokyo Marathon", text: $race.name)
             }
 
             // 2. Category
-            Menu {
-                Picker("Category", selection: $race.category) {
-                    ForEach(RaceCategory.allCases) { cat in
-                        Label(cat.displayName, systemImage: cat.symbolName).tag(cat)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Category")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                Menu {
+                    Picker("Category", selection: $race.category) {
+                        ForEach(RaceCategory.allCases) { cat in
+                            Label(cat.displayName, systemImage: cat.symbolName).tag(cat)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Label(race.category.displayName, systemImage: race.category.symbolName)
+                            .appText(.bodyBaseBold)
+                            .foregroundStyle(Color.accentPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
-            } label: {
-                HStack {
-                    Text("Category")
-                        .foregroundStyle(Color.textPrimary)
-                    Spacer()
-                    Label(race.category.displayName, systemImage: race.category.symbolName)
-                        .appText(.bodyBaseBold)
-                        .foregroundStyle(Color.accentPrimary)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             // 3. Distance — 5K/10K/Half/Full/Ultra100K は自動、Trail/UltraCustom は手動入力
             distanceField
@@ -142,7 +162,10 @@ struct RaceDetailView: View {
 
             // 5. Website
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Website", text: $race.websiteURL.bound, prompt: Text("https://..."))
+                Text("Website")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                TextField("https://...", text: $race.websiteURL.bound)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -154,12 +177,13 @@ struct RaceDetailView: View {
                 }
             }
 
-            // 6. Race Logo
-            VStack(alignment: .leading, spacing: 4) {
+            // 6. Race Logo (PhotosPicker + URL)
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Race Logo")
                     .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 LogoPicker(race: race)
+                RaceLogoUrlField(race: race)
             }
         } header: {
             SectionHeader(title: "Race Info")
@@ -174,27 +198,42 @@ struct RaceDetailView: View {
 
     @ViewBuilder
     private var distanceField: some View {
-        if race.category.defaultDistanceKm != nil {
-            // 自動 (read-only)
-            LabeledContent("Distance") {
-                Text(String(format: "%.3f km", race.distanceKm ?? 0))
-                    .appText(.codeMd)
-                    .foregroundStyle(Color.textPrimary)
-            }
-        } else {
-            // Trail / UltraCustom — ユーザー入力
-            HStack {
-                Text("Distance")
-                Spacer()
-                TextField("e.g. 50", text: $race.distanceKm.stringBound)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.decimalPad)
-                    .frame(maxWidth: 120)
-                Text("km")
-                    .appText(.codeXs)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Distance")
+                .appText(.bodyXs)
+                .foregroundStyle(.secondary)
+            if race.category.defaultDistanceKm != nil {
+                // 自動 (read-only)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(String(format: "%.3f", race.distanceKm ?? 0))
+                        .appText(.codeMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Text("km")
+                        .appText(.codeXs)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            } else {
+                // Trail / UltraCustom — ユーザー入力
+                HStack {
+                    TextField("e.g. 50", text: $race.distanceKm.stringBound)
+                        .keyboardType(.decimalPad)
+                    Text("km")
+                        .appText(.codeXs)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+    }
+
+    // MARK: - Attachments / Photos
+
+    private var attachmentsSection: some View {
+        AttachmentSection(owner: race)
+    }
+
+    private var photosSection: some View {
+        PhotoLinkSection(owner: race)
     }
 
     private var validWebsiteURL: URL? {

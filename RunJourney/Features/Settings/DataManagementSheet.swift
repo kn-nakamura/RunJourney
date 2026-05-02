@@ -94,14 +94,31 @@ struct DataManagementSheet: View {
     private func performDelete(scope: SettingsView.DeleteScope) {
         switch scope {
         case .results:
-            for r in results { modelContext.delete(r) }
+            for r in results {
+                AttachmentStore.deleteAll(ownerID: r.id)
+                modelContext.delete(r)
+            }
         case .races:
-            for r in races { modelContext.delete(r) }   // cascade で結果も消える
+            for r in races {
+                AttachmentStore.deleteAll(ownerID: r.id)
+                for child in r.results ?? [] {
+                    AttachmentStore.deleteAll(ownerID: child.id)
+                }
+                RaceLogoStore.delete(r.logoURL)
+                modelContext.delete(r)   // cascade で結果も消える
+            }
         case .plans:
             for p in plans { modelContext.delete(p) }
         case .everything:
-            for r in results { modelContext.delete(r) }
-            for r in races { modelContext.delete(r) }
+            for r in results {
+                AttachmentStore.deleteAll(ownerID: r.id)
+                modelContext.delete(r)
+            }
+            for r in races {
+                AttachmentStore.deleteAll(ownerID: r.id)
+                RaceLogoStore.delete(r.logoURL)
+                modelContext.delete(r)
+            }
             for p in plans { modelContext.delete(p) }
         }
         try? modelContext.save()

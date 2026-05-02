@@ -21,6 +21,7 @@ struct RaceResultDetailView: View {
                 lapChartSection
                 elevationSection
                 heartRateSection
+                ResultMemoriesCard(result: result)
             }
             .padding()
         }
@@ -56,6 +57,7 @@ struct RaceResultDetailView: View {
                 finalAlertTitle: "Delete this result?",
                 finalAlertMessage: "This cannot be undone.",
                 onDelete: {
+                    AttachmentStore.deleteAll(ownerID: result.id)
                     modelContext.delete(result)
                     try? modelContext.save()
                     dismiss()

@@ -35,6 +35,9 @@ final class RaceResult {
 
     var race: Race? = nil
 
+    @Relationship(deleteRule: .cascade, inverse: \Attachment.result)
+    var attachments: [Attachment]? = []
+
     init(
         id: UUID = UUID(),
         race: Race? = nil,

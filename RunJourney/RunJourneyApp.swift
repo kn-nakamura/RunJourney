@@ -7,7 +7,11 @@ import UIKit
 @main
 struct RunJourneyApp: App {
 
+    @AppStorage(StorageLocation.chosenFlagKey) private var hasChosen: Bool = false
+    @AppStorage(StorageLocation.userDefaultsKey) private var storageRaw: String = StorageLocation.local.rawValue
+
     @State private var splashCoordinator = SplashCoordinator()
+    @State private var modelContainer: ModelContainer?
 
     init() {
 #if os(iOS)
@@ -15,41 +19,77 @@ struct RunJourneyApp: App {
 #endif
     }
 
-    var sharedModelContainer: ModelContainer = {
+    var body: some Scene {
+        WindowGroup {
+            Group {
+                if !hasChosen {
+                    StorageLocationPickerView { selection in
+                        storageRaw = selection.rawValue
+                        modelContainer = Self.makeContainer(for: selection)
+                        hasChosen = true
+                    }
+                } else if let container = modelContainer {
+                    ZStack {
+                        ContentView()
+                        if splashCoordinator.phase != .done {
+                            SplashView()
+                                .transition(.opacity)
+                        }
+                    }
+                    .environment(splashCoordinator)
+                    .modelContainer(container)
+                } else {
+                    Color.bgPrimary
+                        .ignoresSafeArea()
+                        .task {
+                            let location = StorageLocation(rawValue: storageRaw) ?? .local
+                            modelContainer = Self.makeContainer(for: location)
+                        }
+                }
+            }
+            .preferredColorScheme(.dark)
+            .tint(.accentPrimary)
+            .background(Color.bgPrimary)
+        }
+    }
+
+    /// 選んだ保存先に応じて ModelContainer を構築する。
+    /// iCloud を選ぶと SwiftData が CloudKit private DB をミラーリングする。
+    /// （Apple Developer Program 加入＋ CloudKit コンテナ作成は前提作業）
+    static func makeContainer(for location: StorageLocation) -> ModelContainer {
         let schema = Schema([
             Race.self,
             RaceResult.self,
             PacePlan.self,
+            Attachment.self,
         ])
-        // MVP初期はローカルのみ。Apple Developer Program加入後に
-        // ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.com.kn-nakamura.RunJourney"))
-        // へ切り替えてiCloud同期を有効化する。
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false
-        )
+        let configuration: ModelConfiguration
+        switch location {
+        case .local:
+            configuration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false
+            )
+        case .iCloud:
+            configuration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: .private("iCloud.com.kn-nakamura.RunJourney")
+            )
+        }
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
+            // CloudKit 設定が portal 側で未完だと iCloud モードは失敗するので、
+            // local にフォールバックして起動を続ける（次回起動で改めて選び直せる）。
+            if location == .iCloud {
+                let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                return (try? ModelContainer(for: schema, configurations: [fallback])) ?? {
+                    fatalError("Could not create ModelContainer: \(error)")
+                }()
+            }
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
-
-    var body: some Scene {
-        WindowGroup {
-            ZStack {
-                ContentView()
-                if splashCoordinator.phase != .done {
-                    SplashView()
-                        .transition(.opacity)
-                }
-            }
-            .environment(splashCoordinator)
-            .preferredColorScheme(.dark)        // Webアプリと同じダークテーマ固定
-            .tint(.accentPrimary)               // 蛍光イエローグリーン (#E8FF47)
-            .background(Color.bgPrimary)
-        }
-        .modelContainer(sharedModelContainer)
     }
 }
 

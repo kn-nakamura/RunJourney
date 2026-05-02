@@ -63,6 +63,13 @@ struct RaceDeleteSheet: View {
         .alert("Delete this race?", isPresented: $showRaceDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
+                // SwiftData は cascade で Attachment 行を消すが、Documents/attachments/{id}/
+                // のファイル本体は残るのでここで掃除する。Race 配下と各 Result 配下の両方。
+                AttachmentStore.deleteAll(ownerID: race.id)
+                for r in race.results ?? [] {
+                    AttachmentStore.deleteAll(ownerID: r.id)
+                }
+                RaceLogoStore.delete(race.logoURL)
                 modelContext.delete(race)
                 try? modelContext.save()
                 dismiss()

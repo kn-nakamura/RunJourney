@@ -99,6 +99,7 @@ struct ResultPickerSheet: View {
 
     private func performDelete() {
         for r in sortedResults where selected.contains(r.persistentModelID) {
+            AttachmentStore.deleteAll(ownerID: r.id)
             modelContext.delete(r)
         }
         try? modelContext.save()

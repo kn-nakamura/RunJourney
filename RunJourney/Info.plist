@@ -7,11 +7,11 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>RunJourney で録画した動画を写真ライブラリに保存するために使用します。</string>
+	<string>RunJourney saves videos you record back to your Photos library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>RunJourney uses Photos so you can attach a logo image to a race.</string>
+	<string>RunJourney uses Photos to attach race brochures, route maps, and event-day photos to your races and results.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>画面録画時にマイク音声を含めることがあります（任意）。</string>
+	<string>RunJourney can include microphone audio when you record the screen (optional).</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

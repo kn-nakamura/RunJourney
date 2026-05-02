@@ -10,7 +10,11 @@ struct SettingsView: View {
     @Query private var results: [RaceResult]
     @Query private var plans: [PacePlan]
 
+    @AppStorage(StorageLocation.userDefaultsKey) private var storageRaw: String = StorageLocation.local.rawValue
+    @AppStorage(StorageLocation.chosenFlagKey) private var hasChosen: Bool = false
+
     @State private var showDataSheet = false
+    @State private var showStorageSwitchAlert = false
 
     enum DeleteScope: String, CaseIterable, Identifiable {
         case results
@@ -58,6 +62,14 @@ struct SettingsView: View {
         .sheet(isPresented: $showDataSheet) {
             DataManagementSheet()
                 .presentationDetents([.medium, .large])
+        }
+        .alert("Choose storage on next launch?", isPresented: $showStorageSwitchAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Re-choose on Relaunch") {
+                hasChosen = false
+            }
+        } message: {
+            Text("Switching does not migrate existing data. Quit and reopen RunJourney to pick a new storage location.")
         }
     }
 
@@ -120,34 +132,40 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - iCloud
+    // MARK: - Storage
 
     private var iCloudSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Sync")
-            HStack(spacing: 12) {
-                Image(systemName: "icloud")
-                    .foregroundStyle(Color.cat5K)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("iCloud Sync")
-                        .appText(.bodyBase)
-                        .foregroundStyle(Color.textPrimary)
-                    Text("Local storage only in MVP")
-                        .appText(.bodyXs)
+        let location = StorageLocation(rawValue: storageRaw) ?? .local
+        return VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Storage")
+            Button {
+                showStorageSwitchAlert = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: location.systemImage)
+                        .foregroundStyle(Color.cat5K)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(location.displayName)
+                            .appText(.bodyBase)
+                            .foregroundStyle(Color.textPrimary)
+                        Text(location.detail)
+                            .appText(.bodyXs)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                Spacer()
-                Text("OFF")
-                    .appText(.codeXs)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.bgTertiary, in: Capsule())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
-            Text("Once Apple Developer Program is enabled, switch ModelConfiguration to cloudKitDatabase: .private to share records across iPhone / iPad / Mac.")
+            .buttonStyle(.plain)
+            Text("Switching does not migrate existing data. Each store is independent.")
                 .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)

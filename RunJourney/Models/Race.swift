@@ -25,6 +25,9 @@ final class Race {
     @Relationship(deleteRule: .cascade, inverse: \RaceResult.race)
     var results: [RaceResult]? = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Attachment.race)
+    var attachments: [Attachment]? = []
+
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }

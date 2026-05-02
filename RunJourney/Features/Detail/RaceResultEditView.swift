@@ -14,6 +14,8 @@ struct RaceResultEditView: View {
             placesSection
             commentSection
             flagsSection
+            AttachmentSection(owner: result)
+            PhotoLinkSection(owner: result)
         }
         .navigationTitle("Edit Result")
 #if os(iOS)
