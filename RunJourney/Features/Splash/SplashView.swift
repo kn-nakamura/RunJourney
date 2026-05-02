@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// 起動時のブランドオーバーレイ。`UILaunchScreen` が同じロゴ画像を表示しているので、
-/// LaunchScreen → SwiftUI への切替がジャンプなく繋がる。
+/// 起動時のブランドオーバーレイ。`UILaunchScreen` は背景色だけ
+/// (`LaunchBackground`) を出しているので、OS の launch screen → SwiftUI の
+/// 切替時に表示されるロゴはこの View だけ。
 /// マップの初回 fit-all アニメーションが走るタイミングでフェードアウトする。
 struct SplashView: View {
     @Environment(SplashCoordinator.self) private var coordinator
