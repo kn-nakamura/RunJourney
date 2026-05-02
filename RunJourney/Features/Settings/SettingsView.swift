@@ -6,13 +6,11 @@ import SwiftData
 /// (Bebas Neue 24pt) を使う。Form ではなく独自レイアウトなので、行は角丸ダーク背景の
 /// カード (`Color.bgSecondary` + RoundedRectangle 12pt) でくるむ。
 struct SettingsView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query private var races: [Race]
     @Query private var results: [RaceResult]
     @Query private var plans: [PacePlan]
 
-    @State private var showingDeleteAllAlert = false
-    @State private var deleteScope: DeleteScope = .results
+    @State private var showDataSheet = false
 
     enum DeleteScope: String, CaseIterable, Identifiable {
         case results
@@ -47,9 +45,9 @@ struct SettingsView: View {
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 librarySection
-                dataSection
                 iCloudSection
                 aboutSection
+                dataSection
             }
             .padding()
         }
@@ -57,11 +55,9 @@ struct SettingsView: View {
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
-        .alert("Delete \(deleteScope.displayName)?", isPresented: $showingDeleteAllAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) { performDelete() }
-        } message: {
-            Text(deleteScope.summary)
+        .sheet(isPresented: $showDataSheet) {
+            DataManagementSheet()
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -99,41 +95,29 @@ struct SettingsView: View {
     }
 
     // MARK: - Data management
+    //
+    // 画面最下部に置く控えめな入口。配色は `.secondary` (グレー) で「探さないと見つからない」程度に
+    // 抑え、誤タップで4スコープが見えないようにする。タップで `DataManagementSheet` を開き、
+    // そこで初めてスコープ選択 → 個別 alert で確定。
 
     private var dataSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Data Management")
-            VStack(spacing: 0) {
-                ForEach(Array(DeleteScope.allCases.enumerated()), id: \.element) { idx, scope in
-                    Button {
-                        deleteScope = scope
-                        showingDeleteAllAlert = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "trash")
-                                .foregroundStyle(.red)
-                                .frame(width: 24)
-                            Text("Delete \(scope.displayName)")
-                                .appText(.bodyBase)
-                                .foregroundStyle(.red)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    if idx < DeleteScope.allCases.count - 1 {
-                        rowDivider
-                    }
-                }
+        Button {
+            showDataSheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Delete data...")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
-            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
-            Text("If iCloud sync is enabled, deletions also propagate to all linked devices.")
-                .appText(.bodyXs)
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 4)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - iCloud
@@ -232,21 +216,5 @@ struct SettingsView: View {
 
     private var buildNumber: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-    }
-
-    private func performDelete() {
-        switch deleteScope {
-        case .results:
-            for r in results { modelContext.delete(r) }
-        case .races:
-            for r in races { modelContext.delete(r) }   // cascade で結果も消える
-        case .plans:
-            for p in plans { modelContext.delete(p) }
-        case .everything:
-            for r in results { modelContext.delete(r) }
-            for r in races { modelContext.delete(r) }
-            for p in plans { modelContext.delete(p) }
-        }
-        try? modelContext.save()
     }
 }

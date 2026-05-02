@@ -9,6 +9,8 @@ struct RaceResultDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showDeleteSheet = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -19,7 +21,6 @@ struct RaceResultDetailView: View {
                 lapChartSection
                 elevationSection
                 heartRateSection
-                deleteSection
             }
             .padding()
         }
@@ -30,12 +31,37 @@ struct RaceResultDetailView: View {
 #endif
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showDeleteSheet = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Delete Result")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     RaceResultEditView(result: result)
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
             }
+        }
+        .sheet(isPresented: $showDeleteSheet) {
+            DeleteConfirmSheet(
+                title: "Delete Result",
+                message: "This will permanently delete this result, including laps and route.",
+                confirmLabel: "Confirm Deletion",
+                finalAlertTitle: "Delete this result?",
+                finalAlertMessage: "This cannot be undone.",
+                onDelete: {
+                    modelContext.delete(result)
+                    try? modelContext.save()
+                    dismiss()
+                }
+            )
+            .presentationDetents([.medium])
         }
     }
 
@@ -255,22 +281,6 @@ struct RaceResultDetailView: View {
             SectionHeader(title: "Heart Rate")
             HeartRateChart(trackPoints: result.trackPoints)
         }
-    }
-
-    // MARK: - Delete
-
-    private var deleteSection: some View {
-        Button(role: .destructive) {
-            modelContext.delete(result)
-            try? modelContext.save()
-            dismiss()
-        } label: {
-            Label("Delete This Result", systemImage: "trash")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
-        }
-        .padding(.top, 8)
     }
 
     // MARK: - Helpers

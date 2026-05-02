@@ -5,13 +5,15 @@ import SwiftData
 /// - 基本情報（名前・カテゴリ・距離・地点）
 /// - 結果一覧（複数の参加結果、各行は RaceResultDetailView へナビゲート）
 /// - 比較セクション（2件以上ある場合: 年別タイム棒グラフ + ラップペース重ね合わせ）
-/// - 大会自体の削除
+/// - 画面最下部の小さな🗑から `RaceDeleteSheet` を開き、結果のみ削除 / レース丸ごと削除を選択（誤操作防止）
 struct RaceDetailView: View {
     @Bindable var race: Race
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var showComparison = false
+    @State private var showDeleteSheet = false
+    @State private var pendingDeleteOffsets: IndexSet?
 
     private var sortedResults: [RaceResult] {
         (race.results ?? []).sorted { $0.raceDate > $1.raceDate }
@@ -30,12 +32,63 @@ struct RaceDetailView: View {
             if sortedResults.count >= 2 {
                 comparisonSection
             }
-            deleteSection
+            deleteEntrySection
         }
         .navigationTitle(race.name.isEmpty ? "(Untitled)" : race.name)
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .sheet(isPresented: $showDeleteSheet) {
+            RaceDeleteSheet(race: race) {
+                dismiss()
+            }
+            .presentationDetents([.medium])
+        }
+        .confirmationDialog(
+            "Delete this result?",
+            isPresented: Binding(
+                get: { pendingDeleteOffsets != nil },
+                set: { if !$0 { pendingDeleteOffsets = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let offsets = pendingDeleteOffsets {
+                    for o in offsets { modelContext.delete(sortedResults[o]) }
+                    try? modelContext.save()
+                }
+                pendingDeleteOffsets = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDeleteOffsets = nil }
+        } message: {
+            Text("This cannot be undone.")
+        }
+    }
+
+    // MARK: - Delete entry (画面最下部の控えめな🗑)
+    //
+    // Settings の "Delete data..." と同じく、目立たない gray の小さな行として置く。
+    // タップで `RaceDeleteSheet` を開き、結果のみ削除するか、レース丸ごと削除するかを選ぶ。
+
+    private var deleteEntrySection: some View {
+        Section {
+            Button {
+                showDeleteSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Delete...")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+        }
     }
 
     // MARK: - Basic info
@@ -168,10 +221,7 @@ struct RaceDetailView: View {
                     }
                 }
                 .onDelete { offsets in
-                    for offset in offsets {
-                        modelContext.delete(sortedResults[offset])
-                    }
-                    try? modelContext.save()
+                    pendingDeleteOffsets = offsets
                 }
             }
         } header: {
@@ -216,23 +266,6 @@ struct RaceDetailView: View {
         }
     }
 
-    // MARK: - Delete
-
-    private var deleteSection: some View {
-        Section {
-            Button(role: .destructive) {
-                modelContext.delete(race)
-                try? modelContext.save()
-                dismiss()
-            } label: {
-                Label("Delete Race", systemImage: "trash")
-            }
-        } footer: {
-            if !sortedResults.isEmpty {
-                Text("Deleting also removes the \(sortedResults.count) linked result(s).")
-            }
-        }
-    }
 }
 
 /// 結果一覧の1行（RaceDetailViewから NavigationLink のラベルとして使う）。
