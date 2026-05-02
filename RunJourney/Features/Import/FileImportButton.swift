@@ -13,6 +13,9 @@ struct FileImportButton: View {
     var attachTo: Race? = nil
     var iconName: String = "square.and.arrow.down"
     var labelText: String = "Import File"
+    /// 取り込み成功時に親へ通知するクロージャ。設定されている場合、内部の "Import Complete" アラートは出さず、
+    /// 親側でシートを閉じる等の処理を行う前提となる（AddResultSheet からの呼び出し用）。
+    var onCompleted: (() -> Void)? = nil
 
     @State private var isImporterPresented = false
     @State private var isProcessing = false
@@ -134,7 +137,11 @@ struct FileImportButton: View {
             for item in items {
                 _ = ActivityImporter.appendResult(item.activity, to: race, context: modelContext)
             }
-            importedSummary = ImportedSummary(message: "Imported \(items.count) activity / activities")
+            if let onCompleted {
+                onCompleted()
+            } else {
+                importedSummary = ImportedSummary(message: "Imported \(items.count) activity / activities")
+            }
             return
         }
 

@@ -13,6 +13,7 @@ struct RaceDetailView: View {
 
     @State private var showComparison = false
     @State private var showDeleteSheet = false
+    @State private var showAddResultSheet = false
     @State private var pendingDeleteOffsets: IndexSet?
 
     private var sortedResults: [RaceResult] {
@@ -43,6 +44,9 @@ struct RaceDetailView: View {
                 dismiss()
             }
             .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showAddResultSheet) {
+            AddResultSheet(race: race)
         }
         .confirmationDialog(
             "Delete this result?",
@@ -209,7 +213,7 @@ struct RaceDetailView: View {
             if sortedResults.isEmpty {
                 Text("No results yet")
                     .foregroundStyle(.secondary)
-                Text("Tap + to import a TCX / GPX / FIT / ZIP file and attach it to this race.")
+                Text("Tap + to add a result manually, or import a TCX / GPX / FIT / ZIP file from inside the sheet.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {
@@ -226,10 +230,17 @@ struct RaceDetailView: View {
             }
         } header: {
             SectionHeader(title: "Results", subtitle: "\(sortedResults.count)") {
-                FileImportButton(attachTo: race, iconName: "plus", labelText: "Add Result")
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color.accentPrimary)
+                Button {
+                    showAddResultSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.accentPrimary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add Result")
             }
         } footer: {
             if sortedResults.count >= 2 {
