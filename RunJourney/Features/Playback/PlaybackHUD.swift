@@ -5,6 +5,9 @@ struct PlaybackHUD: View {
     let controller: PlaybackController
     let race: Race?
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             // 経過時間 / 総時間
@@ -69,8 +72,9 @@ struct PlaybackHUD: View {
 
     private var distanceText: String {
         guard let p = controller.currentPoint else { return "—" }
-        if p.distanceM < 1000 { return String(format: "%.0f m", p.distanceM) }
-        return String(format: "%.2f km", p.distanceM / 1000)
+        // メートル表示は短距離時のみ。それ以外は km / mi で表示。
+        if unit == .km, p.distanceM < 1000 { return String(format: "%.0f m", p.distanceM) }
+        return PaceUtils.formatDistance(km: p.distanceM / 1000, in: unit)
     }
 
     private var paceText: String {
@@ -78,9 +82,10 @@ struct PlaybackHUD: View {
         if let speed = p.speedMs, speed > 0.1 {
             // 1km をその速度で走るのに必要な秒数
             let secPerKm = 1000.0 / speed
-            let m = Int(secPerKm) / 60
-            let s = Int(secPerKm) % 60
-            return String(format: "%d:%02d/km", m, s)
+            let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+            let m = displayed / 60
+            let s = displayed % 60
+            return String(format: "%d:%02d\(unit.perLabel)", m, s)
         }
         return "—"
     }

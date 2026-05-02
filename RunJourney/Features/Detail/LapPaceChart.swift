@@ -7,6 +7,9 @@ struct LapPaceChart: View {
     let laps: [LapData]
     var compact: Bool = false
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     private var validLaps: [LapData] {
         laps.filter { $0.paceSecPerKm > 0 && $0.distanceM > 0 }
     }
@@ -88,8 +91,9 @@ struct LapPaceChart: View {
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
-        let m = Int(secPerKm) / 60
-        let s = Int(secPerKm) % 60
+        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+        let m = displayed / 60
+        let s = displayed % 60
         return String(format: "%d:%02d", m, s)
     }
 }

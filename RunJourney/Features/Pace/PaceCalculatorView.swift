@@ -16,7 +16,10 @@ struct PaceCalculatorView: View {
     @Query(sort: \PacePlan.createdAt, order: .reverse) private var savedPlans: [PacePlan]
 
     @State private var raceType: PaceRaceType = .full
-    @State private var customDistanceKm: Double = 10
+    /// Custom distance はアプリ全体で共有 (Settings タブでも編集可)。
+    @AppStorage("customDistanceKm") private var customDistanceKm: Double = 10
+    /// 表示単位 (km / mi) — Settings で切替。Pace Calculator は全数値表示に反映。
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
     /// 目標タイム (秒)
     @State private var goalTimeSeconds: Int = PaceConstants.defaultGoalTimes[.full]!
     /// ペース (秒/km)
@@ -27,6 +30,11 @@ struct PaceCalculatorView: View {
     @State private var planName: String = ""
 
     @State private var showShareSheet = false
+
+    /// Custom 距離 TextField のテキスト (表示単位ベース)。`customDistanceKm` (km 内部値) と同期。
+    @State private var customDistanceText: String = ""
+
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     /// 内部同期のサプレスフラグ。goalTime → pace と pace → goalTime の双方向に
     /// .onChange を貼ると無限ループするので、片方を変える時だけサプレスする。
@@ -187,24 +195,47 @@ struct PaceCalculatorView: View {
                 .foregroundStyle(.secondary)
             Spacer()
 #if os(iOS)
-            TextField("km", value: $customDistanceKm, format: .number)
+            TextField(unit.label, text: $customDistanceText)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .font(.appFont(.codeBaseBold))
                 .frame(width: 80)
+                .onAppear { customDistanceText = formatCustomDistanceText() }
+                .onSubmit { commitCustomDistanceText() }
 #else
-            TextField("km", value: $customDistanceKm, format: .number)
+            TextField(unit.label, text: $customDistanceText)
                 .multilineTextAlignment(.trailing)
                 .font(.appFont(.codeBaseBold))
                 .frame(width: 80)
+                .onAppear { customDistanceText = formatCustomDistanceText() }
+                .onSubmit { commitCustomDistanceText() }
 #endif
-            Text("km")
+            Text(unit.label)
                 .appText(.bodySm)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
+        .onChange(of: distanceUnitRaw) { _, _ in customDistanceText = formatCustomDistanceText() }
+        .onChange(of: customDistanceKm) { _, _ in customDistanceText = formatCustomDistanceText() }
+    }
+
+    private func formatCustomDistanceText() -> String {
+        let v = customDistanceKm.displayed(in: unit)
+        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
+    }
+
+    private func commitCustomDistanceText() {
+        let normalized = customDistanceText
+            .replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespaces)
+        guard let parsed = Double(normalized), parsed > 0 else {
+            customDistanceText = formatCustomDistanceText()
+            return
+        }
+        customDistanceKm = parsed.toKm(from: unit)
+        customDistanceText = formatCustomDistanceText()
     }
 
     // MARK: - Spinners
@@ -232,16 +263,16 @@ struct PaceCalculatorView: View {
     private var resultHero: some View {
         VStack(alignment: .leading, spacing: 8) {
             // カード内ラベルなので 24pt 中タイトルではなく eyebrow (10pt キャプション) を使う
-            Text("Average Pace / km")
+            Text("Average Pace \(unit.perLabel)")
                 .appText(.eyebrow)
                 .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline) {
-                Text(PaceUtils.formatPaceSimple(pacePerKm))
+                Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: pacePerKm, in: unit)))
                     .appText(.codeXl)
                     .foregroundStyle(Color.accentPrimary)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(String(format: "%.3f", distanceKm)) km")
+                    Text(PaceUtils.formatDistance(km: distanceKm, in: unit))
                         .appText(.codeSm)
                         .foregroundStyle(.secondary)
                     Text(PaceUtils.formatTimeSimple(goalTimeSeconds))
@@ -263,7 +294,7 @@ struct PaceCalculatorView: View {
             PaceTable(
                 laps: laps,
                 raceLabel: raceType == .custom
-                    ? "\(PaceUtils.formatDistanceLabel(distanceKm)) km"
+                    ? PaceUtils.formatDistance(km: distanceKm, in: unit)
                     : raceType.labelLong,
                 basePace: pacePerKm,
                 onTapLap: { lap in editingLap = lap }
@@ -437,6 +468,8 @@ private struct DistanceTab: View {
 
 private struct SavedPlanRow: View {
     let plan: PacePlan
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -445,12 +478,12 @@ private struct SavedPlanRow: View {
                     .appText(.bodySmBold)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
-                Text("\(String(format: "%.2f km", plan.targetDistanceKm)) · \(PaceUtils.formatTimeSimple(Int(plan.targetTimeSec)))")
+                Text("\(PaceUtils.formatDistance(km: plan.targetDistanceKm, in: unit)) · \(PaceUtils.formatTimeSimple(Int(plan.targetTimeSec)))")
                     .appText(.codeXs)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(PaceUtils.formatPaceSimple(Int(plan.paceSecPerKm)))
+            Text(PaceUtils.formatPace(secPerKm: Int(plan.paceSecPerKm), in: unit))
                 .appText(.codeMd)
                 .foregroundStyle(Color.accentPrimary)
         }

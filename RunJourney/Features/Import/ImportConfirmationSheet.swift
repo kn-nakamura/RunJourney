@@ -16,6 +16,9 @@ struct ImportConfirmationSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Race.createdAt, order: .reverse) private var existingRaces: [Race]
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     @State private var mode: Mode = .newRace
     @State private var newRaceName: String = ""
     @State private var selectedRace: Race?
@@ -95,7 +98,7 @@ struct ImportConfirmationSheet: View {
             if let date = activity.startDate {
                 LabeledContent("Date", value: date.formatted(date: .abbreviated, time: .shortened))
             }
-            LabeledContent("Distance", value: String(format: "%.2f km", activity.totalDistanceKm))
+            LabeledContent("Distance", value: PaceUtils.formatDistance(km: activity.totalDistanceKm, in: unit))
             if let sec = activity.finishTimeSec {
                 LabeledContent("Time", value: formatDuration(sec))
             }

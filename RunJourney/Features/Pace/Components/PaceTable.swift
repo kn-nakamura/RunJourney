@@ -16,6 +16,9 @@ struct PaceTable: View {
     /// 行タップ時のコールバック。nil なら行は非インタラクティブ。
     var onTapLap: ((PaceLapSegment) -> Void)? = nil
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     private var totalSeconds: Int {
         Int((laps.last?.cumulativeTime ?? 0).rounded())
     }
@@ -48,7 +51,7 @@ struct PaceTable: View {
         HStack(spacing: 0) {
             Text("DIST")
                 .frame(width: 64, alignment: .leading)
-            Text("PACE / KM")
+            Text("PACE \(unit.perLabel.uppercased())")
                 .frame(width: 92, alignment: .center)
             Text("TIME")
                 .frame(width: 80, alignment: .center)
@@ -93,19 +96,25 @@ struct PaceTable: View {
             HStack(spacing: 0) {
                 // DIST
                 HStack(spacing: 4) {
-                    Text(lap.distanceLabel)
-                        .appText(isSpecial ? .codeSmBold : .codeSm)
-                        .foregroundStyle(isSpecial ? Color.accentPrimary : Color.textPrimary)
-                    if !isSpecial {
-                        Text("km")
+                    if isSpecial {
+                        Text(lap.distanceLabel)
+                            .appText(.codeSmBold)
+                            .foregroundStyle(Color.accentPrimary)
+                    } else {
+                        // 距離ラベルは km 数値。mi 表示時は変換してから整形する。
+                        let kmValue = Double(lap.distanceLabel) ?? lap.endKm
+                        Text(PaceUtils.formatDistanceValue(km: kmValue, in: unit))
+                            .appText(.codeSm)
+                            .foregroundStyle(Color.textPrimary)
+                        Text(unit.label)
                             .appText(.codeXxs)
                             .foregroundStyle(.tertiary)
                     }
                 }
                 .frame(width: 64, alignment: .leading)
 
-                // PACE/KM
-                Text(PaceUtils.formatPaceSimple(lap.pacePerKm))
+                // PACE/KM (or /MI)
+                Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: lap.pacePerKm, in: unit)))
                     .appText(.codeSmBold)
                     .foregroundStyle(Color.accentPrimary)
                     .frame(width: 92, alignment: .center)
@@ -118,7 +127,7 @@ struct PaceTable: View {
 
                 // AVG / LAP
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(PaceUtils.formatPaceSimple(avgPace))
+                    Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: avgPace, in: unit)))
                         .appText(.codeXs)
                         .foregroundStyle(.secondary)
                     Text(PaceUtils.formatTimeSimple(Int(lap.lapTime.rounded())))

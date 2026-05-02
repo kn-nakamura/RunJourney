@@ -11,6 +11,9 @@ struct RaceDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     @State private var showComparison = false
     @State private var showDeleteSheet = false
     @State private var showAddResultSheet = false
@@ -205,10 +208,10 @@ struct RaceDetailView: View {
             if race.category.defaultDistanceKm != nil {
                 // 自動 (read-only)
                 HStack(alignment: .firstTextBaseline) {
-                    Text(String(format: "%.3f", race.distanceKm ?? 0))
+                    Text(PaceUtils.formatDistanceValue(km: race.distanceKm ?? 0, in: unit))
                         .appText(.codeMd)
                         .foregroundStyle(Color.textPrimary)
-                    Text("km")
+                    Text(unit.label)
                         .appText(.codeXs)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -216,14 +219,34 @@ struct RaceDetailView: View {
             } else {
                 // Trail / UltraCustom — ユーザー入力
                 HStack {
-                    TextField("e.g. 50", text: $race.distanceKm.stringBound)
+                    TextField("e.g. 50", text: distanceUnitBinding)
                         .keyboardType(.decimalPad)
-                    Text("km")
+                    Text(unit.label)
                         .appText(.codeXs)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+    }
+
+    private var distanceUnitBinding: Binding<String> {
+        Binding<String>(
+            get: {
+                guard let km = race.distanceKm else { return "" }
+                let v = km.displayed(in: unit)
+                return v.truncatingRemainder(dividingBy: 1) == 0
+                    ? String(Int(v))
+                    : String(format: "%g", v)
+            },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    race.distanceKm = nil
+                } else if let d = Double(trimmed) {
+                    race.distanceKm = d.toKm(from: unit)
+                }
+            }
+        )
     }
 
     // MARK: - Attachments / Photos
@@ -323,6 +346,9 @@ struct RaceResultRow: View {
     let result: RaceResult
     let isPB: Bool
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -349,7 +375,7 @@ struct RaceResultRow: View {
             }
             HStack(spacing: 12) {
                 if let dist = result.summary?.totalDistanceM {
-                    Label(String(format: "%.2f km", dist / 1000), systemImage: "ruler")
+                    Label(PaceUtils.formatDistance(km: dist / 1000, in: unit), systemImage: "ruler")
                         .appText(.codeXs)
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
@@ -396,8 +422,9 @@ struct RaceResultRow: View {
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
-        let m = Int(secPerKm) / 60
-        let s = Int(secPerKm) % 60
-        return String(format: "%d:%02d /km", m, s)
+        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+        let m = displayed / 60
+        let s = displayed % 60
+        return String(format: "%d:%02d \(unit.perLabel)", m, s)
     }
 }

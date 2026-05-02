@@ -7,6 +7,9 @@ import Charts
 struct DashboardView: View {
     @Query(sort: \RaceResult.raceDate, order: .reverse) private var results: [RaceResult]
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     @State private var selectedCategory: RaceCategory? = nil  // nil = すべて
 
     private var filteredResults: [RaceResult] {
@@ -104,10 +107,10 @@ struct DashboardView: View {
     private var summaryGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             StatCard(label: "Finishes", value: "\(aggregate.totalRaces)", unit: "", symbol: "flag.checkered", color: .accentPrimary)
-            StatCard(label: "Total Distance", value: String(format: "%.1f", aggregate.totalDistanceM / 1000), unit: "km", symbol: "ruler", color: .cat10K)
+            StatCard(label: "Total Distance", value: PaceUtils.formatDistanceValue(km: aggregate.totalDistanceM / 1000, in: unit), unit: unit.label, symbol: "ruler", color: .cat10K)
             StatCard(label: "Total Time", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
             if let pace = aggregate.weightedAvgPaceSecPerKm {
-                StatCard(label: "Avg Pace", value: formatPace(pace), unit: "/km", symbol: "speedometer", color: .catHalfMarathon)
+                StatCard(label: "Avg Pace", value: formatPace(pace), unit: unit.perLabel, symbol: "speedometer", color: .catHalfMarathon)
             }
         }
     }
@@ -233,8 +236,9 @@ struct DashboardView: View {
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
-        let m = Int(secPerKm) / 60
-        let s = Int(secPerKm) % 60
+        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+        let m = displayed / 60
+        let s = displayed % 60
         return String(format: "%d:%02d", m, s)
     }
 }

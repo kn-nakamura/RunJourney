@@ -9,6 +9,9 @@ struct RaceResultDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     @State private var showDeleteSheet = false
 
     var body: some View {
@@ -137,7 +140,7 @@ struct RaceResultDetailView: View {
             }
             HStack(spacing: 14) {
                 if let dist = result.summary?.totalDistanceM {
-                    inlineMetric(value: String(format: "%.2f km", dist / 1000), label: "Distance")
+                    inlineMetric(value: PaceUtils.formatDistance(km: dist / 1000, in: unit), label: "Distance")
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
                     inlineMetric(value: formatPace(pace), label: "Avg Pace")
@@ -297,9 +300,10 @@ struct RaceResultDetailView: View {
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
-        let m = Int(secPerKm) / 60
-        let s = Int(secPerKm) % 60
-        return String(format: "%d:%02d /km", m, s)
+        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+        let m = displayed / 60
+        let s = displayed % 60
+        return String(format: "%d:%02d \(unit.perLabel)", m, s)
     }
 }
 

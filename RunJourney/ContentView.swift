@@ -13,6 +13,7 @@ struct ContentView: View {
         case map
         case dashboard
         case pace
+        case tools
         case settings
 
         var id: String { rawValue }
@@ -21,6 +22,7 @@ struct ContentView: View {
             case .map: return "MAP"
             case .dashboard: return "DASHBOARD"
             case .pace: return "PACE"
+            case .tools: return "TOOLS"
             case .settings: return "SETTINGS"
             }
         }
@@ -29,6 +31,7 @@ struct ContentView: View {
             case .map: return "map"
             case .dashboard: return "chart.bar"
             case .pace: return "speedometer"
+            case .tools: return "function"
             case .settings: return "gearshape"
             }
         }
@@ -58,6 +61,9 @@ struct ContentView: View {
             }
             Tab(AppSection.pace.displayName, systemImage: AppSection.pace.symbolName, value: AppSection.pace) {
                 NavigationStack { PaceCalculatorView() }
+            }
+            Tab(AppSection.tools.displayName, systemImage: AppSection.tools.symbolName, value: AppSection.tools) {
+                NavigationStack { ToolsView() }
             }
             Tab(AppSection.settings.displayName, systemImage: AppSection.settings.symbolName, value: AppSection.settings) {
                 NavigationStack { SettingsView() }
@@ -93,6 +99,7 @@ struct ContentView: View {
                 case .map:       RaceMapView()
                 case .dashboard: DashboardView()
                 case .pace:      PaceCalculatorView()
+                case .tools:     ToolsView()
                 case .settings:  SettingsView()
                 }
             }

@@ -33,6 +33,63 @@ enum PaceUtils {
         return String(format: km >= 10 ? "%.1f" : "%.3f", km)
     }
 
+    // MARK: - Unit-aware formatters (km / mi)
+
+    /// 内部 km 値をユーザー表示単位で「値 + unit ラベル」に整形 (例: "42.20 km", "26.22 mi")
+    static func formatDistance(km: Double, in u: DistanceUnit) -> String {
+        let v = km.displayed(in: u)
+        let fmt = abs(v) >= 10 ? "%.1f" : "%.2f"
+        return "\(String(format: fmt, v)) \(u.label)"
+    }
+
+    /// 内部 km 値だけを単位変換して数値文字列で返す (suffix は呼び出し側で付ける)
+    static func formatDistanceValue(km: Double, in u: DistanceUnit) -> String {
+        let v = km.displayed(in: u)
+        let fmt = abs(v) >= 10 ? "%.1f" : "%.2f"
+        return String(format: fmt, v)
+    }
+
+    /// ペース (秒/km) を表示単位の秒/単位に変換。mi のときは × kmPerMile。
+    static func paceSecondsPerUnit(secPerKm: Int, in u: DistanceUnit) -> Int {
+        u == .km ? secPerKm : Int((Double(secPerKm) * kmPerMile).rounded())
+    }
+
+    /// ペース (秒/km) を表示単位ラベル付きペース文字列にする (例: "5:00 /km", "8:03 /mi")
+    static func formatPace(secPerKm: Int, in u: DistanceUnit) -> String {
+        let sec = paceSecondsPerUnit(secPerKm: secPerKm, in: u)
+        return "\(formatPaceSimple(sec))\(u.perLabel)"
+    }
+
+    /// 速度 (秒/km から) をユーザー単位 (km/h or mph) で返す
+    static func speed(secPerKm: Int, in u: DistanceUnit) -> Double {
+        guard secPerKm > 0 else { return 0 }
+        let kmh = 3600.0 / Double(secPerKm)
+        return u == .km ? kmh : kmh / kmPerMile
+    }
+
+    /// 400 m トラックの 1 周タイム (秒)。km/mi に依存しない (トラックは世界共通 400m)
+    static func lapTime400m(secPerKm: Int) -> Double {
+        Double(secPerKm) * 0.4
+    }
+
+    /// `M'SS"FF` 形式 (FF は秒の小数点以下 2 桁を 100 倍したもの)。Pace/Speed 結果カード用。
+    static func formatPaceTrackHundredths(_ secs: Double) -> String {
+        let total = max(0, secs)
+        let m = Int(total) / 60
+        let s = Int(total) % 60
+        let hundredths = Int((total - floor(total)) * 100)
+        return String(format: "%d'%02d\"%02d", m, s, hundredths)
+    }
+
+    /// 0:00'00" 形式 (Cheer Point の表示用 — 時:分'秒")
+    static func formatHMSPaceStyle(_ totalSeconds: Int) -> String {
+        let s = max(0, totalSeconds)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        let sec = s % 60
+        return String(format: "%d:%02d'%02d\"", h, m, sec)
+    }
+
     // MARK: - Calculations
 
     /// 目標タイム (秒) と距離 (km) からペース (秒/km) を整数で返す。

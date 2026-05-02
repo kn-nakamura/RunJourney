@@ -10,6 +10,9 @@ struct PaceShareCard: View {
     let pacePerKm: Int
     let laps: [PaceLapSegment]
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     /// 画像の論理サイズ。`ImageRenderer` 側で scale を掛けて高解像度化する。
     static let portraitSize = CGSize(width: 540, height: 960)  // 1080x1920 を 0.5x
 
@@ -63,10 +66,10 @@ struct PaceShareCard: View {
                 .appText(.eyebrow)
                 .foregroundStyle(Color.textPrimary.opacity(0.78))
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(PaceUtils.formatPaceSimple(pacePerKm))
+                Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: pacePerKm, in: unit)))
                     .appText(.codeXl)
                     .foregroundStyle(Color.accentPrimary)
-                Text("/ km")
+                Text("/ \(unit.label)")
                     .appText(.bodyBaseBold)
                     .foregroundStyle(Color.textPrimary.opacity(0.78))
                     .padding(.bottom, 8)
@@ -75,8 +78,8 @@ struct PaceShareCard: View {
             HStack(spacing: 24) {
                 metricColumn(
                     label: "DISTANCE",
-                    value: String(format: "%.2f", distanceKm),
-                    suffix: "km"
+                    value: PaceUtils.formatDistanceValue(km: distanceKm, in: unit),
+                    suffix: unit.label
                 )
                 Divider().frame(height: 36).overlay(.white.opacity(0.15))
                 metricColumn(
@@ -150,11 +153,11 @@ struct PaceShareCard: View {
             .allowsHitTesting(false)
 
             HStack(spacing: 10) {
-                Text(lap.distanceLabel)
+                Text(lapDistanceLabel(lap))
                     .appText(isMilestone ? .codeMdBold : .codeMd)
                     .foregroundStyle(lapColor(lap))
                     .frame(width: 88, alignment: .leading)
-                Text(PaceUtils.formatPaceSimple(lap.pacePerKm))
+                Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: lap.pacePerKm, in: unit)))
                     .appText(.codeMdBold)
                     .foregroundStyle(Color.accentPrimary)
                 Spacer()
@@ -175,6 +178,15 @@ struct PaceShareCard: View {
         case "HALF": return .orange
         default: return Color.textPrimary.opacity(0.85)
         }
+    }
+
+    /// HALF / GOAL はそのまま、それ以外は km 数値ラベルを単位変換して表示。
+    private func lapDistanceLabel(_ lap: PaceLapSegment) -> String {
+        if lap.distanceLabel == "HALF" || lap.distanceLabel == "GOAL" {
+            return lap.distanceLabel
+        }
+        let kmValue = Double(lap.distanceLabel) ?? lap.endKm
+        return "\(PaceUtils.formatDistanceValue(km: kmValue, in: unit)) \(unit.label)"
     }
 
     /// 指定数を超える場合は均等間隔でサンプリングする。

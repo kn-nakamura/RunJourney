@@ -12,6 +12,9 @@ struct ResultPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
     @State private var selected: Set<PersistentIdentifier> = []
     @State private var showAlert = false
 
@@ -126,7 +129,7 @@ struct ResultPickerSheet: View {
                         Text("DNS").appText(.bodyXs).foregroundStyle(.secondary)
                     }
                     if let dist = result.summary?.totalDistanceM {
-                        Text(String(format: "%.2f km", dist / 1000))
+                        Text(PaceUtils.formatDistance(km: dist / 1000, in: unit))
                             .appText(.codeXs)
                             .foregroundStyle(.tertiary)
                     }

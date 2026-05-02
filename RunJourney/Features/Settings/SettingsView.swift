@@ -14,6 +14,12 @@ struct SettingsView: View {
     @AppStorage(StorageLocation.userDefaultsKey) private var storageRaw: String = StorageLocation.local.rawValue
     @AppStorage(StorageLocation.chosenFlagKey) private var hasChosen: Bool = false
 
+    /// アプリ全体の距離単位 (km / mi)。Pace / Map / Dashboard / Playback など全表示に反映。
+    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    /// よく使う距離 (km 内部値)。PaceCalculatorView の Custom チップと共有。
+    @AppStorage("customDistanceKm") private var customDistanceKm: Double = 10.0
+    @State private var customDistanceText: String = ""
+
     @State private var showDataSheet = false
     @State private var showStorageSwitchAlert = false
     @State private var sampleLoadMessage: String?
@@ -51,6 +57,8 @@ struct SettingsView: View {
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 librarySection
+                distanceUnitSection
+                customDistanceSection
                 iCloudSection
                 aboutSection
                 developerSection
@@ -158,6 +166,80 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Distance Unit (app-wide)
+
+    private var distanceUnitSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Distance Unit")
+            Picker("Distance Unit", selection: $distanceUnitRaw) {
+                Text("km").tag(DistanceUnit.km.rawValue)
+                Text("Miles").tag(DistanceUnit.mi.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    // MARK: - Custom Distance (shared via @AppStorage("customDistanceKm"))
+
+    private var customDistanceSection: some View {
+        let unit = DistanceUnit.resolve(distanceUnitRaw)
+        return VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Custom Distance")
+            HStack(spacing: 8) {
+#if os(iOS)
+                TextField(unit.label, text: $customDistanceText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.appFont(.codeBaseBold))
+                    .onAppear { customDistanceText = formatCustomDistance(unit: unit) }
+                    .onChange(of: distanceUnitRaw) { _, _ in
+                        customDistanceText = formatCustomDistance(unit: DistanceUnit.resolve(distanceUnitRaw))
+                    }
+                    .onSubmit { commitCustomDistance(unit: unit) }
+#else
+                TextField(unit.label, text: $customDistanceText)
+                    .multilineTextAlignment(.trailing)
+                    .font(.appFont(.codeBaseBold))
+                    .onAppear { customDistanceText = formatCustomDistance(unit: unit) }
+                    .onChange(of: distanceUnitRaw) { _, _ in
+                        customDistanceText = formatCustomDistance(unit: DistanceUnit.resolve(distanceUnitRaw))
+                    }
+                    .onSubmit { commitCustomDistance(unit: unit) }
+#endif
+                Text(unit.label)
+                    .appText(.bodySm)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+            Text("Save a frequently-used distance to recall it via the Custom button across pace tools.")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private func formatCustomDistance(unit: DistanceUnit) -> String {
+        let v = customDistanceKm.displayed(in: unit)
+        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
+    }
+
+    private func commitCustomDistance(unit: DistanceUnit) {
+        let normalized = customDistanceText
+            .replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespaces)
+        guard let parsed = Double(normalized), parsed > 0 else {
+            customDistanceText = formatCustomDistance(unit: unit)
+            return
+        }
+        customDistanceKm = parsed.toKm(from: unit)
+        customDistanceText = formatCustomDistance(unit: unit)
     }
 
     // MARK: - Data management
