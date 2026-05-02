@@ -13,6 +13,7 @@ struct RaceResultDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 heroSection
+                weatherSummary
                 statsGrid
                 routeMapSection
                 lapChartSection
@@ -27,6 +28,48 @@ struct RaceResultDetailView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    RaceResultEditView(result: result)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+            }
+        }
+    }
+
+    // MARK: - Weather summary (read-only)
+
+    @ViewBuilder
+    private var weatherSummary: some View {
+        if result.weatherTempC != nil || result.weatherDescription != nil || result.condition != nil {
+            HStack(spacing: 16) {
+                if let desc = result.weatherDescription {
+                    HStack(spacing: 6) {
+                        Image(systemName: desc.symbolName)
+                            .foregroundStyle(Color.accentPrimary)
+                        Text(desc.displayName)
+                            .appText(.bodySmBold)
+                    }
+                }
+                if let temp = result.weatherTempC {
+                    Text(String(format: "%.1f°C", temp))
+                        .appText(.codeMd)
+                }
+                if let cond = result.condition {
+                    HStack(spacing: 4) {
+                        Image(systemName: cond.symbolName)
+                            .foregroundStyle(.secondary)
+                        Text(cond.displayName).appText(.bodyXs)
+                    }
+                }
+                Spacer()
+            }
+            .foregroundStyle(Color.textPrimary)
+            .padding(12)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
+        }
     }
 
     // MARK: - Hero

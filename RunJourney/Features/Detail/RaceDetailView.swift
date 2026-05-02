@@ -42,23 +42,92 @@ struct RaceDetailView: View {
 
     private var basicInfoSection: some View {
         Section {
+            // 1. Race Name
             TextField("Race Name", text: $race.name)
+
+            // 2. Category
             Picker("Category", selection: $race.category) {
                 ForEach(RaceCategory.allCases) { cat in
                     Label(cat.displayName, systemImage: cat.symbolName)
                         .tag(cat)
                 }
             }
-            if let km = race.distanceKm {
-                LabeledContent("Distance", value: String(format: "%.2f km", km))
+
+            // 3. Distance — 5K/10K/Half/Full/Ultra100K は自動、Trail/UltraCustom は手動入力
+            distanceField
+
+            // 4. Location — MKLocalSearch で住所検索
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Location")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                LocationSearchField(race: race)
             }
-            LabeledContent("Location", value: String(format: "%.4f, %.4f", race.lat, race.lng))
-            if let city = race.city {
-                LabeledContent("City", value: city)
+
+            // 5. Website
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Website", text: $race.websiteURL.bound, prompt: Text("https://..."))
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                if let url = validWebsiteURL {
+                    Link(destination: url) {
+                        Label("Open official site", systemImage: "safari")
+                            .appText(.bodyXs)
+                    }
+                }
+            }
+
+            // 6. Race Logo
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Race Logo")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+                LogoPicker(race: race)
             }
         } header: {
             SectionHeader(title: "Race Info")
         }
+        .onChange(of: race.category) { _, newCategory in
+            // カテゴリ変更時に自動距離を再計算。Trail/UltraCustom はユーザー入力を維持。
+            if let auto = newCategory.defaultDistanceKm {
+                race.distanceKm = auto
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var distanceField: some View {
+        if race.category.defaultDistanceKm != nil {
+            // 自動 (read-only)
+            LabeledContent("Distance") {
+                Text(String(format: "%.3f km", race.distanceKm ?? 0))
+                    .appText(.codeMd)
+                    .foregroundStyle(Color.textPrimary)
+            }
+        } else {
+            // Trail / UltraCustom — ユーザー入力
+            HStack {
+                Text("Distance")
+                Spacer()
+                TextField("e.g. 50", text: $race.distanceKm.stringBound)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.decimalPad)
+                    .frame(maxWidth: 120)
+                Text("km")
+                    .appText(.codeXs)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var validWebsiteURL: URL? {
+        guard let raw = race.websiteURL?.trimmingCharacters(in: .whitespaces),
+              !raw.isEmpty,
+              let url = URL(string: raw),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return nil }
+        return url
     }
 
     // MARK: - Results

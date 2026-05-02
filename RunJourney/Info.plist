@@ -8,8 +8,19 @@
 	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>RunJourney で録画した動画を写真ライブラリに保存するために使用します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RunJourney uses Photos so you can attach a logo image to a race.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>画面録画時にマイク音声を含めることがあります（任意）。</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>BrandLogo</string>
+		<key>UIImageRespectsSafeAreaInsets</key>
+		<true/>
+	</dict>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

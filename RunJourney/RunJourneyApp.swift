@@ -7,6 +7,8 @@ import UIKit
 @main
 struct RunJourneyApp: App {
 
+    @State private var splashCoordinator = SplashCoordinator()
+
     init() {
 #if os(iOS)
         AppUIKitAppearance.configureAll()
@@ -35,10 +37,17 @@ struct RunJourneyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(.dark)        // Webアプリと同じダークテーマ固定
-                .tint(.accentPrimary)               // 蛍光イエローグリーン (#E8FF47)
-                .background(Color.bgPrimary)
+            ZStack {
+                ContentView()
+                if splashCoordinator.phase != .done {
+                    SplashView()
+                        .transition(.opacity)
+                }
+            }
+            .environment(splashCoordinator)
+            .preferredColorScheme(.dark)        // Webアプリと同じダークテーマ固定
+            .tint(.accentPrimary)               // 蛍光イエローグリーン (#E8FF47)
+            .background(Color.bgPrimary)
         }
         .modelContainer(sharedModelContainer)
     }

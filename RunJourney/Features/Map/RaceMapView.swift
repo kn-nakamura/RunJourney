@@ -11,6 +11,7 @@ import MapKit
 /// この副作用は SwiftUI Map 特有で、MKMapView を介すと発生しない。
 struct RaceMapView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(SplashCoordinator.self) private var splashCoordinator
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
 
     @StoredMapStyleSettings private var mapSettings
@@ -19,7 +20,11 @@ struct RaceMapView: View {
     /// MKMapView へ渡す「一回限りの region 変更要求」。fit 操作時にセットし、
     /// 反映後は MKMapView 側で nil に戻される。
     @State private var requestedRegion: MKCoordinateRegion?
+    /// MKMapView がタップ検知 → SwiftUI バインディングへ伝える「カメラを動かしたい対象」。
+    /// シート表示用の `sheetRace` とは分離して、ズームアニメ完了後にシートを上げる。
     @State private var selectedRace: Race?
+    @State private var sheetRace: Race?
+    @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
 
@@ -61,29 +66,60 @@ struct RaceMapView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(item: $selectedRace) { race in
+        .sheet(item: $sheetRace) { race in
             NavigationStack {
                 RaceDetailView(race: race)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Close") { selectedRace = nil }
+                            Button("Close") { sheetRace = nil }
                         }
                     }
             }
             .presentationDetents([.medium, .large])
+            .presentationBackground(.ultraThinMaterial)
+            .presentationCornerRadius(28)
         }
-        .onAppear {
-            if !hasFitInitialRaces, !races.isEmpty {
-                hasFitInitialRaces = true
+        .task {
+            // 初回起動時のシーケンス:
+            // 1. 日本全体を仮置き
+            // 2. 250ms 後に fit-all（または 1件ズーム）と splash フェードを同時開始
+            //    → MKMapView の region アニメ (~1s) と splash フェード (0.7s) が重なる
+            guard !hasFitInitialRaces else { return }
+            hasFitInitialRaces = true
+            requestedRegion = Self.japanRegion
+            try? await Task.sleep(for: .milliseconds(250))
+            if !races.isEmpty {
                 fitAllRaces()
             }
+            splashCoordinator.beginHandoff()
         }
         .onChange(of: races.count) { _, newCount in
-            if !hasFitInitialRaces, newCount > 0 {
-                hasFitInitialRaces = true
+            // レース 0 件で起動して後から追加された場合、その時点で初回フィットを実行。
+            if hasFitInitialRaces, newCount > 0, sheetRace == nil {
                 fitAllRaces()
             }
         }
+        .onChange(of: selectedRace) { _, race in
+            guard let race else { return }
+            zoomTask?.cancel()
+            zoomTask = Task { await zoomThenPresent(race) }
+        }
+        .onChange(of: sheetRace) { _, race in
+            // シートが閉じたら全体ビューに戻す。Web 版と同じ挙動。
+            if race == nil, !races.isEmpty {
+                fitAllRaces()
+            }
+        }
+    }
+
+    /// ピン選択 → ターゲットへ約 5km ズーム（ルートあれば全体フィット）→ 450ms 後にシート表示。
+    private func zoomThenPresent(_ race: Race) async {
+        fitRace(race)
+        try? await Task.sleep(for: .milliseconds(450))
+        guard !Task.isCancelled else { return }
+        sheetRace = race
+        // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
+        selectedRace = nil
     }
 
     // MARK: - Layers
