@@ -3,7 +3,6 @@ import SwiftUI
 /// 再生コントロールバー。Rewind / Play / シーク。スピード変更は Settings パネルへ。
 struct PlaybackControls: View {
     @Bindable var controller: PlaybackController
-    /// Rewind タップ時に smoothDamp 状態を外からリセットするためのコールバック。
     var onRewind: (() -> Void)? = nil
 
     @State private var isScrubbing = false
@@ -16,7 +15,7 @@ struct PlaybackControls: View {
                 Text(formatDuration(controller.currentTime))
                     .appText(.codeXs)
                     .foregroundStyle(.secondary)
-                    .frame(width: 56, alignment: .leading)
+                    .frame(width: 52, alignment: .leading)
 
                 Slider(
                     value: Binding(
@@ -40,25 +39,23 @@ struct PlaybackControls: View {
                 Text(formatDuration(controller.totalDuration))
                     .appText(.codeXs)
                     .foregroundStyle(.secondary)
-                    .frame(width: 56, alignment: .trailing)
+                    .frame(width: 52, alignment: .trailing)
             }
 
-            // 操作ボタン
-            HStack(spacing: 14) {
-                // Rewind (先頭へ戻る)
+            // 操作ボタン — 最小限のサイズ
+            HStack(spacing: 16) {
                 Button {
                     controller.seek(to: 0)
                     onRewind?()
                 } label: {
                     Image(systemName: "backward.end.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                         .foregroundStyle(Color.textMuted)
                 }
 
-                // Play / Pause
                 Button { controller.togglePlay() } label: {
-                    Image(systemName: controller.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 48))
+                    Image(systemName: controller.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 28))
                         .foregroundStyle(Color.accentPrimary)
                 }
 
@@ -66,11 +63,9 @@ struct PlaybackControls: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06))
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06)))
     }
 
     private func formatDuration(_ totalSec: Double) -> String {

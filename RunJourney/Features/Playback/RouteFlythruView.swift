@@ -3,7 +3,7 @@ import MapKit
 
 /// ルートフライスルー（地図上でルートをアニメーション再生）。
 /// - フォローモード: 現在位置を中心にカメラが追跡（look-ahead で進行方向を向く）
-/// - 全体モード: 静止カメラでルート全体を俯瞰
+/// - 全体モード: ルート全体を俯瞰。ユーザがジェスチャで自由に動かせる
 struct RouteFlythruView: View {
     @Bindable var result: RaceResult
     @Environment(\.dismiss) private var dismiss
@@ -11,9 +11,8 @@ struct RouteFlythruView: View {
     @State private var controller: PlaybackController
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var followMode: Bool = true
-    @State private var lastCameraUpdateAt: CFTimeInterval = 0
 
-    // MKMapView 直叩きパス (iOS/visionOS) で使うカメラ。SwiftUI Map は使わない。
+    // MKMapView 直叩きパス (iOS/visionOS) で使うカメラ。
     @State private var mkCamera: MKMapCamera = MKMapCamera()
 
     // smoothDamp の状態。velocity を呼び出し間で永続化することで慣性が効く。
@@ -24,8 +23,8 @@ struct RouteFlythruView: View {
     @State private var latVelocity: Double = 0
     @State private var lngVelocity: Double = 0
     @State private var hasInitializedSmoothing: Bool = false
-    // deadband 用: 前フレームの「生ベアリング目標」。ブレンド済みの値を保持。
     @State private var blendedBearingTarget: Double = 0
+    @State private var lastCameraUpdateAt: CFTimeInterval = 0
 
     // ユーザ上書きカメラ値 (nil = プロファイル自動)
     @State private var userPitch: Double? = nil
@@ -33,18 +32,18 @@ struct RouteFlythruView: View {
     @State private var userCenterResponse: Double? = nil
     @State private var userBearingResponse: Double? = nil
 
+    // ユーザがマップを触った時刻から 2.5 秒間はカメラ制御を渡す
+    @State private var userInteractionExpiresAt: CFTimeInterval = 0
+
     // UI 状態
     @State private var showSettings: Bool = false
     @State private var showExportSheet: Bool = false
 
-    // Map タブで設定したマップ・ピンスタイルをそのままここでも使う。
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
 
-    /// 元のルート全体（背景polylineに使う）
     private let allCoords: [CLLocationCoordinate2D]
     private let trackPointCoords: [CLLocationCoordinate2D]
-    /// 距離プロファイルから決まったカメラ姿勢・追従応答・先読み時間。
     private let cameraProfile: FollowCameraProfile
 
     init(result: RaceResult) {
@@ -57,18 +56,20 @@ struct RouteFlythruView: View {
         self._controller = State(initialValue: PlaybackController(trackPoints: pts))
     }
 
-    // MARK: - Effective camera params (user override or auto profile)
+    // MARK: - Effective camera params
 
     private var effectivePitch: Double { userPitch ?? cameraProfile.pitch }
     private var effectiveDistance: Double { userDistance ?? cameraProfile.distance }
     private var effectiveCenterResp: Double { userCenterResponse ?? cameraProfile.centerResponseSec }
     private var effectiveBearingResp: Double { userBearingResponse ?? cameraProfile.bearingResponseSec }
 
+    /// ユーザがマップを触っている (または触ってから 2.5 秒経っていない) か。
+    private var isUserInteracting: Bool { CACurrentMediaTime() < userInteractionExpiresAt }
+
     var body: some View {
         ZStack {
             mapLayer
             VStack(spacing: 6) {
-                // Settings パネル（ツールバー直下、スライドイン）
                 if showSettings {
                     PlaybackSettingsPanel(
                         controller: controller,
@@ -86,7 +87,6 @@ struct RouteFlythruView: View {
                 Spacer()
                 PlaybackHUD(controller: controller, race: result.race)
                 PlaybackControls(controller: controller) {
-                    // Rewind: smoothDamp 状態をリセット
                     hasInitializedSmoothing = false
                     blendedBearingTarget = smoothedHeading
                 }
@@ -103,7 +103,6 @@ struct RouteFlythruView: View {
 #endif
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                // Follow / Overview セグメントコントロール
                 HStack(spacing: 0) {
                     modeButton(label: "Follow", isActive: followMode) {
                         activateFollowMode()
@@ -114,7 +113,6 @@ struct RouteFlythruView: View {
                 }
                 .background(Color.bgSecondary, in: Capsule())
 
-                // Settings
                 Button {
                     withAnimation { showSettings.toggle() }
                 } label: {
@@ -123,10 +121,7 @@ struct RouteFlythruView: View {
                         .foregroundStyle(showSettings ? Color.accentPrimary : .primary)
                 }
 
-                // Export
-                Button {
-                    showExportSheet = true
-                } label: {
+                Button { showExportSheet = true } label: {
                     Image(systemName: "square.and.arrow.down")
                 }
             }
@@ -144,11 +139,8 @@ struct RouteFlythruView: View {
         .onChange(of: controller.currentTime) { _, _ in
             updateCameraIfNeeded()
         }
-        // 再生開始時に自動でフォローモードへ遷移
         .onChange(of: controller.isPlaying) { _, isPlaying in
-            if isPlaying, !followMode {
-                activateFollowMode()
-            }
+            if isPlaying, !followMode { activateFollowMode() }
         }
     }
 
@@ -168,8 +160,9 @@ struct RouteFlythruView: View {
     }
 
     private func activateFollowMode() {
+        userInteractionExpiresAt = 0          // ユーザ上書きを即座に解除
         followMode = true
-        hasInitializedSmoothing = false
+        hasInitializedSmoothing = false       // ランナー位置から smoothDamp を再初期化
         advanceSmoothing(dt: 1.0 / 60.0)
         applyCamera()
     }
@@ -177,10 +170,7 @@ struct RouteFlythruView: View {
     private func activateOverviewMode() {
         followMode = false
         showSettings = false
-        cameraPosition = overviewCameraPosition()
-#if canImport(UIKit)
-        mkCamera = overviewMKCamera()
-#endif
+        // カメラ設定不要 — FlythroughMapView 内で setVisibleMapRect を実行する
     }
 
     // MARK: - Map
@@ -198,13 +188,21 @@ struct RouteFlythruView: View {
                 camera: mkCamera,
                 configuration: mapSettings.mapConfiguration,
                 strokeColor: UIColor(result.race?.category.pinColor ?? .accentPrimary),
-                isPlaying: controller.isPlaying
+                isPlaying: controller.isPlaying,
+                isOverview: !followMode,
+                isUserInteracting: isUserInteracting,
+                onUserInteraction: {
+                    userInteractionExpiresAt = CACurrentMediaTime() + 2.5
+                }
             )
 #else
             Map(position: $cameraPosition) {
                 if allCoords.count >= 2 {
                     MapPolyline(coordinates: allCoords)
-                        .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                        .stroke(
+                            Color(red: 58/255, green: 58/255, blue: 74/255).opacity(0.85),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                        )
                 }
                 let traveled = controller.traveledPoints.map(\.coordinate)
                 let strokeColor = result.race?.category.pinColor ?? .accentPrimary
@@ -217,11 +215,6 @@ struct RouteFlythruView: View {
                     MapPolyline(coordinates: tail)
                         .stroke(strokeColor, style: strokeStyle)
                 }
-                if let p = controller.currentPoint {
-                    Annotation("", coordinate: p.coordinate, anchor: .center) {
-                        runnerMarker
-                    }
-                }
             }
             .mapStyle(mapSettings.mapStyle)
 #endif
@@ -229,27 +222,10 @@ struct RouteFlythruView: View {
         .ignoresSafeArea(edges: .top)
     }
 
-    private var runnerMarker: some View {
-        ZStack {
-            Circle()
-                .fill(Color.accentPrimary)
-                .frame(width: 22, height: 22)
-                .shadow(color: .accentPrimary.opacity(0.7), radius: 8)
-            Circle()
-                .stroke(.white, lineWidth: 3)
-                .frame(width: 22, height: 22)
-            Image(systemName: "figure.run")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.black)
-        }
-        .scaleEffect(controller.isPlaying ? 1.1 : 1.0)
-        .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: controller.isPlaying)
-    }
-
     // MARK: - Camera
 
     private func updateCameraIfNeeded() {
-        guard followMode else { return }
+        guard followMode, !isUserInteracting else { return }
         let now = CACurrentMediaTime()
         let dt = lastCameraUpdateAt == 0 ? (1.0 / 120.0) : (now - lastCameraUpdateAt)
         lastCameraUpdateAt = now
@@ -259,16 +235,14 @@ struct RouteFlythruView: View {
     }
 
     private func applyCamera() {
-        if followMode {
+        guard followMode else { return }
 #if canImport(UIKit)
-            mkCamera = makeMKCamera()
+        mkCamera = makeMKCamera()
 #else
-            cameraPosition = makeMapCameraPosition()
+        cameraPosition = makeMapCameraPosition()
 #endif
-        }
     }
 
-    /// smoothDamp の internal state を `dt` 秒進める（デッドバンド付き）。
     private func advanceSmoothing(dt: Double) {
         guard let cur = controller.currentPoint else { return }
 
@@ -284,7 +258,7 @@ struct RouteFlythruView: View {
             hasInitializedSmoothing = true
         }
 
-        // --- Bearing deadband / soft-zone ---
+        // Bearing deadband / soft-zone
         let rawHeading: Double
         if let lookAhead = controller.lookAheadPoint(sec: cameraProfile.lookAheadSec),
            lookAhead.id != cur.id {
@@ -299,7 +273,6 @@ struct RouteFlythruView: View {
             softZone: cameraProfile.bearingSoftZoneDeg
         )
         if bearingBlend > 0 {
-            // ブレンド分だけ目標を更新してから smoothDamp に渡す
             blendedBearingTarget = (blendedBearingTarget + bearingDelta * bearingBlend)
                 .truncatingRemainder(dividingBy: 360)
         }
@@ -311,36 +284,25 @@ struct RouteFlythruView: View {
             dt: dt
         )
 
-        // --- Position deadband / soft-zone ---
+        // Position deadband / soft-zone
         let dLat = cur.coordinate.latitude - smoothedLat
         let dLng = cur.coordinate.longitude - smoothedLng
-        // 緯度差を概算メートルに変換して deadband チェック
         let approxDeltaM = sqrt((dLat * 111_000) * (dLat * 111_000) + (dLng * 111_000) * (dLng * 111_000))
         let posBlend = PlaybackMath.softBlendFactor(
             delta: approxDeltaM,
             deadband: cameraProfile.centerDeadbandM,
             softZone: cameraProfile.centerSoftZoneM
         )
-        let targetLat = posBlend > 0
-            ? smoothedLat + dLat * posBlend
-            : smoothedLat
-        let targetLng = posBlend > 0
-            ? smoothedLng + dLng * posBlend
-            : smoothedLng
+        let targetLat = posBlend > 0 ? smoothedLat + dLat * posBlend : smoothedLat
+        let targetLng = posBlend > 0 ? smoothedLng + dLng * posBlend : smoothedLng
 
         smoothedLat = AngleMath.smoothDamp(
-            from: smoothedLat,
-            to: targetLat,
-            velocity: &latVelocity,
-            smoothTime: effectiveCenterResp,
-            dt: dt
+            from: smoothedLat, to: targetLat, velocity: &latVelocity,
+            smoothTime: effectiveCenterResp, dt: dt
         )
         smoothedLng = AngleMath.smoothDamp(
-            from: smoothedLng,
-            to: targetLng,
-            velocity: &lngVelocity,
-            smoothTime: effectiveCenterResp,
-            dt: dt
+            from: smoothedLng, to: targetLng, velocity: &lngVelocity,
+            smoothTime: effectiveCenterResp, dt: dt
         )
     }
 
@@ -363,40 +325,4 @@ struct RouteFlythruView: View {
             pitch: effectivePitch
         ))
     }
-
-    private func overviewCameraPosition() -> MapCameraPosition {
-        guard allCoords.count >= 2 else { return .automatic }
-        let lats = allCoords.map(\.latitude)
-        let lngs = allCoords.map(\.longitude)
-        let center = CLLocationCoordinate2D(
-            latitude: (lats.min()! + lats.max()!) / 2,
-            longitude: (lngs.min()! + lngs.max()!) / 2
-        )
-        let span = MKCoordinateSpan(
-            latitudeDelta: max(lats.max()! - lats.min()!, 0.005) * 1.4,
-            longitudeDelta: max(lngs.max()! - lngs.min()!, 0.005) * 1.4
-        )
-        return .region(MKCoordinateRegion(center: center, span: span))
-    }
-
-#if canImport(UIKit)
-    private func overviewMKCamera() -> MKMapCamera {
-        let cam = MKMapCamera()
-        guard allCoords.count >= 2 else { return cam }
-        let lats = allCoords.map(\.latitude)
-        let lngs = allCoords.map(\.longitude)
-        let center = CLLocationCoordinate2D(
-            latitude: (lats.min()! + lats.max()!) / 2,
-            longitude: (lngs.min()! + lngs.max()!) / 2
-        )
-        let latSpan = max(lats.max()! - lats.min()!, 0.005)
-        let lngSpan = max(lngs.max()! - lngs.min()!, 0.005)
-        let approxSpanM = max(latSpan, lngSpan) * 111_000
-        cam.centerCoordinate = center
-        cam.centerCoordinateDistance = approxSpanM * 1.6
-        cam.pitch = 0
-        cam.heading = 0
-        return cam
-    }
-#endif
 }

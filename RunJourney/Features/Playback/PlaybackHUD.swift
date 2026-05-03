@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// 再生中の現在ペース・心拍・標高・距離・経過時間をオーバーレイで表示。
+/// 各列は固定幅 (frame(width:)) なので値が変わっても他列の位置が動かない。
 struct PlaybackHUD: View {
     let controller: PlaybackController
     let race: Race?
@@ -9,66 +10,73 @@ struct PlaybackHUD: View {
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // 経過時間 / 総時間
+        HStack(alignment: .center, spacing: 0) {
+            // 経過時間 / 総時間 — 固定幅78pt
             VStack(alignment: .leading, spacing: 0) {
                 Text(formatDuration(controller.currentTime))
-                    .appText(.codeMd)
+                    .appText(.codeSm)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                     .foregroundStyle(Color.accentPrimary)
                 Text("/ \(formatDuration(controller.totalDuration))")
                     .appText(.codeXxs)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                     .foregroundStyle(.secondary)
             }
-            Divider().frame(height: 28).background(.white.opacity(0.15))
-            // 距離
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Dist")
-                    .appText(.bodyXs)
-                    .foregroundStyle(.secondary)
-                Text(distanceText)
-                    .appText(.codeSm)
-                    .foregroundStyle(Color.textPrimary)
+            .frame(width: 78, alignment: .leading)
+
+            hudDivider
+
+            metricColumn(label: "Dist",  value: distanceText, width: 66)
+            metricColumn(label: "Pace",  value: paceText,     width: 62)
+
+            if let hr = hrText {
+                metricColumn(label: "HR",  value: hr,   width: 62, valueColor: Color.catFullMarathon)
             }
-            // ペース
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Pace")
-                    .appText(.bodyXs)
-                    .foregroundStyle(.secondary)
-                Text(paceText)
-                    .appText(.codeSm)
-                    .foregroundStyle(Color.textPrimary)
+            if let elev = elevText {
+                metricColumn(label: "Alt", value: elev, width: 46, valueColor: Color.cat10K)
             }
-            // 心拍
-            if hrText != nil {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("HR")
-                        .appText(.bodyXs)
-                        .foregroundStyle(.secondary)
-                    Text(hrText ?? "—")
-                        .appText(.codeSm)
-                        .foregroundStyle(Color.catFullMarathon)
-                }
-            }
-            // 標高
-            if elevText != nil {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Alt")
-                        .appText(.bodyXs)
-                        .foregroundStyle(.secondary)
-                    Text(elevText ?? "—")
-                        .appText(.codeSm)
-                        .foregroundStyle(Color.cat10K)
-                }
-            }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06))
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06)))
     }
+
+    // MARK: - Sub-views
+
+    private var hudDivider: some View {
+        Divider()
+            .frame(height: 28)
+            .background(.white.opacity(0.15))
+            .padding(.horizontal, 8)
+    }
+
+    @ViewBuilder
+    private func metricColumn(
+        label: String,
+        value: String,
+        width: CGFloat,
+        valueColor: Color = Color.textPrimary
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .appText(.bodyXs)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .appText(.codeSm)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .foregroundStyle(valueColor)
+        }
+        // width: 固定幅でコンテンツが大きくなっても他列の位置が動かない
+        .frame(width: width, alignment: .leading)
+    }
+
+    // MARK: - Computed values
 
     private var distanceText: String {
         guard let p = controller.currentPoint else { return "—" }
