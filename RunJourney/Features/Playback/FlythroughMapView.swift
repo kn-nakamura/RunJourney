@@ -113,7 +113,7 @@ struct FlythroughMapView: UIViewRepresentable {
             if let ann = coord.positionAnnotation {
                 ann.coordinate = runner
             } else {
-                let ann = PositionAnnotation(coordinate: runner)
+                let ann = PositionAnnotation(coordinate: runner, dotColor: strokeColor)
                 coord.positionAnnotation = ann
                 map.addAnnotation(ann)
             }
@@ -188,6 +188,7 @@ struct FlythroughMapView: UIViewRepresentable {
                 let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? PositionAnnotationView)
                     ?? PositionAnnotationView(annotation: pos, reuseIdentifier: id)
                 view.annotation = pos
+                view.configure(color: pos.dotColor)
                 return view
             }
             guard let flag = annotation as? FlagAnnotation else { return nil }
@@ -280,12 +281,19 @@ final class ProgressRouteRenderer: MKOverlayRenderer {
 /// ランナー現在位置アノテーション。coordinate を @objc dynamic にして差し替え移動させる。
 final class PositionAnnotation: NSObject, MKAnnotation {
     @objc dynamic var coordinate: CLLocationCoordinate2D
-    init(coordinate: CLLocationCoordinate2D) { self.coordinate = coordinate }
+    let dotColor: UIColor
+    init(coordinate: CLLocationCoordinate2D, dotColor: UIColor) {
+        self.coordinate = coordinate
+        self.dotColor = dotColor
+    }
 }
 
 /// MKAnnotationView でスクリーン空間に描画するため pitch に関係なく浮いて見える。
 /// CALayer.shadowRadius でグロー、白ボーダーで球体感を出す。
 final class PositionAnnotationView: MKAnnotationView {
+    private let dot = CALayer()
+    private let border = CALayer()
+
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
         let size: CGFloat = 18
@@ -293,17 +301,13 @@ final class PositionAnnotationView: MKAnnotationView {
         centerOffset = .zero
         backgroundColor = .clear
 
-        let dot = CALayer()
         dot.frame = bounds
         dot.cornerRadius = size / 2
-        dot.backgroundColor = UIColor.systemYellow.cgColor
-        dot.shadowColor = UIColor.systemYellow.cgColor
         dot.shadowOpacity = 0.9
         dot.shadowRadius = 8
         dot.shadowOffset = .zero
         layer.addSublayer(dot)
 
-        let border = CALayer()
         border.frame = bounds
         border.cornerRadius = size / 2
         border.borderColor = UIColor.white.cgColor
@@ -312,6 +316,11 @@ final class PositionAnnotationView: MKAnnotationView {
         layer.addSublayer(border)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    func configure(color: UIColor) {
+        dot.backgroundColor = color.cgColor
+        dot.shadowColor = color.cgColor
+    }
 }
 
 // MARK: - Flag Annotations
