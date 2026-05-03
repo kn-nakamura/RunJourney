@@ -5,12 +5,13 @@ import UIKit
 
 /// 高頻度更新でも軌跡が正確に表示される MKMapView ラッパー。
 ///
-/// 設計方針 (marathon-record-app の buildProgressRouteGeoJson + setData 方式を移植):
+/// 設計方針:
 /// - 全体ルート (ダークグレー MKPolyline) は init 時に 1 度だけ追加、不変
-/// - 走破ライン先端とランナードットは ProgressRouteOverlay (カスタム MKOverlay) で管理
-///   → 同一 draw() 内でライン末端 = runnerCoord、ドット中心 = runnerCoord を描画するため
-///      物理的にズレが生じない (web 版 progressSource / markerSource が同フレームで確定する設計と等価)
-/// - MKPolyline の add/remove を使わないため MapKit レンダリングをブロックしない
+/// - 走破ライン: ProgressRouteOverlay (カスタム MKOverlay) で管理
+///   → traveled[0...n] + runnerCoord(tip) を draw() 1 回で描くため add/remove なし
+/// - ランナードット: PositionAnnotationView (MKAnnotationView / スクリーンスペース)
+///   → CALayer.shadowRadius でグローが出る。スクリーン空間なので pitch に影響されず浮いて見える
+///   → 線の先端は同じ runnerCoord なので updateUIView 1 回で両方が更新される
 /// - ユーザ操作検知はジェスチャレコグナイザーで行う
 struct FlythroughMapView: UIViewRepresentable {
 
@@ -78,6 +79,9 @@ struct FlythroughMapView: UIViewRepresentable {
             map.addAnnotation(FlagAnnotation(coordinate: last, kind: .finish))
         }
 
+        // ランナードット annotation (runnerCoord が確定してから addAnnotation)
+        // → updateUIView で管理
+
         map.setCamera(camera, animated: false)
         return map
     }
@@ -90,8 +94,7 @@ struct FlythroughMapView: UIViewRepresentable {
             map.preferredConfiguration = configuration
         }
 
-        // 走破データ更新: web 版 buildProgressRouteGeoJson と同様に
-        //   traveled[0...lastReachedIndex] + runnerCoord(tip) を 1 本のラインで表す
+        // 走破ライン更新: traveled[0...lastReachedIndex] + runnerCoord(tip)
         if let overlay = coord.progressOverlay {
             let endIdx = min(traveledIndex, trackPointCoords.count - 1)
             let traveled: [CLLocationCoordinate2D] = endIdx >= 0
@@ -101,6 +104,20 @@ struct FlythroughMapView: UIViewRepresentable {
             if let renderer = map.renderer(for: overlay) as? ProgressRouteRenderer {
                 renderer.setNeedsDisplay()
             }
+        }
+
+        // ランナードット annotation (MKAnnotationView = スクリーンスペース = 浮いて見える)
+        if let runner = runnerCoord {
+            if let ann = coord.positionAnnotation {
+                ann.coordinate = runner
+            } else {
+                let ann = PositionAnnotation(coordinate: runner)
+                coord.positionAnnotation = ann
+                map.addAnnotation(ann)
+            }
+        } else if let ann = coord.positionAnnotation {
+            map.removeAnnotation(ann)
+            coord.positionAnnotation = nil
         }
 
         // Overview モード切替
@@ -126,6 +143,7 @@ struct FlythroughMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var fullPolyline: MKPolyline?
         var progressOverlay: ProgressRouteOverlay?
+        var positionAnnotation: PositionAnnotation?
         var wasInOverview: Bool = false
         var onUserInteraction: (() -> Void)?
 
@@ -160,6 +178,13 @@ struct FlythroughMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if let pos = annotation as? PositionAnnotation {
+                let id = "runner"
+                let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? PositionAnnotationView)
+                    ?? PositionAnnotationView(annotation: pos, reuseIdentifier: id)
+                view.annotation = pos
+                return view
+            }
             guard let flag = annotation as? FlagAnnotation else { return nil }
             let id = "flag-\(flag.kind.rawValue)"
             let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? FlagAnnotationView)
@@ -220,20 +245,17 @@ final class ProgressRouteOverlay: NSObject, MKOverlay {
 
 // MARK: - ProgressRouteRenderer
 
-/// ProgressRouteOverlay の描画ロジック。
-/// ライン先端 (runnerCoord) とドット中心 (runnerCoord) が同一 draw() 内で確定するため
-/// marathon-record-app の progressSource / markerSource を同フレームで setData する設計と等価。
+/// ProgressRouteOverlay の描画ロジック (走破ラインのみ)。
+/// ドットは PositionAnnotationView (MKAnnotationView) がスクリーン空間で描画する。
 final class ProgressRouteRenderer: MKOverlayRenderer {
     override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
         guard let overlay = overlay as? ProgressRouteOverlay else { return }
         let (traveled, runner, strokeColor) = overlay.snapshot()
 
-        // traveled[0...n] + tip (runner) で 1 本のラインを構成
         var coords = traveled
         if let r = runner { coords.append(r) }
         guard coords.count >= 2 else { return }
 
-        // 走破ライン
         context.setLineCap(.round)
         context.setLineJoin(.round)
         context.setLineWidth(5 / zoomScale)
@@ -245,51 +267,49 @@ final class ProgressRouteRenderer: MKOverlayRenderer {
             context.addLine(to: point(for: MKMapPoint(coord)))
         }
         context.strokePath()
-
-        // ランナードット: ライン先端 = runnerCoord と完全一致
-        guard let runner else { return }
-        let runnerPt = point(for: MKMapPoint(runner))
-        let dotR = 9.0 / zoomScale
-
-        // ソフトグロー (同心円)
-        let glowSteps: [(Double, Double)] = [(22, 0.10), (17, 0.18), (13, 0.28), (11, 0.40)]
-        for (gr, ga) in glowSteps {
-            let r = gr / zoomScale
-            context.setFillColor(UIColor.systemYellow.withAlphaComponent(ga).cgColor)
-            context.fillEllipse(in: CGRect(x: runnerPt.x - r, y: runnerPt.y - r,
-                                           width: r * 2, height: r * 2))
-        }
-
-        // 球面照明: ラジアルグラジエントでハイライト→シャドウを再現
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let gradColors = [UIColor(red: 1.0, green: 1.0, blue: 0.75, alpha: 1).cgColor,
-                          UIColor(red: 1.0, green: 0.84, blue: 0.0,  alpha: 1).cgColor,
-                          UIColor(red: 0.85, green: 0.52, blue: 0.0, alpha: 1).cgColor] as CFArray
-        let gradLocs: [CGFloat] = [0, 0.45, 1.0]
-        if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradColors, locations: gradLocs) {
-            context.saveGState()
-            context.addEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
-                                          width: dotR * 2, height: dotR * 2))
-            context.clip()
-            // ハイライトを左上にオフセット → 球面照明の錯視
-            let highlight = CGPoint(x: runnerPt.x - dotR * 0.28, y: runnerPt.y - dotR * 0.32)
-            context.drawRadialGradient(gradient,
-                                       startCenter: highlight, startRadius: 0,
-                                       endCenter: runnerPt, endRadius: dotR,
-                                       options: .drawsAfterEndLocation)
-            context.restoreGState()
-        }
-
-        // 白ボーダー
-        context.setStrokeColor(UIColor.white.cgColor)
-        context.setLineWidth(2 / zoomScale)
-        context.addEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
-                                      width: dotR * 2, height: dotR * 2))
-        context.strokePath()
     }
 }
 
-// MARK: - Annotations (Flag only)
+// MARK: - Runner Annotation (screen-space dot)
+
+/// ランナー現在位置アノテーション。coordinate を @objc dynamic にして差し替え移動させる。
+final class PositionAnnotation: NSObject, MKAnnotation {
+    @objc dynamic var coordinate: CLLocationCoordinate2D
+    init(coordinate: CLLocationCoordinate2D) { self.coordinate = coordinate }
+}
+
+/// MKAnnotationView でスクリーン空間に描画するため pitch に関係なく浮いて見える。
+/// CALayer.shadowRadius でグロー、白ボーダーで球体感を出す。
+final class PositionAnnotationView: MKAnnotationView {
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        let size: CGFloat = 18
+        frame = CGRect(x: 0, y: 0, width: size, height: size)
+        centerOffset = .zero
+        backgroundColor = .clear
+
+        let dot = CALayer()
+        dot.frame = bounds
+        dot.cornerRadius = size / 2
+        dot.backgroundColor = UIColor.systemYellow.cgColor
+        dot.shadowColor = UIColor.systemYellow.cgColor
+        dot.shadowOpacity = 0.9
+        dot.shadowRadius = 8
+        dot.shadowOffset = .zero
+        layer.addSublayer(dot)
+
+        let border = CALayer()
+        border.frame = bounds
+        border.cornerRadius = size / 2
+        border.borderColor = UIColor.white.cgColor
+        border.borderWidth = 2.5
+        border.backgroundColor = UIColor.clear.cgColor
+        layer.addSublayer(border)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+// MARK: - Flag Annotations
 
 final class FlagAnnotation: NSObject, MKAnnotation {
     enum Kind: String { case start, finish }
