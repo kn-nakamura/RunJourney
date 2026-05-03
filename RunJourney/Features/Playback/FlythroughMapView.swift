@@ -94,8 +94,10 @@ struct FlythroughMapView: UIViewRepresentable {
             map.preferredConfiguration = configuration
         }
 
-        // 走破ライン更新: traveled[0...lastReachedIndex] + runnerCoord(tip)
-        if let overlay = coord.progressOverlay {
+        // 走破ライン更新: 60fps に制限してタイルレンダラーの thrash を防ぐ
+        let now = CACurrentMediaTime()
+        if now - coord.lastLineUpdateTime >= 1.0 / 60.0, let overlay = coord.progressOverlay {
+            coord.lastLineUpdateTime = now
             let endIdx = min(traveledIndex, trackPointCoords.count - 1)
             let traveled: [CLLocationCoordinate2D] = endIdx >= 0
                 ? Array(trackPointCoords[0...endIdx])
@@ -146,6 +148,9 @@ struct FlythroughMapView: UIViewRepresentable {
         var positionAnnotation: PositionAnnotation?
         var wasInOverview: Bool = false
         var onUserInteraction: (() -> Void)?
+        /// ラインレンダラーは60fpsに制限（120Hzで setNeedsDisplay するとタイル再描画が
+        /// 常にキャンセルされ軌跡が消える）。ドット annotation は制限なし。
+        var lastLineUpdateTime: CFTimeInterval = 0
 
         @objc func handleUserGesture(_ gesture: UIGestureRecognizer) {
             guard gesture.state == .began || gesture.state == .changed else { return }
