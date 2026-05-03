@@ -249,24 +249,36 @@ final class ProgressRouteRenderer: MKOverlayRenderer {
         // ランナードット: ライン先端 = runnerCoord と完全一致
         guard let runner else { return }
         let runnerPt = point(for: MKMapPoint(runner))
-        let dotR = 8.0 / zoomScale
+        let dotR = 9.0 / zoomScale
 
-        // 黄色グロー: CGContext.setShadow は MapKit タイルレンダラーで無効なため
-        // 半透明同心円を重ねてソフトグローを再現する
-        let glowSteps: [(radius: Double, alpha: Double)] = [
-            (20, 0.12), (16, 0.20), (12, 0.32), (10, 0.48)
-        ]
-        for step in glowSteps {
-            let r = step.radius / zoomScale
-            context.setFillColor(UIColor.systemYellow.withAlphaComponent(step.alpha).cgColor)
+        // ソフトグロー (同心円)
+        let glowSteps: [(Double, Double)] = [(22, 0.10), (17, 0.18), (13, 0.28), (11, 0.40)]
+        for (gr, ga) in glowSteps {
+            let r = gr / zoomScale
+            context.setFillColor(UIColor.systemYellow.withAlphaComponent(ga).cgColor)
             context.fillEllipse(in: CGRect(x: runnerPt.x - r, y: runnerPt.y - r,
                                            width: r * 2, height: r * 2))
         }
 
-        // 黄色ドット本体
-        context.setFillColor(UIColor.systemYellow.cgColor)
-        context.fillEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
-                                       width: dotR * 2, height: dotR * 2))
+        // 球面照明: ラジアルグラジエントでハイライト→シャドウを再現
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let gradColors = [UIColor(red: 1.0, green: 1.0, blue: 0.75, alpha: 1).cgColor,
+                          UIColor(red: 1.0, green: 0.84, blue: 0.0,  alpha: 1).cgColor,
+                          UIColor(red: 0.85, green: 0.52, blue: 0.0, alpha: 1).cgColor] as CFArray
+        let gradLocs: [CGFloat] = [0, 0.45, 1.0]
+        if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradColors, locations: gradLocs) {
+            context.saveGState()
+            context.addEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
+                                          width: dotR * 2, height: dotR * 2))
+            context.clip()
+            // ハイライトを左上にオフセット → 球面照明の錯視
+            let highlight = CGPoint(x: runnerPt.x - dotR * 0.28, y: runnerPt.y - dotR * 0.32)
+            context.drawRadialGradient(gradient,
+                                       startCenter: highlight, startRadius: 0,
+                                       endCenter: runnerPt, endRadius: dotR,
+                                       options: .drawsAfterEndLocation)
+            context.restoreGState()
+        }
 
         // 白ボーダー
         context.setStrokeColor(UIColor.white.cgColor)
