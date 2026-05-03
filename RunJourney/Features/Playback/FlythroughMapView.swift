@@ -251,15 +251,24 @@ final class ProgressRouteRenderer: MKOverlayRenderer {
         let runnerPt = point(for: MKMapPoint(runner))
         let dotR = 8.0 / zoomScale
 
-        // 黄色グロー
-        context.setShadow(offset: .zero, blur: 7 / zoomScale,
-                          color: UIColor.systemYellow.withAlphaComponent(0.85).cgColor)
+        // 黄色グロー: CGContext.setShadow は MapKit タイルレンダラーで無効なため
+        // 半透明同心円を重ねてソフトグローを再現する
+        let glowSteps: [(radius: Double, alpha: Double)] = [
+            (20, 0.12), (16, 0.20), (12, 0.32), (10, 0.48)
+        ]
+        for step in glowSteps {
+            let r = step.radius / zoomScale
+            context.setFillColor(UIColor.systemYellow.withAlphaComponent(step.alpha).cgColor)
+            context.fillEllipse(in: CGRect(x: runnerPt.x - r, y: runnerPt.y - r,
+                                           width: r * 2, height: r * 2))
+        }
+
+        // 黄色ドット本体
         context.setFillColor(UIColor.systemYellow.cgColor)
         context.fillEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
                                        width: dotR * 2, height: dotR * 2))
 
-        // 白ボーダー (shadow off)
-        context.setShadow(offset: .zero, blur: 0, color: nil)
+        // 白ボーダー
         context.setStrokeColor(UIColor.white.cgColor)
         context.setLineWidth(2 / zoomScale)
         context.addEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
