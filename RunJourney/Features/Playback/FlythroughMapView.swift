@@ -3,22 +3,21 @@ import SwiftUI
 import MapKit
 import UIKit
 
-/// 高頻度更新でも MKPolyline が消失しない MKMapView 直叩きラッパー。
+/// 高頻度更新でも軌跡が正確に表示される MKMapView ラッパー。
 ///
-/// 設計方針:
-/// - 全体ルート (ダークグレー) は init 時に 1 度だけ MKPolyline を作って固定する
-/// - 走破ラインは `traveledIndex` が動いた時だけ MKPolyline を作り直す（新追加→旧削除の順）
-/// - 末端ヒゲ (直近トラックポイント → 補間中の現在位置) は毎フレーム作り直すが 2 点のみ
-/// - ランナーマーカーは小さいドットのみ（figure.run アイコンなし）
-/// - ユーザ操作の検知はジェスチャレコグナイザーで行う。MKMapViewDelegate では
-///   プログラム的カメラ更新も regionWillChangeAnimated に来るため誤検知が起きる
+/// 設計方針 (marathon-record-app の buildProgressRouteGeoJson + setData 方式を移植):
+/// - 全体ルート (ダークグレー MKPolyline) は init 時に 1 度だけ追加、不変
+/// - 走破ライン先端とランナードットは ProgressRouteOverlay (カスタム MKOverlay) で管理
+///   → 同一 draw() 内でライン末端 = runnerCoord、ドット中心 = runnerCoord を描画するため
+///      物理的にズレが生じない (web 版 progressSource / markerSource が同フレームで確定する設計と等価)
+/// - MKPolyline の add/remove を使わないため MapKit レンダリングをブロックしない
+/// - ユーザ操作検知はジェスチャレコグナイザーで行う
 struct FlythroughMapView: UIViewRepresentable {
 
     let allCoords: [CLLocationCoordinate2D]
     let trackPointCoords: [CLLocationCoordinate2D]
     let traveledIndex: Int
-    let tailCoords: [CLLocationCoordinate2D]?
-    /// ランナー現在位置（ドットマーカー用）。
+    /// ランナー補間現在位置。nil = 未再生。
     let runnerCoord: CLLocationCoordinate2D?
     let camera: MKMapCamera
     let configuration: MKMapConfiguration
@@ -28,7 +27,6 @@ struct FlythroughMapView: UIViewRepresentable {
     let isOverview: Bool
     /// true = ユーザ操作中: setCamera を抑制。
     let isUserInteracting: Bool
-    /// ユーザがマップをジェスチャ操作した時に呼ばれるコールバック。
     let onUserInteraction: (() -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -40,15 +38,12 @@ struct FlythroughMapView: UIViewRepresentable {
         map.showsCompass = false
         map.showsScale = false
         map.showsUserLocation = false
-        // ジェスチャはすべて有効 — ユーザはいつでもマップを操作できる
         map.isPitchEnabled = true
         map.isRotateEnabled = true
         map.isZoomEnabled = true
         map.isScrollEnabled = true
 
-        // ユーザ操作検知: ジェスチャレコグナイザーで検出する。
-        // MKMapViewDelegate の regionWillChangeAnimated はプログラム的カメラ更新でも
-        // 発火するため誤検知が起きる。ジェスチャレコグナイザーはタッチ起因のみ。
+        // ユーザ操作検知: ジェスチャレコグナイザーで検出
         for GestureType in [UIPanGestureRecognizer.self,
                             UIPinchGestureRecognizer.self,
                             UIRotationGestureRecognizer.self] as [UIGestureRecognizer.Type] {
@@ -64,24 +59,23 @@ struct FlythroughMapView: UIViewRepresentable {
         // 全体ルート (一度だけ追加、不変)
         if allCoords.count >= 2 {
             let poly = MKPolyline(coordinates: allCoords, count: allCoords.count)
-            poly.title = OverlayKind.full.rawValue
+            poly.title = OverlayKind.fullRoute.rawValue
             map.addOverlay(poly, level: .aboveRoads)
             context.coordinator.fullPolyline = poly
         }
 
-        // スタート / フィニッシュ (一度だけ追加、不変)
+        // 走破ライン + ランナードット: カスタムオーバーレイ (初期データは空)
+        let progress = ProgressRouteOverlay(fullBoundingRect: context.coordinator.fullPolyline?.boundingMapRect ?? .world)
+        progress.update(traveledCoords: [], runnerCoord: runnerCoord, strokeColor: strokeColor)
+        map.addOverlay(progress, level: .aboveRoads)
+        context.coordinator.progressOverlay = progress
+
+        // スタート / フィニッシュフラグ (不変)
         if let first = allCoords.first {
             map.addAnnotation(FlagAnnotation(coordinate: first, kind: .start))
         }
         if allCoords.count > 1, let last = allCoords.last {
             map.addAnnotation(FlagAnnotation(coordinate: last, kind: .finish))
-        }
-
-        // 現在位置ドット
-        if let runner = runnerCoord {
-            let a = PositionAnnotation(coordinate: runner)
-            map.addAnnotation(a)
-            context.coordinator.positionAnnotation = a
         }
 
         map.setCamera(camera, animated: false)
@@ -96,62 +90,20 @@ struct FlythroughMapView: UIViewRepresentable {
             map.preferredConfiguration = configuration
         }
 
-        // 走破ライン: 新 polyline を追加してから旧を削除することでちらつきを防ぐ
-        if traveledIndex != coord.lastTraveledIndex {
+        // 走破データ更新: web 版 buildProgressRouteGeoJson と同様に
+        //   traveled[0...lastReachedIndex] + runnerCoord(tip) を 1 本のラインで表す
+        if let overlay = coord.progressOverlay {
             let endIdx = min(traveledIndex, trackPointCoords.count - 1)
-            var newPoly: MKPolyline?
-            if endIdx >= 1 {
-                let slice = Array(trackPointCoords[0...endIdx])
-                newPoly = MKPolyline(coordinates: slice, count: slice.count)
-                newPoly!.title = OverlayKind.traveled.rawValue
-                map.addOverlay(newPoly!, level: .aboveRoads)  // 新を先に追加
-            }
-            if let old = coord.traveledPolyline {
-                map.removeOverlay(old)  // 旧を後で削除
-            }
-            coord.traveledPolyline = newPoly
-            coord.lastTraveledIndex = traveledIndex
-        }
-
-        // 末端ヒゲ: 毎フレーム作り直す。新追加→旧削除でちらつきを防ぐ
-        var newTail: MKPolyline?
-        if let tail = tailCoords, tail.count == 2 {
-            newTail = MKPolyline(coordinates: tail, count: tail.count)
-            newTail!.title = OverlayKind.tail.rawValue
-            map.addOverlay(newTail!, level: .aboveRoads)  // 新を先に追加
-        }
-        if let old = coord.tailPolyline {
-            map.removeOverlay(old)  // 旧を後で削除
-        }
-        coord.tailPolyline = newTail
-
-        // 現在位置ドット: coordinate 差し替えのみ（再追加するとアニメが切れる）
-        if let runner = runnerCoord {
-            if let existing = coord.positionAnnotation {
-                if !coordsEqual(existing.coordinate, runner) {
-                    existing.coordinate = runner
-                }
-            } else {
-                let a = PositionAnnotation(coordinate: runner)
-                map.addAnnotation(a)
-                coord.positionAnnotation = a
+            let traveled: [CLLocationCoordinate2D] = endIdx >= 0
+                ? Array(trackPointCoords[0...endIdx])
+                : []
+            overlay.update(traveledCoords: traveled, runnerCoord: runnerCoord, strokeColor: strokeColor)
+            if let renderer = map.renderer(for: overlay) as? ProgressRouteRenderer {
+                renderer.setNeedsDisplay()
             }
         }
 
-        // 色変更追従
-        if coord.strokeColor != strokeColor {
-            coord.strokeColor = strokeColor
-            for overlay in map.overlays {
-                if let renderer = map.renderer(for: overlay) as? MKPolylineRenderer,
-                   let title = (overlay as? MKPolyline)?.title,
-                   title == OverlayKind.traveled.rawValue || title == OverlayKind.tail.rawValue {
-                    renderer.strokeColor = strokeColor
-                    renderer.setNeedsDisplay()
-                }
-            }
-        }
-
-        // Overview モード切替時に bounding rect でルートを画面に収める
+        // Overview モード切替
         if isOverview != coord.wasInOverview {
             coord.wasInOverview = isOverview
             if isOverview, let poly = coord.fullPolyline {
@@ -160,7 +112,6 @@ struct FlythroughMapView: UIViewRepresentable {
             }
         }
 
-        // フォローモード + ユーザ非操作時のみカメラを更新
         if !isOverview && !isUserInteracting {
             map.setCamera(camera, animated: false)
         }
@@ -170,51 +121,38 @@ struct FlythroughMapView: UIViewRepresentable {
         type(of: a) == type(of: b)
     }
 
-    private func coordsEqual(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Bool {
-        a.latitude == b.latitude && a.longitude == b.longitude
-    }
-
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var fullPolyline: MKPolyline?
-        var traveledPolyline: MKPolyline?
-        var tailPolyline: MKPolyline?
-        var lastTraveledIndex: Int = -1
-        var strokeColor: UIColor = .systemYellow
+        var progressOverlay: ProgressRouteOverlay?
         var wasInOverview: Bool = false
-        var positionAnnotation: PositionAnnotation?
         var onUserInteraction: (() -> Void)?
 
-        // ユーザのジェスチャ（タッチ起因）のみを検知する。
-        // プログラム的な setCamera では UIGestureRecognizer は発火しない。
         @objc func handleUserGesture(_ gesture: UIGestureRecognizer) {
             guard gesture.state == .began || gesture.state == .changed else { return }
             onUserInteraction?()
         }
 
-        // マップ内蔵ジェスチャレコグナイザーと同時認識を許可
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool { true }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let progress = overlay as? ProgressRouteOverlay {
+                return ProgressRouteRenderer(overlay: progress)
+            }
             guard let polyline = overlay as? MKPolyline else {
                 return MKOverlayRenderer(overlay: overlay)
             }
             let r = MKPolylineRenderer(polyline: polyline)
             r.lineCap = .round
             r.lineJoin = .round
-            switch polyline.title {
-            case OverlayKind.full.rawValue:
-                // marathon-record-app の #3A3A4A 相当のダークグレー
+            if polyline.title == OverlayKind.fullRoute.rawValue {
                 r.strokeColor = UIColor(red: 58/255, green: 58/255, blue: 74/255, alpha: 0.85)
                 r.lineWidth = 4
-            case OverlayKind.traveled.rawValue, OverlayKind.tail.rawValue:
-                r.strokeColor = strokeColor
-                r.lineWidth = 5
-            default:
+            } else {
                 r.strokeColor = .white
                 r.lineWidth = 4
             }
@@ -222,37 +160,115 @@ struct FlythroughMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            if let pos = annotation as? PositionAnnotation {
-                let id = "position"
-                let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? PositionAnnotationView)
-                    ?? PositionAnnotationView(annotation: pos, reuseIdentifier: id)
-                view.annotation = pos
-                return view
-            }
-            if let flag = annotation as? FlagAnnotation {
-                let id = "flag-\(flag.kind.rawValue)"
-                let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? FlagAnnotationView)
-                    ?? FlagAnnotationView(annotation: flag, reuseIdentifier: id)
-                view.annotation = flag
-                view.configure(kind: flag.kind)
-                return view
-            }
-            return nil
+            guard let flag = annotation as? FlagAnnotation else { return nil }
+            let id = "flag-\(flag.kind.rawValue)"
+            let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? FlagAnnotationView)
+                ?? FlagAnnotationView(annotation: flag, reuseIdentifier: id)
+            view.annotation = flag
+            view.configure(kind: flag.kind)
+            return view
         }
     }
 
     private enum OverlayKind: String {
-        case full, traveled, tail
+        case fullRoute
     }
 }
 
-// MARK: - Annotations
+// MARK: - ProgressRouteOverlay
 
-/// 現在位置アノテーション。coordinate を var にして差し替え移動させる。
-final class PositionAnnotation: NSObject, MKAnnotation {
-    @objc dynamic var coordinate: CLLocationCoordinate2D
-    init(coordinate: CLLocationCoordinate2D) { self.coordinate = coordinate }
+/// web 版 buildProgressRouteGeoJson に対応するカスタムオーバーレイ。
+/// traveled[0...lastReachedIndex] + runnerCoord(tip) + runnerDot を 1 つの draw() で描画する。
+/// NSLock でスレッドセーフ (MapKit は draw を バックグラウンドスレッドで呼ぶ)。
+final class ProgressRouteOverlay: NSObject, MKOverlay {
+    private let lock = NSLock()
+    private var _traveledCoords: [CLLocationCoordinate2D] = []
+    private var _runnerCoord: CLLocationCoordinate2D?
+    private var _strokeColor: UIColor = .systemYellow
+
+    private let _boundingMapRect: MKMapRect
+
+    init(fullBoundingRect: MKMapRect) {
+        // ルート全体の bounding rect + 余白を固定値として保持。
+        // ランナーは常にルート上にあるためこの rect で十分。
+        _boundingMapRect = fullBoundingRect.insetBy(dx: -5000, dy: -5000)
+    }
+
+    func update(traveledCoords: [CLLocationCoordinate2D],
+                runnerCoord: CLLocationCoordinate2D?,
+                strokeColor: UIColor) {
+        lock.lock()
+        _traveledCoords = traveledCoords
+        _runnerCoord = runnerCoord
+        _strokeColor = strokeColor
+        lock.unlock()
+    }
+
+    /// draw() スレッドからスナップショットを取得。
+    func snapshot() -> ([CLLocationCoordinate2D], CLLocationCoordinate2D?, UIColor) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (_traveledCoords, _runnerCoord, _strokeColor)
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        lock.lock(); defer { lock.unlock() }
+        return _traveledCoords.first ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)
+    }
+    var boundingMapRect: MKMapRect { _boundingMapRect }
 }
+
+// MARK: - ProgressRouteRenderer
+
+/// ProgressRouteOverlay の描画ロジック。
+/// ライン先端 (runnerCoord) とドット中心 (runnerCoord) が同一 draw() 内で確定するため
+/// marathon-record-app の progressSource / markerSource を同フレームで setData する設計と等価。
+final class ProgressRouteRenderer: MKOverlayRenderer {
+    override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
+        guard let overlay = overlay as? ProgressRouteOverlay else { return }
+        let (traveled, runner, strokeColor) = overlay.snapshot()
+
+        // traveled[0...n] + tip (runner) で 1 本のラインを構成
+        var coords = traveled
+        if let r = runner { coords.append(r) }
+        guard coords.count >= 2 else { return }
+
+        // 走破ライン
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.setLineWidth(5 / zoomScale)
+        context.setStrokeColor(strokeColor.cgColor)
+
+        let firstPt = point(for: MKMapPoint(coords[0]))
+        context.move(to: firstPt)
+        for coord in coords.dropFirst() {
+            context.addLine(to: point(for: MKMapPoint(coord)))
+        }
+        context.strokePath()
+
+        // ランナードット: ライン先端 = runnerCoord と完全一致
+        guard let runner else { return }
+        let runnerPt = point(for: MKMapPoint(runner))
+        let dotR = 8.0 / zoomScale
+
+        // 黄色グロー
+        context.setShadow(offset: .zero, blur: 7 / zoomScale,
+                          color: UIColor.systemYellow.withAlphaComponent(0.85).cgColor)
+        context.setFillColor(UIColor.systemYellow.cgColor)
+        context.fillEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
+                                       width: dotR * 2, height: dotR * 2))
+
+        // 白ボーダー (shadow off)
+        context.setShadow(offset: .zero, blur: 0, color: nil)
+        context.setStrokeColor(UIColor.white.cgColor)
+        context.setLineWidth(2 / zoomScale)
+        context.addEllipse(in: CGRect(x: runnerPt.x - dotR, y: runnerPt.y - dotR,
+                                      width: dotR * 2, height: dotR * 2))
+        context.strokePath()
+    }
+}
+
+// MARK: - Annotations (Flag only)
 
 final class FlagAnnotation: NSObject, MKAnnotation {
     enum Kind: String { case start, finish }
@@ -262,38 +278,6 @@ final class FlagAnnotation: NSObject, MKAnnotation {
         self.coordinate = coordinate
         self.kind = kind
     }
-}
-
-// MARK: - Annotation Views
-
-/// 現在位置を示す小さいドット（ランナーアイコンなし）。
-final class PositionAnnotationView: MKAnnotationView {
-    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
-        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        let size: CGFloat = 14
-        frame = CGRect(x: 0, y: 0, width: size, height: size)
-        centerOffset = .zero
-        backgroundColor = .clear
-
-        let dot = CALayer()
-        dot.frame = bounds
-        dot.cornerRadius = size / 2
-        dot.backgroundColor = UIColor.systemYellow.cgColor
-        dot.shadowColor = UIColor.systemYellow.cgColor
-        dot.shadowOpacity = 0.85
-        dot.shadowRadius = 7
-        dot.shadowOffset = .zero
-        layer.addSublayer(dot)
-
-        let border = CALayer()
-        border.frame = bounds
-        border.cornerRadius = size / 2
-        border.borderColor = UIColor.white.cgColor
-        border.borderWidth = 2
-        border.backgroundColor = UIColor.clear.cgColor
-        layer.addSublayer(border)
-    }
-    required init?(coder aDecoder: NSCoder) { fatalError() }
 }
 
 final class FlagAnnotationView: MKAnnotationView {

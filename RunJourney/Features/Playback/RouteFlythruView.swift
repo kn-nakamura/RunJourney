@@ -69,7 +69,8 @@ struct RouteFlythruView: View {
     var body: some View {
         ZStack {
             mapLayer
-            VStack(spacing: 6) {
+            VStack(spacing: 0) {
+                customHeader
                 if showSettings {
                     PlaybackSettingsPanel(
                         controller: controller,
@@ -82,50 +83,26 @@ struct RouteFlythruView: View {
                         profileCenterResponse: cameraProfile.centerResponseSec,
                         profileBearingResponse: cameraProfile.bearingResponseSec
                     )
+                    .padding(.horizontal, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 Spacer()
                 PlaybackHUD(controller: controller, race: result.race)
+                    .padding(.horizontal, 12)
                 PlaybackControls(controller: controller) {
                     hasInitializedSmoothing = false
                     blendedBearingTarget = smoothedHeading
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
             .animation(.easeInOut(duration: 0.22), value: showSettings)
         }
         .background(Color.bgPrimary)
-        .navigationTitle(result.race?.name ?? "Playback")
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
 #endif
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                HStack(spacing: 0) {
-                    modeButton(label: "Follow", isActive: followMode) {
-                        activateFollowMode()
-                    }
-                    modeButton(label: "Overview", isActive: !followMode) {
-                        activateOverviewMode()
-                    }
-                }
-                .background(Color.bgSecondary, in: Capsule())
-
-                Button {
-                    withAnimation { showSettings.toggle() }
-                } label: {
-                    Image(systemName: "gearshape")
-                        .symbolVariant(showSettings ? .fill : .none)
-                        .foregroundStyle(showSettings ? Color.accentPrimary : .primary)
-                }
-
-                Button { showExportSheet = true } label: {
-                    Image(systemName: "square.and.arrow.down")
-                }
-            }
-        }
         .sheet(isPresented: $showExportSheet) {
             ExportSheet(controller: controller)
         }
@@ -144,7 +121,66 @@ struct RouteFlythruView: View {
         }
     }
 
-    // MARK: - Toolbar helpers
+    // MARK: - Custom header
+
+    @ViewBuilder
+    private var customHeader: some View {
+        VStack(spacing: 0) {
+            // Row 1: full race name (small)
+            Text(result.race?.name ?? "Playback")
+                .appText(.bodyXs)
+                .foregroundStyle(Color.textMuted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 3)
+
+            // Row 2: back + Follow/Overview + spacer + gear + export
+            HStack(spacing: 4) {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 0) {
+                    modeButton(label: "Follow", isActive: followMode) { activateFollowMode() }
+                    modeButton(label: "Overview", isActive: !followMode) { activateOverviewMode() }
+                }
+                .background(Color.bgSecondary, in: Capsule())
+
+                Spacer()
+
+                Button {
+                    withAnimation { showSettings.toggle() }
+                } label: {
+                    Image(systemName: showSettings ? "gearshape.fill" : "gearshape")
+                        .font(.system(size: 14))
+                        .foregroundStyle(showSettings ? Color.accentPrimary : Color.textPrimary)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+
+                Button { showExportSheet = true } label: {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
+        }
+        .padding(.horizontal, 4)
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) {
+            Divider().opacity(0.15)
+        }
+    }
+
+    // MARK: - Header helpers
 
     @ViewBuilder
     private func modeButton(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
@@ -183,7 +219,6 @@ struct RouteFlythruView: View {
                 allCoords: allCoords,
                 trackPointCoords: trackPointCoords,
                 traveledIndex: controller.lastReachedIndexValue,
-                tailCoords: controller.traveledTailSegment,
                 runnerCoord: controller.currentPoint?.coordinate,
                 camera: mkCamera,
                 configuration: mapSettings.mapConfiguration,

@@ -30,7 +30,7 @@ struct FollowCameraProfile: Equatable {
         pitch: 60,
         lookAheadSec: 4,
         centerResponseSec: 0.26,
-        bearingResponseSec: 0.42
+        bearingResponseSec: 1.5
     )
 }
 
@@ -121,8 +121,8 @@ enum PlaybackMath {
             min: 3.0, max: 6.5
         )
         let bearingResp = clamp(
-            0.42 - shortBias * 0.09 + longBias * 0.18,
-            min: 0.22, max: 0.98
+            1.5 - shortBias * 0.32 + longBias * 0.64,
+            min: 0.8, max: 3.5
         )
         let centerResp = clamp(
             0.26 - shortBias * 0.05 + longBias * 0.10,

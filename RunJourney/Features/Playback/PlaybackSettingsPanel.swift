@@ -20,7 +20,7 @@ struct PlaybackSettingsPanel: View {
     @State private var localPitch: Double = 60
     @State private var localDistance: Double = 1500
     @State private var localCenterResp: Double = 0.26
-    @State private var localBearingResp: Double = 0.42
+    @State private var localBearingResp: Double = 1.5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -64,7 +64,7 @@ struct PlaybackSettingsPanel: View {
             rowSlider(
                 label: "Turn Smooth",
                 value: $localBearingResp,
-                range: 0.05...1.5,
+                range: 0.05...5.0,
                 format: "%.2f s"
             ) { localBearingResp = $0; userBearingResponse = $0 }
 
