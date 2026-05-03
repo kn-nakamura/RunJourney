@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// 再生コントロールバー。シーク・再生/一時停止・スキップ・速度切替。
+/// 再生コントロールバー。Rewind / Play / シーク。スピード変更は Settings パネルへ。
 struct PlaybackControls: View {
     @Bindable var controller: PlaybackController
-    @Binding var followMode: Bool
+    /// Rewind タップ時に smoothDamp 状態を外からリセットするためのコールバック。
+    var onRewind: (() -> Void)? = nil
 
     @State private var isScrubbing = false
     @State private var wasPlayingBeforeScrub = false
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             // シークバー
             HStack(spacing: 8) {
                 Text(formatDuration(controller.currentTime))
@@ -42,8 +43,19 @@ struct PlaybackControls: View {
                     .frame(width: 56, alignment: .trailing)
             }
 
-            // 操作ボタン（シーク・速度はバー側に統合済みなので最小構成）
+            // 操作ボタン
             HStack(spacing: 14) {
+                // Rewind (先頭へ戻る)
+                Button {
+                    controller.seek(to: 0)
+                    onRewind?()
+                } label: {
+                    Image(systemName: "backward.end.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                // Play / Pause
                 Button { controller.togglePlay() } label: {
                     Image(systemName: controller.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 48))
@@ -51,8 +63,6 @@ struct PlaybackControls: View {
                 }
 
                 Spacer()
-
-                speedMenu
             }
         }
         .padding(.horizontal, 12)
@@ -61,39 +71,6 @@ struct PlaybackControls: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06))
         )
-    }
-
-    private var speedMenu: some View {
-        Menu {
-            ForEach(PlaybackController.speedPresets, id: \.self) { preset in
-                Button {
-                    controller.changeSpeed(preset)
-                } label: {
-                    HStack {
-                        Text("\(formatSpeed(preset))×")
-                        if controller.speed == preset {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "speedometer")
-                    .font(.system(size: 14))
-                Text("\(formatSpeed(controller.speed))×")
-                    .appText(.codeSmBold)
-            }
-            .foregroundStyle(Color.accentPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.bgSecondary, in: Capsule())
-        }
-    }
-
-    private func formatSpeed(_ s: Double) -> String {
-        if s == s.rounded() { return "\(Int(s))" }
-        return String(format: "%.1f", s)
     }
 
     private func formatDuration(_ totalSec: Double) -> String {

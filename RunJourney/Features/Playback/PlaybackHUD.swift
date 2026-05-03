@@ -9,61 +9,61 @@ struct PlaybackHUD: View {
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: 12) {
             // 経過時間 / 総時間
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(formatDuration(controller.currentTime))
-                    .appText(.codeLg)
+                    .appText(.codeMd)
                     .foregroundStyle(Color.accentPrimary)
                 Text("/ \(formatDuration(controller.totalDuration))")
                     .appText(.codeXxs)
                     .foregroundStyle(.secondary)
             }
-            Divider().frame(height: 36).background(.white.opacity(0.15))
+            Divider().frame(height: 28).background(.white.opacity(0.15))
             // 距離
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Distance")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Dist")
                     .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 Text(distanceText)
-                    .appText(.codeBaseBold)
+                    .appText(.codeSm)
                     .foregroundStyle(Color.textPrimary)
             }
-            // ペース（直近の速度から逆算）
-            VStack(alignment: .leading, spacing: 2) {
+            // ペース
+            VStack(alignment: .leading, spacing: 1) {
                 Text("Pace")
                     .appText(.bodyXs)
                     .foregroundStyle(.secondary)
                 Text(paceText)
-                    .appText(.codeBaseBold)
+                    .appText(.codeSm)
                     .foregroundStyle(Color.textPrimary)
             }
             // 心拍
             if hrText != nil {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("HR")
                         .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                     Text(hrText ?? "—")
-                        .appText(.codeBaseBold)
+                        .appText(.codeSm)
                         .foregroundStyle(Color.catFullMarathon)
                 }
             }
             // 標高
             if elevText != nil {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Elevation")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Alt")
                         .appText(.bodyXs)
                         .foregroundStyle(.secondary)
                     Text(elevText ?? "—")
-                        .appText(.codeBaseBold)
+                        .appText(.codeSm)
                         .foregroundStyle(Color.cat10K)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06))
@@ -72,15 +72,13 @@ struct PlaybackHUD: View {
 
     private var distanceText: String {
         guard let p = controller.currentPoint else { return "—" }
-        // メートル表示は短距離時のみ。それ以外は km / mi で表示。
-        if unit == .km, p.distanceM < 1000 { return String(format: "%.0f m", p.distanceM) }
+        if unit == .km, p.distanceM < 1000 { return String(format: "%.0fm", p.distanceM) }
         return PaceUtils.formatDistance(km: p.distanceM / 1000, in: unit)
     }
 
     private var paceText: String {
         guard let p = controller.currentPoint else { return "—" }
         if let speed = p.speedMs, speed > 0.1 {
-            // 1km をその速度で走るのに必要な秒数
             let secPerKm = 1000.0 / speed
             let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
             let m = displayed / 60
@@ -97,7 +95,7 @@ struct PlaybackHUD: View {
 
     private var elevText: String? {
         guard let alt = controller.currentPoint?.altitudeM else { return nil }
-        return String(format: "%.0f m", alt)
+        return String(format: "%.0fm", alt)
     }
 
     private func formatDuration(_ totalSec: Double) -> String {

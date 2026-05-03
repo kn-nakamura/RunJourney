@@ -3,9 +3,9 @@ import CoreLocation
 
 /// 距離プロファイルから計算したフライスルーカメラの全パラメータ。
 struct FollowCameraProfile: Equatable {
-    /// MapKit カメラ距離 (m)。
+    /// MapKit カメラ距離 (m)。ユーザ上書き可能。
     var distance: Double
-    /// カメラ pitch (度数)。
+    /// カメラ pitch (度数)。ユーザ上書き可能。
     var pitch: Double
     /// 進行方向決定のための先読み時間 (秒)。
     var lookAheadSec: Double
@@ -13,6 +13,17 @@ struct FollowCameraProfile: Equatable {
     var centerResponseSec: Double
     /// 方位角追従の smoothDamp smoothTime (秒)。
     var bearingResponseSec: Double
+
+    // MARK: Deadband / soft-zone (marathon-record-app port)
+
+    /// この角度差以内ならカメラを回さない。GPS ノイズや微細なジグザグを無視する。
+    var bearingDeadbandDeg: Double = 10
+    /// デッドバンドを超えてこの角度差まで softBlend で徐々に追従。
+    var bearingSoftZoneDeg: Double = 20
+    /// この距離差以内ならカメラを動かさない (m)。
+    var centerDeadbandM: Double = 10
+    /// デッドバンドを超えてこの距離まで softBlend (m)。
+    var centerSoftZoneM: Double = 40
 
     static let marathonDefault = FollowCameraProfile(
         distance: 1500,
@@ -118,13 +129,35 @@ enum PlaybackMath {
             min: 0.17, max: 0.50
         )
 
+        // デッドバンド: 短距離ほど小さく（GPS 精度が良い）、長距離ほど大きく（ノイズ耐性）
+        let bearingDeadband = clamp(10 - shortBias * 2.5 + longBias * 3.0, min: 6, max: 15)
+        let bearingSoftZone = clamp(20 - shortBias * 4.0 + longBias * 5.0, min: 12, max: 30)
+        let centerDeadband = clamp(10 - shortBias * 3.0 + longBias * 7.0, min: 4, max: 24)
+        let centerSoftZone = clamp(40 - shortBias * 11.0 + longBias * 35.0, min: 18, max: 110)
+
         return FollowCameraProfile(
             distance: distance,
             pitch: pitch,
             lookAheadSec: lookAhead,
             centerResponseSec: centerResp,
-            bearingResponseSec: bearingResp
+            bearingResponseSec: bearingResp,
+            bearingDeadbandDeg: bearingDeadband,
+            bearingSoftZoneDeg: bearingSoftZone,
+            centerDeadbandM: centerDeadband,
+            centerSoftZoneM: centerSoftZone
         )
+    }
+
+    /// デッドバンド / ソフトゾーン のブレンド係数を返す。
+    /// - delta < deadband         → 0.0 (カメラ更新しない)
+    /// - delta in deadband..total → 線形 0..1
+    /// - delta >= deadband+soft   → 1.0 (フル追従)
+    static func softBlendFactor(delta: Double, deadband: Double, softZone: Double) -> Double {
+        let absD = abs(delta)
+        guard absD > deadband else { return 0 }
+        let total = deadband + softZone
+        guard absD < total else { return 1 }
+        return (absD - deadband) / softZone
     }
 
     /// `target = totalTimeSec / 90` 秒 を狙ってプリセット倍速の中で最も近いものを返す。

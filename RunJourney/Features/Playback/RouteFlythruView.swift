@@ -16,9 +16,7 @@ struct RouteFlythruView: View {
     // MKMapView 直叩きパス (iOS/visionOS) で使うカメラ。SwiftUI Map は使わない。
     @State private var mkCamera: MKMapCamera = MKMapCamera()
 
-    // smoothDamp の状態。velocity を呼び出し間で永続化することで初めて慣性が効く。
-    // 元の実装は velocity がローカル変数で毎フレーム 0 リセットされていたため
-    // smoothDamp ではなく単なる「指数平滑」として機能していた。
+    // smoothDamp の状態。velocity を呼び出し間で永続化することで慣性が効く。
     @State private var smoothedHeading: Double = 0
     @State private var headingVelocity: Double = 0
     @State private var smoothedLat: Double = 0
@@ -26,15 +24,25 @@ struct RouteFlythruView: View {
     @State private var latVelocity: Double = 0
     @State private var lngVelocity: Double = 0
     @State private var hasInitializedSmoothing: Bool = false
+    // deadband 用: 前フレームの「生ベアリング目標」。ブレンド済みの値を保持。
+    @State private var blendedBearingTarget: Double = 0
+
+    // ユーザ上書きカメラ値 (nil = プロファイル自動)
+    @State private var userPitch: Double? = nil
+    @State private var userDistance: Double? = nil
+    @State private var userCenterResponse: Double? = nil
+    @State private var userBearingResponse: Double? = nil
+
+    // UI 状態
+    @State private var showSettings: Bool = false
+    @State private var showExportSheet: Bool = false
 
     // Map タブで設定したマップ・ピンスタイルをそのままここでも使う。
-    // 同じ AppStorage キーを参照するので自動的に同期する。
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
 
     /// 元のルート全体（背景polylineに使う）
     private let allCoords: [CLLocationCoordinate2D]
-    /// 全トラックポイントの座標配列。MKMapView 側で走破区間を切り出すのに使う。
     private let trackPointCoords: [CLLocationCoordinate2D]
     /// 距離プロファイルから決まったカメラ姿勢・追従応答・先読み時間。
     private let cameraProfile: FollowCameraProfile
@@ -43,39 +51,50 @@ struct RouteFlythruView: View {
         self.result = result
         let pts = result.trackPoints
         self.allCoords = pts.map(\.coordinate)
-        self.trackPointCoords = self.allCoords  // 同じ配列を別名で保持して用途を明示
+        self.trackPointCoords = self.allCoords
         let totalDistKm = (pts.last?.distanceM ?? 0) / 1000
         self.cameraProfile = PlaybackMath.followCameraProfile(distanceKm: totalDistKm)
         self._controller = State(initialValue: PlaybackController(trackPoints: pts))
     }
 
+    // MARK: - Effective camera params (user override or auto profile)
+
+    private var effectivePitch: Double { userPitch ?? cameraProfile.pitch }
+    private var effectiveDistance: Double { userDistance ?? cameraProfile.distance }
+    private var effectiveCenterResp: Double { userCenterResponse ?? cameraProfile.centerResponseSec }
+    private var effectiveBearingResp: Double { userBearingResponse ?? cameraProfile.bearingResponseSec }
+
     var body: some View {
         ZStack {
             mapLayer
-            VStack {
-                HStack {
-                    Spacer()
-#if os(iOS)
-                    RecordButton(
-                        onRecordingWillStart: {
-                            // 録画開始時はそのままプレイ可能（ユーザーが play で開始する想定）
-                        },
-                        onRecordingDidStop: {
-                            // 録画停止と同時にプレイバックも停止 → カメラ追従更新が止まり
-                            // RPPreviewViewController と裏側の Map がぶつからない
-                            controller.pause()
-                        }
+            VStack(spacing: 6) {
+                // Settings パネル（ツールバー直下、スライドイン）
+                if showSettings {
+                    PlaybackSettingsPanel(
+                        controller: controller,
+                        userPitch: $userPitch,
+                        userDistance: $userDistance,
+                        userCenterResponse: $userCenterResponse,
+                        userBearingResponse: $userBearingResponse,
+                        profilePitch: cameraProfile.pitch,
+                        profileDistance: cameraProfile.distance,
+                        profileCenterResponse: cameraProfile.centerResponseSec,
+                        profileBearingResponse: cameraProfile.bearingResponseSec
                     )
-                    .padding(.trailing, 14)
-                    .padding(.top, 6)
-#endif
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 Spacer()
                 PlaybackHUD(controller: controller, race: result.race)
-                PlaybackControls(controller: controller, followMode: $followMode)
+                PlaybackControls(controller: controller) {
+                    // Rewind: smoothDamp 状態をリセット
+                    hasInitializedSmoothing = false
+                    blendedBearingTarget = smoothedHeading
+                }
             }
             .padding(.horizontal, 12)
+            .padding(.top, 8)
             .padding(.bottom, 16)
+            .animation(.easeInOut(duration: 0.22), value: showSettings)
         }
         .background(Color.bgPrimary)
         .navigationTitle(result.race?.name ?? "Playback")
@@ -83,52 +102,85 @@ struct RouteFlythruView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    followMode.toggle()
-                    if !followMode {
-                        cameraPosition = overviewCameraPosition()
-#if canImport(UIKit)
-                        mkCamera = overviewMKCamera()
-#endif
-                    } else {
-                        // 全体表示から戻ってきた時は smoothDamp の状態を再シードする。
-                        hasInitializedSmoothing = false
-                        advanceSmoothing(dt: 1.0 / 60.0)
-                        cameraPosition = makeMapCameraPosition()
-#if canImport(UIKit)
-                        mkCamera = makeMKCamera()
-#endif
+            ToolbarItemGroup(placement: .primaryAction) {
+                // Follow / Overview セグメントコントロール
+                HStack(spacing: 0) {
+                    modeButton(label: "Follow", isActive: followMode) {
+                        activateFollowMode()
                     }
+                    modeButton(label: "Overview", isActive: !followMode) {
+                        activateOverviewMode()
+                    }
+                }
+                .background(Color.bgSecondary, in: Capsule())
+
+                // Settings
+                Button {
+                    withAnimation { showSettings.toggle() }
                 } label: {
-                    Image(systemName: followMode ? "scope" : "map")
-                        .imageScale(.large)
+                    Image(systemName: "gearshape")
+                        .symbolVariant(showSettings ? .fill : .none)
+                        .foregroundStyle(showSettings ? Color.accentPrimary : .primary)
+                }
+
+                // Export
+                Button {
+                    showExportSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
                 }
             }
         }
+        .sheet(isPresented: $showExportSheet) {
+            ExportSheet(controller: controller)
+        }
         .onAppear {
-            // 初期カメラ。smoothDamp の状態をシードしてから両系統に反映する。
             advanceSmoothing(dt: 1.0 / 60.0)
-            if followMode {
-                cameraPosition = makeMapCameraPosition()
-#if canImport(UIKit)
-                mkCamera = makeMKCamera()
-#endif
-            } else {
-                cameraPosition = overviewCameraPosition()
-#if canImport(UIKit)
-                mkCamera = overviewMKCamera()
-#endif
-            }
+            applyCamera()
         }
         .onDisappear {
-            // 画面を離れたら再生を止めて Timer も invalidate する。
-            // 戻って来たときに自動で再開はしない（明示的に play を押し直す）。
             controller.pause()
         }
         .onChange(of: controller.currentTime) { _, _ in
             updateCameraIfNeeded()
         }
+        // 再生開始時に自動でフォローモードへ遷移
+        .onChange(of: controller.isPlaying) { _, isPlaying in
+            if isPlaying, !followMode {
+                activateFollowMode()
+            }
+        }
+    }
+
+    // MARK: - Toolbar helpers
+
+    @ViewBuilder
+    private func modeButton(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .appText(.bodyXs)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isActive ? Color.accentPrimary : Color.clear, in: Capsule())
+                .foregroundStyle(isActive ? Color.black : Color.textPrimary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func activateFollowMode() {
+        followMode = true
+        hasInitializedSmoothing = false
+        advanceSmoothing(dt: 1.0 / 60.0)
+        applyCamera()
+    }
+
+    private func activateOverviewMode() {
+        followMode = false
+        showSettings = false
+        cameraPosition = overviewCameraPosition()
+#if canImport(UIKit)
+        mkCamera = overviewMKCamera()
+#endif
     }
 
     // MARK: - Map
@@ -137,8 +189,6 @@ struct RouteFlythruView: View {
     private var mapLayer: some View {
         ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
 #if canImport(UIKit)
-            // iOS/visionOS: SwiftUI Map の MapPolyline は >= 数百点を 120Hz で更新すると
-            // 描画スキップで線が消えるため、MKMapView を直接使う。
             FlythroughMapView(
                 allCoords: allCoords,
                 trackPointCoords: trackPointCoords,
@@ -151,7 +201,6 @@ struct RouteFlythruView: View {
                 isPlaying: controller.isPlaying
             )
 #else
-            // macOS フォールバック (SwiftUI Map)。再生頻度が低ければ問題なく動く。
             Map(position: $cameraPosition) {
                 if allCoords.count >= 2 {
                     MapPolyline(coordinates: allCoords)
@@ -171,20 +220,6 @@ struct RouteFlythruView: View {
                 if let p = controller.currentPoint {
                     Annotation("", coordinate: p.coordinate, anchor: .center) {
                         runnerMarker
-                    }
-                }
-                if let first = allCoords.first {
-                    Annotation("Start", coordinate: first) {
-                        Image(systemName: "flag.checkered")
-                            .foregroundStyle(.white).padding(5)
-                            .background(Color.cat10K, in: Circle())
-                    }
-                }
-                if let last = allCoords.last, allCoords.count > 1 {
-                    Annotation("Finish", coordinate: last) {
-                        Image(systemName: "flag.fill")
-                            .foregroundStyle(.white).padding(5)
-                            .background(Color.catFullMarathon, in: Circle())
                     }
                 }
             }
@@ -219,16 +254,21 @@ struct RouteFlythruView: View {
         let dt = lastCameraUpdateAt == 0 ? (1.0 / 120.0) : (now - lastCameraUpdateAt)
         lastCameraUpdateAt = now
         let safeDt = max(dt, 1.0 / 240.0)
-        // smoothDamp 状態を進める。両 SwiftUI/UIKit パスで共通。
         advanceSmoothing(dt: safeDt)
-#if canImport(UIKit)
-        mkCamera = makeMKCamera()
-#else
-        cameraPosition = makeMapCameraPosition()
-#endif
+        applyCamera()
     }
 
-    /// smoothDamp の internal state を `dt` 秒進める。
+    private func applyCamera() {
+        if followMode {
+#if canImport(UIKit)
+            mkCamera = makeMKCamera()
+#else
+            cameraPosition = makeMapCameraPosition()
+#endif
+        }
+    }
+
+    /// smoothDamp の internal state を `dt` 秒進める（デッドバンド付き）。
     private func advanceSmoothing(dt: Double) {
         guard let cur = controller.currentPoint else { return }
 
@@ -237,74 +277,91 @@ struct RouteFlythruView: View {
             smoothedLng = cur.coordinate.longitude
             if let lookAhead = controller.lookAheadPoint(sec: cameraProfile.lookAheadSec),
                lookAhead.id != cur.id {
-                smoothedHeading = PlaybackMath.bearingDegrees(
-                    from: cur.coordinate,
-                    to: lookAhead.coordinate
-                )
+                let initBearing = PlaybackMath.bearingDegrees(from: cur.coordinate, to: lookAhead.coordinate)
+                smoothedHeading = initBearing
+                blendedBearingTarget = initBearing
             }
             hasInitializedSmoothing = true
         }
 
-        let lookAhead = controller.lookAheadPoint(sec: cameraProfile.lookAheadSec)
+        // --- Bearing deadband / soft-zone ---
         let rawHeading: Double
-        if let lookAhead, lookAhead.id != cur.id {
+        if let lookAhead = controller.lookAheadPoint(sec: cameraProfile.lookAheadSec),
+           lookAhead.id != cur.id {
             rawHeading = PlaybackMath.bearingDegrees(from: cur.coordinate, to: lookAhead.coordinate)
         } else {
-            rawHeading = smoothedHeading
+            rawHeading = blendedBearingTarget
         }
-
+        let bearingDelta = AngleMath.shortestDelta(from: blendedBearingTarget, to: rawHeading)
+        let bearingBlend = PlaybackMath.softBlendFactor(
+            delta: bearingDelta,
+            deadband: cameraProfile.bearingDeadbandDeg,
+            softZone: cameraProfile.bearingSoftZoneDeg
+        )
+        if bearingBlend > 0 {
+            // ブレンド分だけ目標を更新してから smoothDamp に渡す
+            blendedBearingTarget = (blendedBearingTarget + bearingDelta * bearingBlend)
+                .truncatingRemainder(dividingBy: 360)
+        }
         smoothedHeading = AngleMath.smoothDampAngle(
             from: smoothedHeading,
-            to: rawHeading,
+            to: blendedBearingTarget,
             velocity: &headingVelocity,
-            smoothTime: cameraProfile.bearingResponseSec,
+            smoothTime: effectiveBearingResp,
             dt: dt
         )
+
+        // --- Position deadband / soft-zone ---
+        let dLat = cur.coordinate.latitude - smoothedLat
+        let dLng = cur.coordinate.longitude - smoothedLng
+        // 緯度差を概算メートルに変換して deadband チェック
+        let approxDeltaM = sqrt((dLat * 111_000) * (dLat * 111_000) + (dLng * 111_000) * (dLng * 111_000))
+        let posBlend = PlaybackMath.softBlendFactor(
+            delta: approxDeltaM,
+            deadband: cameraProfile.centerDeadbandM,
+            softZone: cameraProfile.centerSoftZoneM
+        )
+        let targetLat = posBlend > 0
+            ? smoothedLat + dLat * posBlend
+            : smoothedLat
+        let targetLng = posBlend > 0
+            ? smoothedLng + dLng * posBlend
+            : smoothedLng
+
         smoothedLat = AngleMath.smoothDamp(
             from: smoothedLat,
-            to: cur.coordinate.latitude,
+            to: targetLat,
             velocity: &latVelocity,
-            smoothTime: cameraProfile.centerResponseSec,
+            smoothTime: effectiveCenterResp,
             dt: dt
         )
         smoothedLng = AngleMath.smoothDamp(
             from: smoothedLng,
-            to: cur.coordinate.longitude,
+            to: targetLng,
             velocity: &lngVelocity,
-            smoothTime: cameraProfile.centerResponseSec,
+            smoothTime: effectiveCenterResp,
             dt: dt
         )
     }
 
 #if canImport(UIKit)
-    /// UIKit 経路: smoothDamp 済みの値から MKMapCamera を組み立てる。
     private func makeMKCamera() -> MKMapCamera {
         let cam = MKMapCamera()
-        cam.centerCoordinate = CLLocationCoordinate2D(
-            latitude: smoothedLat,
-            longitude: smoothedLng
-        )
-        cam.centerCoordinateDistance = cameraProfile.distance
+        cam.centerCoordinate = CLLocationCoordinate2D(latitude: smoothedLat, longitude: smoothedLng)
+        cam.centerCoordinateDistance = effectiveDistance
         cam.heading = smoothedHeading
-        cam.pitch = cameraProfile.pitch
+        cam.pitch = effectivePitch
         return cam
     }
 #endif
 
-    /// SwiftUI Map 経路 (macOS など): MapCameraPosition を返す。
     private func makeMapCameraPosition() -> MapCameraPosition {
         .camera(MapCamera(
             centerCoordinate: CLLocationCoordinate2D(latitude: smoothedLat, longitude: smoothedLng),
-            distance: cameraProfile.distance,
+            distance: effectiveDistance,
             heading: smoothedHeading,
-            pitch: cameraProfile.pitch
+            pitch: effectivePitch
         ))
-    }
-
-    /// 旧コードからの呼び出し互換。toolbar や onAppear で使う。
-    private func followCameraPosition(dt: Double = 1.0 / 60.0) -> MapCameraPosition {
-        advanceSmoothing(dt: dt)
-        return makeMapCameraPosition()
     }
 
     private func overviewCameraPosition() -> MapCameraPosition {
@@ -323,7 +380,6 @@ struct RouteFlythruView: View {
     }
 
 #if canImport(UIKit)
-    /// UIKit 経路の俯瞰カメラ。距離は緯度経度幅から大雑把に算出。
     private func overviewMKCamera() -> MKMapCamera {
         let cam = MKMapCamera()
         guard allCoords.count >= 2 else { return cam }
@@ -333,7 +389,6 @@ struct RouteFlythruView: View {
             latitude: (lats.min()! + lats.max()!) / 2,
             longitude: (lngs.min()! + lngs.max()!) / 2
         )
-        // 緯度 1° ≒ 111km。コース全長 + マージンが画面に収まる距離。
         let latSpan = max(lats.max()! - lats.min()!, 0.005)
         let lngSpan = max(lngs.max()! - lngs.min()!, 0.005)
         let approxSpanM = max(latSpan, lngSpan) * 111_000
