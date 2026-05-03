@@ -71,6 +71,11 @@ struct RunJourneyApp: App {
                 isStoredInMemoryOnly: false
             )
         case .iCloud:
+            guard Self.hasCloudKitEntitlement() else {
+                let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                return (try? ModelContainer(for: schema, configurations: [fallback]))
+                    ?? { fatalError("Could not create local ModelContainer") }()
+            }
             configuration = ModelConfiguration(
                 schema: schema,
                 isStoredInMemoryOnly: false,
@@ -90,6 +95,14 @@ struct RunJourneyApp: App {
             }
             fatalError("Could not create ModelContainer: \(error)")
         }
+    }
+
+    private static func hasCloudKitEntitlement() -> Bool {
+        // embedded.mobileprovision exists only in dev/TestFlight builds on device.
+        // Simulator and App Store builds have no file → assume entitlements are valid.
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url) else { return true }
+        return data.range(of: Data("CloudKit".utf8)) != nil
     }
 }
 
