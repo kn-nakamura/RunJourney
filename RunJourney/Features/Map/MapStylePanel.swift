@@ -28,13 +28,27 @@ struct MapStylePanel: View {
         }
     }
 
+    // MARK: - Helpers
+
+    /// Form 内で Picker / Toggle が操作されると、SwiftUI が Label アイコンを
+    /// 一律システムブルーに上書きしてしまうため、明示的にアクセントカラーを指定して
+    /// インタラクション後も色が変わらないようにする。
+    private func tintedLabel(_ title: String, systemImage: String) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(Color.accentPrimary)
+        }
+    }
+
     // MARK: - Map
 
     private var mapSection: some View {
         Section {
             // Style — アイコンのみ。Standard / Hybrid / Imagery
             HStack {
-                Label("Style", systemImage: "map")
+                tintedLabel("Style", systemImage: "map")
                 Spacer()
                 Picker("Style", selection: $mapSettings.base) {
                     ForEach(MapStyleSettings.Base.allCases) { base in
@@ -47,7 +61,7 @@ struct MapStylePanel: View {
 
             // Color
             HStack {
-                Label("Color", systemImage: "paintbrush")
+                tintedLabel("Color", systemImage: "paintbrush")
                 Spacer()
                 Picker("Color", selection: $mapSettings.colorMode) {
                     ForEach(MapStyleSettings.ColorMode.allCases) { mode in
@@ -62,7 +76,7 @@ struct MapStylePanel: View {
 
             // Elevation
             HStack {
-                Label("Elevation", systemImage: "mountain.2")
+                tintedLabel("Elevation", systemImage: "mountain.2")
                 Spacer()
                 Picker("Elevation", selection: $mapSettings.elevation) {
                     ForEach(MapStyleSettings.Elevation.allCases) { elev in
@@ -75,7 +89,7 @@ struct MapStylePanel: View {
 
             // POI（施設マーカー）
             HStack {
-                Label("POI", systemImage: "tag")
+                tintedLabel("POI", systemImage: "tag")
                 Spacer()
                 Picker("POI", selection: $mapSettings.poi) {
                     ForEach(MapStyleSettings.POIMode.allCases) { mode in
@@ -90,7 +104,7 @@ struct MapStylePanel: View {
 
             // Traffic
             Toggle(isOn: $mapSettings.showsTraffic) {
-                Label("Traffic", systemImage: "car.fill")
+                tintedLabel("Traffic", systemImage: "car.fill")
             }
             .disabled(!mapSettings.allowsTraffic)
             .opacity(mapSettings.allowsTraffic ? 1 : 0.4)
@@ -109,7 +123,7 @@ struct MapStylePanel: View {
         Section {
             // Shape
             HStack {
-                Label("Shape", systemImage: "circle.fill")
+                tintedLabel("Shape", systemImage: "circle.fill")
                 Spacer()
                 Picker("Shape", selection: $pinSettings.shape) {
                     ForEach(PinSettings.Shape.allCases) { s in
@@ -122,7 +136,7 @@ struct MapStylePanel: View {
 
             // Symbol
             HStack {
-                Label("Symbol", systemImage: "figure.run")
+                tintedLabel("Symbol", systemImage: "figure.run")
                 Spacer()
                 Picker("Symbol", selection: $pinSettings.symbolMode) {
                     ForEach(PinSettings.SymbolMode.allCases) { m in
@@ -135,7 +149,7 @@ struct MapStylePanel: View {
 
             // Color
             HStack {
-                Label("Color", systemImage: "paintpalette")
+                tintedLabel("Color", systemImage: "paintpalette")
                 Spacer()
                 Picker("Color", selection: $pinSettings.colorSource) {
                     ForEach(PinSettings.ColorSource.allCases) { c in
@@ -148,7 +162,7 @@ struct MapStylePanel: View {
 
             // Size
             HStack {
-                Label("Size", systemImage: "arrow.up.left.and.arrow.down.right")
+                tintedLabel("Size", systemImage: "arrow.up.left.and.arrow.down.right")
                 Spacer()
                 Picker("Size", selection: $pinSettings.size) {
                     ForEach(PinSettings.Size.allCases) { s in
@@ -160,11 +174,11 @@ struct MapStylePanel: View {
             }
 
             Toggle(isOn: $pinSettings.showBorder) {
-                Label("Border", systemImage: "circle.dashed")
+                tintedLabel("Border", systemImage: "circle.dashed")
             }
 
             Toggle(isOn: $pinSettings.showName) {
-                Label("Name Label", systemImage: "text.below.photo")
+                tintedLabel("Name Label", systemImage: "text.below.photo")
             }
 
             // プレビュー
