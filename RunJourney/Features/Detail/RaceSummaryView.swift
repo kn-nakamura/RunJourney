@@ -96,7 +96,7 @@ struct RaceSummaryView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(race.name.isEmpty ? "Untitled Race" : race.name)
                         .appText(.bodyMdBold)
-                        .foregroundStyle(race.name.isEmpty ? .tertiary : Color.textPrimary)
+                        .foregroundStyle(race.name.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.textPrimary))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     HStack(spacing: 6) {
