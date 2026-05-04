@@ -66,6 +66,20 @@ struct RaceListMapView: UIViewRepresentable {
         // 状態変更検知用に最新値を保持。`mapView(_:viewFor:)` から参照される。
         context.coordinator.parent = self
 
+        // adaptive モード切替を検出。cluster ↔ 非cluster 遷移時のみ MapKit に
+        // 再クラスタリングを促すため既存 RaceAnnotation を一旦全消去して、
+        // 直後の diff 追加で再投入する。`clusteringIdentifier` は viewFor で
+        // 再付与される。off ↔ zoom ↔ density 間の遷移ではピン view を保持
+        // したまま applyImage の差し替えだけで済むため再生成しない (フリッカ防止)。
+        let prevMode = context.coordinator.lastAdaptiveMode
+        let curMode = pinSettings.adaptiveSizing
+        let clusterToggled = (prevMode == .cluster) != (curMode == .cluster)
+        if clusterToggled {
+            let existing = mapView.annotations.compactMap { $0 as? RaceAnnotation }
+            mapView.removeAnnotations(existing)
+        }
+        context.coordinator.lastAdaptiveMode = curMode
+
         // アノテーション diff: 既存と現 races の差分だけ反映する。
         // 全消し再追加だと選択中ピンが消えて再生されてフリッカーするので diff 方式。
         let existingByID = Dictionary(
@@ -82,6 +96,10 @@ struct RaceListMapView: UIViewRepresentable {
             .filter { !existingIDs.contains($0.persistentModelID) }
             .map { RaceAnnotation(race: $0) }
         mapView.addAnnotations(newAnnotations)
+
+        // adaptive モード固有の事前計算 (zoom 係数 / density スケール)。
+        // applyImage はこのキャッシュを参照する。
+        context.coordinator.refreshAdaptiveState(mapView: mapView)
 
         // 既存ピンの image を最新の状態 (selectedRace / pinSettings) で更新する。
         for annotation in mapView.annotations {
@@ -151,6 +169,14 @@ struct RaceListMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var parent: RaceListMapView
 
+        /// 直前に適用した adaptive モード。`updateUIView` でモード切替を検出して
+        /// クラスタリング状態を作り直すために使う。
+        var lastAdaptiveMode: PinSettings.AdaptiveSizing? = nil
+        /// zoom モード時の現在スケール係数 (1.0 = 通常)。`applyImage` が参照する。
+        var lastZoomScale: CGFloat = 1.0
+        /// density モード時のピン毎のスケール係数 (1.0 = 通常)。
+        var perPinScale: [PersistentIdentifier: CGFloat] = [:]
+
         init(parent: RaceListMapView) {
             self.parent = parent
         }
@@ -158,6 +184,18 @@ struct RaceListMapView: UIViewRepresentable {
         // MARK: Annotation views
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // cluster モードで MapKit が生成する集約アノテーション。
+            if let cluster = annotation as? MKClusterAnnotation {
+                let identifier = "RaceCluster"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
+                    ?? MKAnnotationView(annotation: cluster, reuseIdentifier: identifier)
+                view.annotation = cluster
+                view.canShowCallout = false
+                view.displayPriority = .required
+                applyClusterImage(to: view, count: cluster.memberAnnotations.count)
+                return view
+            }
+
             guard let raceAnno = annotation as? RaceAnnotation else { return nil }
             let identifier = "RacePin"
             let view = (mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? RacePinAnnotationView)
@@ -165,6 +203,8 @@ struct RaceListMapView: UIViewRepresentable {
             view.annotation = raceAnno
             view.canShowCallout = false
             view.displayPriority = .required
+            // cluster モード時のみ clusteringIdentifier をセットして MapKit に集約を委ねる。
+            view.clusteringIdentifier = (parent.pinSettings.adaptiveSizing == .cluster) ? "race" : nil
             applyImage(to: view, for: raceAnno)
             return view
         }
@@ -204,7 +244,21 @@ struct RaceListMapView: UIViewRepresentable {
             // canvas は可視ピン + (選択時のみ) ラベル領域に絞る。これで MKAnnotationView の
             // frame (= image size) が実際のピン外形にほぼ一致し、隣接ピンの hit area が
             // 透明領域に被られることがなくなる。
-            let visibleDim: CGFloat = isSelected ? settings.size.selectedDimension : settings.size.dimension
+            //
+            // adaptive モード時は非選択ピンに対して scale 係数を掛ける。選択中ピンは
+            // タップ反応として常に selectedDimension のフルサイズを保つ。
+            let baseDim: CGFloat = isSelected ? settings.size.selectedDimension : settings.size.dimension
+            let adaptiveScale: CGFloat
+            if isSelected {
+                adaptiveScale = 1.0
+            } else {
+                switch settings.adaptiveSizing {
+                case .off, .cluster: adaptiveScale = 1.0
+                case .zoom:          adaptiveScale = lastZoomScale
+                case .density:       adaptiveScale = perPinScale[raceAnno.race.persistentModelID] ?? 1.0
+                }
+            }
+            let visibleDim: CGFloat = baseDim * adaptiveScale
             let visibleH: CGFloat = (settings.shape == .pin) ? visibleDim * 1.35 : visibleDim
 
             let labelExtra: CGFloat = (isSelected && settings.showName) ? (4 + RaceAnnotationView.labelReservedHeight) : 0
@@ -279,12 +333,133 @@ struct RaceListMapView: UIViewRepresentable {
         /// 地図の region 変更が落ち着いたタイミングで親 (SwiftUI) に現在中心を返す。
         /// `currentCenter` バインディングが指定されているときだけ通知する。
         /// AddRaceSheet 等で「いま見えている視点」を初期地点に使うのに利用。
+        ///
+        /// adaptive モード (zoom / density) のときは、ここで scale を再計算して
+        /// 必要なら全ピンを再描画する。`regionDidChangeAnimated` はジェスチャ完了時
+        /// に 1 回だけ呼ばれるので、ピンチ中の連続呼び出しによるスループット低下は
+        /// 起きない。
         nonisolated func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             let center = mapView.region.center
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.parent.currentCenter?.wrappedValue = center
+                self.handleRegionChanged(mapView: mapView)
             }
+        }
+
+        // MARK: Adaptive sizing
+
+        /// region 変動時のスケール再計算 + 必要なら全ピン再描画。
+        private func handleRegionChanged(mapView: MKMapView) {
+            switch parent.pinSettings.adaptiveSizing {
+            case .off, .cluster:
+                return
+            case .zoom:
+                let span = mapView.region.span.latitudeDelta
+                let newScale = Self.zoomScale(span: span)
+                guard newScale != lastZoomScale else { return }
+                lastZoomScale = newScale
+                reapplyAllPinImages(mapView: mapView)
+            case .density:
+                recomputeDensity(mapView: mapView)
+                reapplyAllPinImages(mapView: mapView)
+            }
+        }
+
+        /// `updateUIView` 末尾から呼ばれる事前計算。adaptive モードに応じて
+        /// `lastZoomScale` または `perPinScale` を最新化する。
+        func refreshAdaptiveState(mapView: MKMapView) {
+            switch parent.pinSettings.adaptiveSizing {
+            case .off, .cluster:
+                lastZoomScale = 1.0
+                perPinScale.removeAll()
+            case .zoom:
+                lastZoomScale = Self.zoomScale(span: mapView.region.span.latitudeDelta)
+                perPinScale.removeAll()
+            case .density:
+                lastZoomScale = 1.0
+                recomputeDensity(mapView: mapView)
+            }
+        }
+
+        /// 既存ピン全ての image を最新の adaptive スケールで再描画する。
+        /// 新規追加直後のピンは `mapView.view(for:)` がまだ nil を返す可能性が
+        /// あるが、それらは MapKit が改めて `viewFor` を呼んで `applyImage` を
+        /// 通すのでこのループでは触れなくて問題ない。
+        private func reapplyAllPinImages(mapView: MKMapView) {
+            for anno in mapView.annotations {
+                guard let raceAnno = anno as? RaceAnnotation,
+                      let view = mapView.view(for: anno) else { continue }
+                applyImage(to: view, for: raceAnno)
+            }
+        }
+
+        /// `latitudeDelta` を 5 段階の tier に snap して scale 係数を返す。
+        /// tier snap によりピンチ中の細かい region 変動でも tier 跨ぎ時しか
+        /// ピン再描画が走らない。
+        ///   ~0.02° (街区) → 1.00x
+        ///   ~0.2°  (市)   → 0.85x
+        ///   ~2°    (県)   → 0.70x
+        ///   ~10°   (地方) → 0.55x
+        ///   それ以上 (国全体) → 0.45x
+        static func zoomScale(span: CLLocationDegrees) -> CGFloat {
+            switch span {
+            case ..<0.02:  return 1.00
+            case ..<0.2:   return 0.85
+            case ..<2.0:   return 0.70
+            case ..<10.0:  return 0.55
+            default:       return 0.45
+            }
+        }
+
+        /// density モード: 各ピンを 80×80pt のスクリーン格子バケットに割り当て、
+        /// 自セル + 周辺 8 セル合計の件数から scale を決める。O(N) で 200+ ピン
+        /// でも毎回 region 変更時に走らせて問題ない。
+        private func recomputeDensity(mapView: MKMapView) {
+            perPinScale.removeAll()
+            let cellSize: CGFloat = 80
+            struct GridKey: Hashable { let x: Int; let y: Int }
+            var grid: [GridKey: Int] = [:]
+            var pinCells: [(PersistentIdentifier, GridKey)] = []
+            pinCells.reserveCapacity(mapView.annotations.count)
+            for anno in mapView.annotations {
+                guard let raceAnno = anno as? RaceAnnotation else { continue }
+                let pt = mapView.convert(raceAnno.coordinate, toPointTo: mapView)
+                let key = GridKey(x: Int(floor(pt.x / cellSize)), y: Int(floor(pt.y / cellSize)))
+                grid[key, default: 0] += 1
+                pinCells.append((raceAnno.race.persistentModelID, key))
+            }
+            for (id, key) in pinCells {
+                var count = 0
+                for dx in -1...1 {
+                    for dy in -1...1 {
+                        count += grid[GridKey(x: key.x + dx, y: key.y + dy)] ?? 0
+                    }
+                }
+                let scale: CGFloat
+                switch count {
+                case ...1:   scale = 1.0
+                case 2...3:  scale = 0.75
+                case 4...7:  scale = 0.55
+                default:     scale = 0.40
+                }
+                perPinScale[id] = scale
+            }
+        }
+
+        /// cluster モードで MapKit が生成する `MKClusterAnnotation` 用の image を
+        /// SwiftUI `RaceClusterAnnotationView` から ImageRenderer で生成する。
+        private func applyClusterImage(to view: MKAnnotationView, count: Int) {
+            let padding: CGFloat = 6
+            let dim: CGFloat = 44
+            let swiftUI = RaceClusterAnnotationView(count: count)
+                .frame(width: dim, height: dim)
+                .padding(padding)
+            let renderer = ImageRenderer(content: swiftUI)
+            renderer.scale = view.traitCollection.displayScale
+            guard let image = renderer.uiImage else { return }
+            view.image = image
+            view.centerOffset = .zero
         }
 
         // MARK: Selection

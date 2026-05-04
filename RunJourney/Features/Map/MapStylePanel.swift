@@ -173,6 +173,19 @@ struct MapStylePanel: View {
                 .fixedSize()
             }
 
+            // Adaptive (zoom / density / cluster)
+            HStack {
+                Label("Adaptive", systemImage: "sparkles")
+                Spacer()
+                Picker("Adaptive", selection: $pinSettings.adaptiveSizing) {
+                    ForEach(PinSettings.AdaptiveSizing.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+
             Toggle(isOn: $pinSettings.showBorder) {
                 tintedLabel("Border", systemImage: "circle.dashed")
             }
