@@ -198,6 +198,30 @@ struct Teardrop: Shape {
     }
 }
 
+// MARK: - Cluster annotation
+
+/// `PinSettings.AdaptiveSizing == .cluster` のとき MapKit が生成する
+/// `MKClusterAnnotation` 用のバッジ。集約された件数を中央に表示する。
+struct RaceClusterAnnotationView: View {
+    let count: Int
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.accentPrimary)
+                .overlay {
+                    Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.5)
+                }
+            Text("\(count)")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.bgPrimary)
+                .minimumScaleFactor(0.7)
+                .padding(2)
+        }
+        .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
+    }
+}
+
 #Preview("Pin shapes") {
     let dummy = Race(name: "Tokyo Marathon", category: .fullMarathon, lat: 35.69, lng: 139.69)
     return ScrollView {
