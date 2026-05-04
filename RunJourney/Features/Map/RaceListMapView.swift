@@ -224,10 +224,6 @@ struct RaceListMapView: UIViewRepresentable {
             return view
         }
 
-        /// 「拡大＋アイコン化」状態を覚えておくためのレース ID 集合。
-        /// 状態が反転したピンだけクロスフェードを掛けるために必要。
-        private var iconifiedIDs: Set<PersistentIdentifier> = []
-
         /// 現在の `iconifiedRace` / `pinSettings` で SwiftUI `RaceAnnotationView` を
         /// 描画して `MKAnnotationView.image` に流し込む。アンカー位置も pin 形状で調整。
         ///
@@ -235,18 +231,12 @@ struct RaceListMapView: UIViewRepresentable {
         /// `iconifiedRace` を使う。親側でズーム → シート → 1 秒待ってから
         /// `iconifiedRace` がセットされるので、その瞬間にだけピンがアイコンへ変化する。
         ///
-        /// ピン画像は毎フレーム新しい UIImage に差し替わるが、選択状態が反転した
-        /// ピンに限って `UIView.transition(.transitionCrossDissolve)` でクロスフェード
-        /// するので「ピン → アイコン」の切替が滑らかに見える。
+        /// 画像とアンカーは即時差し替える。クロスフェード等のトランジションは挟まない:
+        /// 選択時は image / centerOffset / bounds が同時に大きく変わるため、UIView.transition
+        /// でスナップショットを撮ると新旧画像のサイズ差ぶん「アイコンが右からスライドして
+        /// 出る」ような視覚ズレが発生していた。
         func applyImage(to view: MKAnnotationView, for raceAnno: RaceAnnotation) {
-            let id = raceAnno.race.persistentModelID
-            let isSelected = parent.iconifiedRace?.persistentModelID == id
-            let wasSelected = iconifiedIDs.contains(id)
-            if isSelected {
-                iconifiedIDs.insert(id)
-            } else {
-                iconifiedIDs.remove(id)
-            }
+            let isSelected = parent.iconifiedRace?.persistentModelID == raceAnno.race.persistentModelID
             let settings = parent.pinSettings
             // ImageRenderer は SwiftUI の `.shadow()` を view bounds の外側に少し溢れさせるので、
             // 透明 padding を被せて切れないようにする。これは shadow 用の最小余白。
@@ -315,30 +305,9 @@ struct RaceListMapView: UIViewRepresentable {
             let centerOffsetY: CGFloat = imageH / 2 - anchorY
             let newCenterOffset = CGPoint(x: 0, y: centerOffsetY)
 
-            // 選択状態が反転したピンだけ crossfade。pinSettings の変更や差分なし時は
-            // 即時差し替えで余計な ちらつき を避ける。
-            //
-            // image と centerOffset は同じ animations ブロックで更新する。`UIView.transition`
-            // は animations 終了時のビュー状態を AFTER スナップショットとして撮るので、
-            // ここで centerOffset も新値にしておかないと「新しい大きな画像 × 古い centerOffset」
-            // という座標ズレ状態が AFTER スナップショットになり、アイコンがピン先端から
-            // 右下にズレた位置に出現してしまう。
-            let stateChanged = wasSelected != isSelected && view.image != nil
-            if stateChanged {
-                UIView.transition(
-                    with: view,
-                    duration: 0.5,
-                    options: [.transitionCrossDissolve, .allowUserInteraction, .curveEaseInOut],
-                    animations: {
-                        view.image = image
-                        view.centerOffset = newCenterOffset
-                    },
-                    completion: nil
-                )
-            } else {
-                view.image = image
-                view.centerOffset = newCenterOffset
-            }
+            // 画像とアンカーは即時差し替える (トランジションなし)。
+            view.image = image
+            view.centerOffset = newCenterOffset
 
             // hit-test 矩形: 透明 padding を除いた、実際の可視ピン本体。
             // canvas が可視ピンサイズに絞られているので、image 全面 (= view bounds) も
