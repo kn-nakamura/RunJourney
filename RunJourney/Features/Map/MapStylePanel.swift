@@ -173,13 +173,14 @@ struct MapStylePanel: View {
                 .fixedSize()
             }
 
-            // Adaptive (zoom / density / cluster)
+            // Adaptive (zoom / density / cluster) — 4 択あるためテキストだとラベルが
+            // 縦書きに折り返される。Style/Shape 行と同じくアイコン Picker に揃える。
             HStack {
-                Label("Adaptive", systemImage: "sparkles")
+                tintedLabel("Adaptive", systemImage: "sparkles")
                 Spacer()
                 Picker("Adaptive", selection: $pinSettings.adaptiveSizing) {
                     ForEach(PinSettings.AdaptiveSizing.allCases) { mode in
-                        Text(mode.label).tag(mode)
+                        Image(systemName: mode.symbol).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)

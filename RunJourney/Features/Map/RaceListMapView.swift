@@ -253,7 +253,12 @@ struct RaceListMapView: UIViewRepresentable {
             // (透明 padding を大きくすると MKMapView の hit-test が隣ピンに乗り上げて
             // 「タップしたピンと違うレースが選ばれる」バグの原因になるため、shadow 用に
             // 必要な分だけ最小化する。)
-            let padding: CGFloat = 6
+            //
+            // cluster モードのときだけ padding をほぼ 0 にする。MKMapView 標準クラスタリングは
+            // annotation view の image size 同士が overlap したかで判定するため、透明 padding を
+            // 持たせると北海道〜九州まで 1 クラスタに丸めてしまう。shadow がわずかに欠けるが、
+            // クラスタモードはピン密集時の代替表示なので許容範囲。
+            let padding: CGFloat = (settings.adaptiveSizing == .cluster) ? 1 : 6
 
             // 可視サイズ: 非選択時 = `dimension`, 選択時 = `selectedDimension`。
             // canvas は可視ピン + (選択時のみ) ラベル領域に絞る。これで MKAnnotationView の
@@ -284,7 +289,8 @@ struct RaceListMapView: UIViewRepresentable {
             let swiftUIView = RaceAnnotationView(
                 race: raceAnno.race,
                 isSelected: isSelected,
-                settings: settings
+                settings: settings,
+                dimensionOverride: visibleDim
             )
             .frame(width: canvasW, height: canvasH, alignment: .top)
             .padding(padding)

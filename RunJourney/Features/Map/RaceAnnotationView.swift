@@ -5,6 +5,9 @@ struct RaceAnnotationView: View {
     let race: Race
     var isSelected: Bool = false
     var settings: PinSettings = .default
+    /// adaptive scale 適用後の実効サイズ。`applyImage` 側で `baseDim * adaptiveScale` を渡す。
+    /// nil なら `settings.size` から導出（プレビューや非 adaptive 経路向け）。
+    var dimensionOverride: CGFloat? = nil
 
     var body: some View {
         VStack(spacing: 4) {
@@ -42,7 +45,8 @@ struct RaceAnnotationView: View {
     // MARK: - Geometry
 
     private var dimension: CGFloat {
-        isSelected ? settings.size.selectedDimension : settings.size.dimension
+        if let d = dimensionOverride { return d }
+        return isSelected ? settings.size.selectedDimension : settings.size.dimension
     }
 
     private var fillColor: Color {
