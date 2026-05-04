@@ -135,10 +135,10 @@ struct RaceMapView: View {
             zoomTask = Task { await zoomThenPresent(race) }
         }
         .onChange(of: sheetRace) { _, race in
-            // シートが閉じたら全体ビューに戻す。Web 版と同じ挙動。
-            if race == nil, !races.isEmpty {
+            // シートを閉じてもカメラは現在のズーム位置を維持する。アイコン化だけ解除して
+            // ピンを通常表示に戻す。全体フィットへ戻したいときは右下の Fit All ボタンから。
+            if race == nil {
                 iconifiedRace = nil
-                fitAllRaces()
             }
         }
         .onChange(of: filters.category) { _, _ in
@@ -160,9 +160,10 @@ struct RaceMapView: View {
         // 視点が混乱するので、ズーム開始と同時にリセットしておく。
         iconifiedRace = nil
         fitRace(race)
-        // ズームが完全に静止してからシートを上げる。バッファを広めに取り、
+        // ズームが完全に静止してからシートを上げる。`fitRace` は UIView.animate で
+        // 1.6 秒のゆったりカーブをかけているので、それより少し長めに待って
         // 「ピンが止まる→ひと呼吸置いてシート」のリズムにする。
-        try? await Task.sleep(for: .milliseconds(1200))
+        try? await Task.sleep(for: .milliseconds(1700))
         guard !Task.isCancelled else { return }
         sheetRace = race
         // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
