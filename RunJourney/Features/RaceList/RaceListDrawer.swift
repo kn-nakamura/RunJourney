@@ -57,8 +57,22 @@ struct RaceListDrawer: View {
         return years.sorted(by: >)
     }
 
+    /// 最新結果の日付で降順、結果のないレースは末尾（同列は名前順）。
     private var filteredRaces: [Race] {
-        races.filter(filters.matches)
+        races
+            .filter(filters.matches)
+            .sorted { lhs, rhs in
+                let lhsDate = (lhs.results ?? []).map(\.raceDate).max()
+                let rhsDate = (rhs.results ?? []).map(\.raceDate).max()
+                switch (lhsDate, rhsDate) {
+                case let (l?, r?):
+                    if l != r { return l > r }
+                    return lhs.name < rhs.name
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return lhs.name < rhs.name
+                }
+            }
     }
 
     var body: some View {
@@ -183,7 +197,41 @@ struct RaceListDrawer: View {
 private struct RaceListRow: View {
     let race: Race
 
-    private var resultCount: Int { race.results?.count ?? 0 }
+    /// 有効（DNF/DNS でなく、タイムが正の値）な結果のみ。PB/SB 判定に使う。
+    private var validResults: [RaceResult] {
+        (race.results ?? []).filter { !$0.isDNF && !$0.isDNS && ($0.finishTimeSec ?? 0) > 0 }
+    }
+
+    /// 直近の結果（DNF/DNS 含む）。日付が同じ場合は createdAt の新しい方。
+    private var latestResult: RaceResult? {
+        (race.results ?? [])
+            .max { lhs, rhs in
+                if lhs.raceDate != rhs.raceDate { return lhs.raceDate < rhs.raceDate }
+                return lhs.createdAt < rhs.createdAt
+            }
+    }
+
+    /// このレース内 PB（最速タイム）に最新結果が一致しているか。
+    private var isLatestPB: Bool {
+        guard let latest = latestResult, let latestSec = latest.finishTimeSec else { return false }
+        guard let pbSec = validResults.compactMap(\.finishTimeSec).min() else { return false }
+        return latestSec == pbSec
+    }
+
+    /// 同年内 SB に一致しているか（PB のときは PB を優先するので false）。
+    private var isLatestSB: Bool {
+        guard !isLatestPB,
+              let latest = latestResult,
+              let latestSec = latest.finishTimeSec else { return false }
+        let cal = Calendar.current
+        let year = cal.component(.year, from: latest.raceDate)
+        let sameYearMin = validResults
+            .filter { cal.component(.year, from: $0.raceDate) == year }
+            .compactMap(\.finishTimeSec)
+            .min()
+        guard let sbSec = sameYearMin else { return false }
+        return latestSec == sbSec
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -197,11 +245,18 @@ private struct RaceListRow: View {
                     .font(.system(size: 16, weight: .semibold))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(race.name.isEmpty ? "(Untitled)" : race.name)
-                    .appText(.bodySmBold)
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(race.name.isEmpty ? "(Untitled)" : race.name)
+                        .appText(.bodySmBold)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+                    if isLatestPB {
+                        badgeLabel("PB", background: Color.pbBadge)
+                    } else if isLatestSB {
+                        badgeLabel("SB", background: Color.sbBadge)
+                    }
+                }
                 HStack(spacing: 6) {
                     Text(race.category.displayName)
                         .appText(.bodyXs)
@@ -209,23 +264,62 @@ private struct RaceListRow: View {
                     if let city = race.city, !city.isEmpty {
                         Text("· \(city)").appText(.bodyXs).foregroundStyle(.tertiary)
                     }
+                    if let latest = latestResult {
+                        Text("· \(formatDate(latest.raceDate))")
+                            .appText(.bodyXs)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            if resultCount > 0 {
-                Text("\(resultCount)")
-                    .appText(.badgeNumeric)
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color.accentPrimary, in: Capsule())
-            }
+            trailingValue
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var trailingValue: some View {
+        if let latest = latestResult {
+            if let sec = latest.finishTimeSec, sec > 0 {
+                Text(formatDuration(sec))
+                    .appText(.codeBaseBold)
+                    .foregroundStyle(Color.accentPrimary)
+            } else if latest.isDNF {
+                Text("DNF")
+                    .appText(.codeXsBold)
+                    .foregroundStyle(.red)
+            } else if latest.isDNS {
+                Text("DNS")
+                    .appText(.codeXsBold)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func badgeLabel(_ text: String, background: Color) -> some View {
+        Text(text)
+            .appText(.badgeNumeric)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(background, in: Capsule())
+            .foregroundStyle(.black)
+    }
+
+    private func formatDuration(_ totalSec: Double) -> String {
+        let s = Int(totalSec)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        let sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))
     }
 }
 
