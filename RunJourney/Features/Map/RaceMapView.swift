@@ -98,9 +98,9 @@ struct RaceMapView: View {
         }
         .sheet(item: $sheetRace) { race in
             NavigationStack {
-                RaceDetailView(race: race)
+                RaceSummaryView(race: race)
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
+                        ToolbarItem(placement: .cancellationAction) {
                             Button("Close") { sheetRace = nil }
                         }
                     }
@@ -108,6 +108,7 @@ struct RaceMapView: View {
             .presentationDetents([.medium, .large])
             .presentationBackground(.ultraThinMaterial)
             .presentationCornerRadius(28)
+            .presentationDragIndicator(.visible)
         }
         .task {
             // 初回起動時のシーケンス:
