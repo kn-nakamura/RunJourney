@@ -35,7 +35,6 @@ struct RaceAnnotationView: View {
                     .fixedSize(horizontal: true, vertical: true)
             }
         }
-        .animation(.spring(response: 0.3), value: isSelected)
     }
 
     /// showName 時のラベル予約高さ。caption2 (~12pt) + 上下 padding(3+3) + capsule の余裕。
