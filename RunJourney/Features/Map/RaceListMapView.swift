@@ -118,7 +118,22 @@ struct RaceListMapView: UIViewRepresentable {
                 ? max(mapView.bounds.height / 2, 32)
                 : 32
             let padding = UIEdgeInsets(top: 32, left: 32, bottom: bottom, right: 32)
-            mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
+            if requestedRegionUpperHalf {
+                // ピンへの近接ズーム (fitRace) のときだけ MapKit 既定の硬いカーブを上書きし、
+                // 1.6 秒の easeInOut にする。`animated: true` のまま `UIView.animate` で
+                // 囲うと、その duration / curve が implicit にマップアニメへ反映される。
+                UIView.animate(
+                    withDuration: 1.6,
+                    delay: 0,
+                    options: [.curveEaseInOut, .beginFromCurrentState],
+                    animations: {
+                        mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
+                    },
+                    completion: nil
+                )
+            } else {
+                mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
+            }
             DispatchQueue.main.async {
                 self.requestedRegion = nil
             }
@@ -277,21 +292,6 @@ struct RaceListMapView: UIViewRepresentable {
             renderer.scale = view.traitCollection.displayScale
             guard let image = renderer.uiImage else { return }
 
-            // 選択状態が反転したピンだけ crossfade。pinSettings の変更や差分なし時は
-            // 即時差し替えで余計な ちらつき を避ける。
-            let stateChanged = wasSelected != isSelected && view.image != nil
-            if stateChanged {
-                UIView.transition(
-                    with: view,
-                    duration: 0.5,
-                    options: [.transitionCrossDissolve, .allowUserInteraction, .curveEaseInOut],
-                    animations: { view.image = image },
-                    completion: nil
-                )
-            } else {
-                view.image = image
-            }
-
             // shape のアンカー (pin = 尖り先 / dot = 中心) を地図座標に合わせる。
             //   公式: centerOffset.y = imageH/2 - anchorY_in_image
             //     centerOffset.y > 0 → view 中心が coord の下 (画面 y は下が正)
@@ -307,7 +307,32 @@ struct RaceListMapView: UIViewRepresentable {
                 anchorY = padding + visibleH / 2
             }
             let centerOffsetY: CGFloat = imageH / 2 - anchorY
-            view.centerOffset = CGPoint(x: 0, y: centerOffsetY)
+            let newCenterOffset = CGPoint(x: 0, y: centerOffsetY)
+
+            // 選択状態が反転したピンだけ crossfade。pinSettings の変更や差分なし時は
+            // 即時差し替えで余計な ちらつき を避ける。
+            //
+            // image と centerOffset は同じ animations ブロックで更新する。`UIView.transition`
+            // は animations 終了時のビュー状態を AFTER スナップショットとして撮るので、
+            // ここで centerOffset も新値にしておかないと「新しい大きな画像 × 古い centerOffset」
+            // という座標ズレ状態が AFTER スナップショットになり、アイコンがピン先端から
+            // 右下にズレた位置に出現してしまう。
+            let stateChanged = wasSelected != isSelected && view.image != nil
+            if stateChanged {
+                UIView.transition(
+                    with: view,
+                    duration: 0.5,
+                    options: [.transitionCrossDissolve, .allowUserInteraction, .curveEaseInOut],
+                    animations: {
+                        view.image = image
+                        view.centerOffset = newCenterOffset
+                    },
+                    completion: nil
+                )
+            } else {
+                view.image = image
+                view.centerOffset = newCenterOffset
+            }
 
             // hit-test 矩形: 透明 padding を除いた、実際の可視ピン本体。
             // canvas が可視ピンサイズに絞られているので、image 全面 (= view bounds) も
