@@ -36,12 +36,11 @@ struct RaceMapView: View {
     @State private var requestedRegionUpperHalf = false
     /// MKMapView がタップ検知 → SwiftUI バインディングへ伝える「カメラを動かしたい対象」。
     /// シート表示用の `sheetRace`、ピンの拡大/アイコン化用の `iconifiedRace` と
-    /// 3 つに分離することで、ズーム → シート → アイコン化を時間差で発生させる。
+    /// 3 つに分離することで、ズーム → シート → アイコン化のタイミングを個別制御する。
     @State private var selectedRace: Race?
     @State private var sheetRace: Race?
-    /// ピンを「拡大＋アイコン表示」状態にするレース。シート出現から少し遅らせて
-    /// セットすることで、ズーム & シート開きが完全に終わった後に
-    /// ピンが滑らかにアイコンへ切り替わるよう演出する。
+    /// ピンを「拡大＋アイコン表示」状態にするレース。`sheetRace` の onChange と同期して
+    /// セット/解除されるため、シート出現と同じタイミングでピンがアイコンに切替わる。
     @State private var iconifiedRace: Race?
     @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
@@ -136,11 +135,11 @@ struct RaceMapView: View {
             zoomTask = Task { await zoomThenPresent(race) }
         }
         .onChange(of: sheetRace) { _, race in
-            // シートを閉じてもカメラは現在のズーム位置を維持する。アイコン化だけ解除して
-            // ピンを通常表示に戻す。全体フィットへ戻したいときは右下の Fit All ボタンから。
-            if race == nil {
-                iconifiedRace = nil
-            }
+            // シート (下部ウィンドウ) の出現タイミングと完全に同期してアイコン化を切替える。
+            // 時間で計らず sheetRace の変化そのものをトリガーにすることで、
+            // ズーム所要時間や端末性能の差に関係なく「シートが出たらアイコン化」が成立する。
+            // 閉じる側はカメラ位置は維持したままアイコン化のみ解除し、ピンを通常表示に戻す。
+            iconifiedRace = race
         }
         .onChange(of: filters.category) { _, _ in
             // カテゴリ切替で残った範囲にリフィット。0 件のときは触らない。
@@ -152,29 +151,20 @@ struct RaceMapView: View {
     }
 
     /// ピン選択 → ピンを画面上半分の中央へ向けて滑らかにズーム → ズームが完全に
-    /// 落ち着いてからシート表示 → さらに少し置いてピンを拡大＋アイコン化。
-    /// MKMapView の region アニメは大ズーム時に最大 ~1s 近くかかるため、
-    /// シート出現前に十分なバッファを取って「ピンが動き切ってからシートが出る」
-    /// 体感にする (= 減速感)。
+    /// 落ち着いてからシート (下部ウィンドウ) 表示。アイコン化は `sheetRace` の onChange で
+    /// シート出現と同期して行うため、ここでは時間で測らない。
     private func zoomThenPresent(_ race: Race) async {
         // 別ピンが既に拡大中なら一旦解除。新しいズーム中に古いピンが大きいままだと
         // 視点が混乱するので、ズーム開始と同時にリセットしておく。
         iconifiedRace = nil
         fitRace(race)
-        // ズームが完全に静止してからシートを上げる。`fitRace` は UIView.animate で
-        // 1.6 秒のゆったりカーブをかけているので、それより少し長めに待って
-        // 「ピンが止まる→ひと呼吸置いてシート」のリズムにする。
-        try? await Task.sleep(for: .milliseconds(1700))
+        // ズームが完全に静止してからシートを上げる。fitRace の sin カーブアニメは
+        // 距離依存で 0.6〜2.0 秒。最長ケースでも止まり切るよう、それより少し長めに待つ。
+        try? await Task.sleep(for: .milliseconds(2100))
         guard !Task.isCancelled else { return }
         sheetRace = race
         // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
         selectedRace = nil
-        // シートが完全に展開してから少し置いてピンを拡大＋アイコン化する。
-        // 直前にシートのプレゼンテーションアニメ (~0.5s) が走るので、
-        // それと重ならないように 1.3 秒待つ。
-        try? await Task.sleep(for: .milliseconds(1300))
-        guard !Task.isCancelled else { return }
-        iconifiedRace = race
     }
 
     // MARK: - Layers
