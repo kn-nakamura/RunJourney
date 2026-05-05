@@ -113,6 +113,20 @@ enum PaceUtils {
         return String(format: "%d:%02d'%02d\"", h, m, sec)
     }
 
+    /// 符号付き秒差を `+M:SS` / `-M:SS` 形式で返す (Plan vs Actual 用)。
+    /// abs(秒) が 60 以上のときは分:秒、未満のときは秒のみ。
+    static func formatSignedDuration(_ sec: Double) -> String {
+        let sign = sec < 0 ? "-" : "+"
+        let abs = Swift.abs(sec)
+        let totalSeconds = Int(abs.rounded())
+        let m = totalSeconds / 60
+        let s = totalSeconds % 60
+        if m > 0 {
+            return String(format: "%@%d:%02d", sign, m, s)
+        }
+        return String(format: "%@0:%02d", sign, s)
+    }
+
     // MARK: - Calculations
 
     /// 目標タイム (秒) と距離 (km) からペース (秒/km) を整数で返す。

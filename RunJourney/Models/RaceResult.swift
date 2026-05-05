@@ -31,6 +31,11 @@ final class RaceResult {
     var trackPoints: [TrackPoint] = []
     var summary: SummaryStats? = nil
 
+    /// 紐付いた `PacePlan.id`。Soft FK にしている (= `@Relationship` を貼らない) のは、
+    /// PacePlan を消したときに RaceResult まで cascade させたくないため。
+    /// 表示時に `@Query` 結果から `id == linkedPacePlanId` で lookup する。
+    var linkedPacePlanId: UUID? = nil
+
     var createdAt: Date = Date.now
 
     var race: Race? = nil

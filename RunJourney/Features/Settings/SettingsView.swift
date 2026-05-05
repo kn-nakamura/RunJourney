@@ -20,6 +20,9 @@ struct SettingsView: View {
     @AppStorage("customDistanceKm") private var customDistanceKm: Double = 10.0
     @State private var customDistanceText: String = ""
 
+    /// HR ゾーン分析 (Z1〜Z5) で使う最大心拍。0 のときは未設定としてゾーン表示を抑止する。
+    @AppStorage("userMaxHR") private var userMaxHR: Int = 0
+
     /// アプリ全体のテーマ (Dark / Light)。マップも追従する。
     @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
     /// テーマ毎のアクセント色選択 (蛍光イエロー等)。テーマ切替後も独立復元。
@@ -69,6 +72,7 @@ struct SettingsView: View {
                 librarySection
                 distanceUnitSection
                 customDistanceSection
+                heartRateSection
                 appearanceSection
                 iCloudSection
                 aboutSection
@@ -251,6 +255,47 @@ struct SettingsView: View {
         }
         customDistanceKm = parsed.toKm(from: unit)
         customDistanceText = formatCustomDistance(unit: unit)
+    }
+
+    // MARK: - Heart Rate (Max HR for zone analysis)
+    //
+    // ゾーン分析 (Z1〜Z5) の基準となる最大心拍。0 のときレース詳細の HR Zone セクション
+    // を非表示にする (= 自動推定はしない)。100〜220 の Stepper で手動設定。
+
+    private var heartRateSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Heart Rate")
+            HStack(spacing: 12) {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(Color.catFullMarathon)
+                    .frame(width: 24)
+                Text("Max HR")
+                    .appText(.bodyBase)
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                if userMaxHR <= 0 {
+                    Text("Not set")
+                        .appText(.bodySm)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text("\(userMaxHR)")
+                        .appText(.codeBaseBold)
+                        .foregroundStyle(Color.accentPrimary)
+                    Text("bpm")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.tertiary)
+                }
+                Stepper("Max HR", value: $userMaxHR, in: 0...220, step: 1)
+                    .labelsHidden()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+            Text("Used for HR Zone analysis (Z1–Z5) on race detail. Set to 0 to hide zone bars.")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+        }
     }
 
     // MARK: - Appearance (theme + accent)
