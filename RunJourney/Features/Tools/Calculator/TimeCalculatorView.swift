@@ -22,34 +22,33 @@ struct TimeCalculatorView: View {
 
     @State private var resultText: String? = nil
 
+    @FocusState private var focusedField: Field?
+    private enum Field: Hashable { case distance, operand }
+
     enum Operation: String, CaseIterable, Identifiable {
         case add = "+"
         case sub = "−"
         case mul = "×"
         case div = "÷"
-        case divKm = "÷ Distance"
-        case mulKm = "× Distance"
+        case divKm = "÷ dist"
+        case mulKm = "× dist"
         var id: String { rawValue }
     }
 
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
     private var operandIsTime: Bool { op == .add || op == .sub }
+    private var showDistance: Bool { op == .divKm || op == .mulKm }
+    private var showOperand: Bool { op != .divKm && op != .mulKm }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Distance row
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Distance")
-                DistancePresetChips(distanceKm: $distanceKm)
-                distanceField
-            }
-
-            // Time row — PaceTimeSpinner で chevron 入力
+            // Time row — compact でウインドウ高さを抑える
             PaceTimeSpinner(
                 title: "Time",
                 mode: .goalTime,
                 seconds: $timeSec,
-                derivedGoalTimeSeconds: nil
+                derivedGoalTimeSeconds: nil,
+                compact: true
             )
 
             // Operation
@@ -63,18 +62,32 @@ struct TimeCalculatorView: View {
                 .pickerStyle(.segmented)
             }
 
-            // Operand
-            if operandIsTime {
-                PaceTimeSpinner(
-                    title: "Operand",
-                    mode: .goalTime,
-                    seconds: $operandTimeSec,
-                    derivedGoalTimeSeconds: nil
-                )
-            } else {
+            // Distance — ÷ dist / × dist 選択時のみ表示
+            if showDistance {
                 VStack(alignment: .leading, spacing: 6) {
-                    SectionHeader(title: "Operand")
-                    operandField
+                    SectionHeader(title: "Distance")
+                    DistancePresetChips(distanceKm: $distanceKm)
+                    distanceField
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // Operand — ÷ dist / × dist 以外の時に表示
+            if showOperand {
+                if operandIsTime {
+                    PaceTimeSpinner(
+                        title: "Operand",
+                        mode: .goalTime,
+                        seconds: $operandTimeSec,
+                        derivedGoalTimeSeconds: nil
+                    )
+                    .transition(.opacity)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        SectionHeader(title: "Operand")
+                        operandField
+                    }
+                    .transition(.opacity)
                 }
             }
 
@@ -98,6 +111,14 @@ struct TimeCalculatorView: View {
                     .foregroundStyle(Color.accentPrimary)
             }
         }
+        .animation(.default, value: op)
+        .onTapGesture { focusedField = nil }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("閉じる") { focusedField = nil }
+            }
+        }
         .onAppear { distanceText = formatDistanceText() }
         .onChange(of: distanceKm) { _, _ in distanceText = formatDistanceText() }
         .onChange(of: distanceUnitRaw) { _, _ in distanceText = formatDistanceText() }
@@ -112,6 +133,7 @@ struct TimeCalculatorView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .font(.appFont(.codeBaseBold))
+                .focused($focusedField, equals: .distance)
                 .onSubmit { commitDistance() }
 #else
             TextField(unit.label, text: $distanceText)
@@ -135,16 +157,12 @@ struct TimeCalculatorView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .font(.appFont(.codeBaseBold))
+                .focused($focusedField, equals: .operand)
 #else
             TextField("0", text: $operandText)
                 .multilineTextAlignment(.trailing)
                 .font(.appFont(.codeBaseBold))
 #endif
-            if op == .divKm || op == .mulKm {
-                Text(unit.label)
-                    .appText(.bodySm)
-                    .foregroundStyle(.secondary)
-            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -185,12 +203,10 @@ struct TimeCalculatorView: View {
             let total = Int((Double(timeSec) / operand).rounded())
             resultText = PaceUtils.formatTimeSimple(total)
         case .divKm:
-            // time ÷ distance → pace (端数を保持して hundredths 表示)
             guard distanceKm > 0, timeSec > 0 else { resultText = "—"; return }
             let secPerKm = Double(timeSec) / distanceKm
             resultText = PaceUtils.formatPaceHundredths(secPerKm: secPerKm, in: unit)
         case .mulKm:
-            // time × distance → trip total (treat time as pace per km)
             guard distanceKm > 0 else { resultText = "—"; return }
             let total = PaceUtils.paceToGoalTime(pacePerKm: timeSec, distanceKm: distanceKm)
             resultText = PaceUtils.formatTimeSimple(total)
