@@ -50,6 +50,7 @@ struct RaceMapView: View {
     @State private var zoomTask: Task<Void, Never>?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
+    @State private var showMapShareSheet = false
     /// 親→子のズーム指示。`MapZoomCommand` をセットすると `RaceListMapView` が
     /// 一度だけ setRegion を呼び、終わったら nil に戻す。
     @State private var requestedZoom: MapZoomCommand? = nil
@@ -87,6 +88,12 @@ struct RaceMapView: View {
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
+        .sheet(isPresented: $showMapShareSheet) {
+            MapShareSheet(
+                races: mappableRaces,
+                totalCount: races.filter { !($0.lat == 0 && $0.lng == 0) }.count
+            )
+        }
         .sheet(isPresented: $showRaceList) {
             RaceListDrawer(
                 races: races,
@@ -203,9 +210,13 @@ struct RaceMapView: View {
         // 上下とも safe area 尊重なので SwiftUI が自動で safeAreaInsets を補正する。
         // GeometryReader での手動補正は不要。
         VStack {
-            HStack {
+            HStack(spacing: 8) {
                 HamburgerButton(action: { showRaceList = true })
                 Spacer()
+                MapShareButton(
+                    action: { showMapShareSheet = true },
+                    disabled: mappableRaces.isEmpty
+                )
                 LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
             }
             .padding(.horizontal, 12)
@@ -322,6 +333,32 @@ struct HamburgerButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Races")
+    }
+}
+
+/// 右上の共有ボタン (Layers の隣)。タップで `MapShareSheet` を開く。
+/// レースが 0 件のときはタップを無効化して見た目も dim にする。
+struct MapShareButton: View {
+    let action: () -> Void
+    let disabled: Bool
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .opacity(disabled ? 0.4 : 1)
+        .disabled(disabled)
+        .accessibilityLabel("Share Map")
     }
 }
 

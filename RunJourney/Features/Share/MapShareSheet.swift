@@ -3,17 +3,12 @@ import SwiftUI
 import UIKit
 #endif
 
-/// `PaceShareCard` を `ImageRenderer` で UIImage に焼き、ShareLink で共有するシート。
-///
-/// 旧実装は Story 縦長 (1080×1920) 固定だったが、`ShareStyleConfig` に対応して
-/// テーマ / アクセント / フォーマット (Portrait / Square / Landscape / Wide) を
-/// シート上で切り替えられるようになった。デフォルトはアプリ現状の設定。
-struct PaceShareSheet: View {
-    let raceType: PaceRaceType
-    let distanceKm: Double
-    let goalTimeSeconds: Int
-    let pacePerKm: Int
-    let laps: [PaceLapSegment]
+/// マップ画面 (RaceMapView) から開く共有シート。
+/// `mappableRaces` (= フィルタ適用後のレース集合) を `MapShareCard` で画像化する。
+struct MapShareSheet: View {
+    let races: [Race]
+    let totalCount: Int
+    let highlight: Race?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var systemColorScheme
@@ -23,18 +18,10 @@ struct PaceShareSheet: View {
     @State private var appDefaults: ShareStyleConfig
     @State private var hasResolvedDefaults = false
 
-    init(
-        raceType: PaceRaceType,
-        distanceKm: Double,
-        goalTimeSeconds: Int,
-        pacePerKm: Int,
-        laps: [PaceLapSegment]
-    ) {
-        self.raceType = raceType
-        self.distanceKm = distanceKm
-        self.goalTimeSeconds = goalTimeSeconds
-        self.pacePerKm = pacePerKm
-        self.laps = laps
+    init(races: [Race], totalCount: Int? = nil, highlight: Race? = nil) {
+        self.races = races
+        self.totalCount = totalCount ?? races.count
+        self.highlight = highlight
         let placeholder = ShareStyleConfig.defaultsFromAppSettings(systemColorScheme: .dark)
         _config = State(initialValue: placeholder)
         _appDefaults = State(initialValue: placeholder)
@@ -42,13 +29,11 @@ struct PaceShareSheet: View {
 
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
-    private var card: PaceShareCard {
-        PaceShareCard(
-            raceType: raceType,
-            distanceKm: distanceKm,
-            goalTimeSeconds: goalTimeSeconds,
-            pacePerKm: pacePerKm,
-            laps: laps,
+    private var card: MapShareCard {
+        MapShareCard(
+            races: races,
+            totalCount: totalCount,
+            highlight: highlight,
             unit: unit,
             config: config
         )
@@ -65,7 +50,7 @@ struct PaceShareSheet: View {
                 .padding(16)
             }
             .background(Color.bgPrimary)
-            .navigationTitle("SHARE PACE")
+            .navigationTitle("SHARE MAP")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -107,7 +92,7 @@ struct PaceShareSheet: View {
             if let image = renderImage() {
                 ShareLink(
                     item: Image(uiImage: image),
-                    preview: SharePreview("Pace Plan", image: Image(uiImage: image))
+                    preview: SharePreview("Run Journey Map", image: Image(uiImage: image))
                 ) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")

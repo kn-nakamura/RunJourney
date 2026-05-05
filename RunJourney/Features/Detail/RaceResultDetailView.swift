@@ -13,6 +13,7 @@ struct RaceResultDetailView: View {
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     @State private var showDeleteSheet = false
+    @State private var showShareSheet = false
 
     var body: some View {
         ScrollView {
@@ -45,12 +46,25 @@ struct RaceResultDetailView: View {
                 .accessibilityLabel("Delete Result")
             }
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Color.accentPrimary)
+                }
+                .accessibilityLabel("Share Result")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     RaceResultEditView(result: result)
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
             }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ResultShareSheet(result: result)
         }
         .sheet(isPresented: $showDeleteSheet) {
             DeleteConfirmSheet(
