@@ -10,6 +10,12 @@ struct RunJourneyApp: App {
     @AppStorage(StorageLocation.chosenFlagKey) private var hasChosen: Bool = false
     @AppStorage(StorageLocation.userDefaultsKey) private var storageRaw: String = StorageLocation.local.rawValue
 
+    /// アプリ全体のテーマ。Settings → Appearance で切替。
+    @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
+    /// テーマ毎のアクセント色選択。テーマ切替後も各テーマで前回選んだ色が復元される。
+    @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
+    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.mossGreen.rawValue
+
     @State private var splashCoordinator = SplashCoordinator()
     @State private var modelContainer: ModelContainer?
 
@@ -18,6 +24,8 @@ struct RunJourneyApp: App {
         AppUIKitAppearance.configureAll()
 #endif
     }
+
+    private var currentTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
 
     var body: some Scene {
         WindowGroup {
@@ -47,9 +55,19 @@ struct RunJourneyApp: App {
                         }
                 }
             }
-            .preferredColorScheme(.dark)
+            // アクセントだけ変えても trait は変わらないため、`UIColor(dynamicProvider:)`
+            // は再評価されない。`.id(...)` でツリーを強制再構築し全 Color を再解決する。
+            .id("\(appThemeRaw)|\(accentDarkRaw)|\(accentLightRaw)")
+            .preferredColorScheme(currentTheme.colorScheme)
             .tint(.accentPrimary)
             .background(Color.bgPrimary)
+#if os(iOS)
+            .onChange(of: appThemeRaw) { _, _ in
+                // Nav/Tab Bar の UIKit Appearance は launch 時の trait を捕まえるだけなので
+                // テーマ切替に追従しない。明示的に再注入する。
+                AppUIKitAppearance.refreshForTheme()
+            }
+#endif
         }
     }
 
@@ -128,6 +146,40 @@ enum AppUIKitAppearance {
     /// 該当画面の `.onAppear` から呼んで明示的に書体を再注入する。
     static func reapplyTabBar() {
         configureTabBar()
+    }
+
+    /// テーマ切替 (Dark↔Light) 時に Nav/TabBar の `configureWithDefaultBackground()` が
+    /// 拾う背景トーンを更新する。アピアランスは proxy への再 set だけでは既存の
+    /// view controller には反映されないため、現在表示中の bar も walk して直接更新する。
+    static func refreshForTheme() {
+        configureNavigationBar()
+        configureTabBar()
+
+        // 既存の window scenes を walk して、表示中の Nav/TabBar に新しいアピアランスを上書きする。
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                refreshBars(in: window.rootViewController)
+            }
+        }
+    }
+
+    private static func refreshBars(in vc: UIViewController?) {
+        guard let vc else { return }
+        if let nav = vc as? UINavigationController {
+            nav.navigationBar.standardAppearance     = UINavigationBar.appearance().standardAppearance
+            nav.navigationBar.scrollEdgeAppearance   = UINavigationBar.appearance().scrollEdgeAppearance
+            nav.navigationBar.compactAppearance      = UINavigationBar.appearance().compactAppearance
+            nav.navigationBar.compactScrollEdgeAppearance = UINavigationBar.appearance().compactScrollEdgeAppearance
+        }
+        if let tab = vc as? UITabBarController {
+            tab.tabBar.standardAppearance   = UITabBar.appearance().standardAppearance
+            tab.tabBar.scrollEdgeAppearance = UITabBar.appearance().scrollEdgeAppearance
+        }
+        for child in vc.children {
+            refreshBars(in: child)
+        }
+        refreshBars(in: vc.presentedViewController)
     }
 
     private static func configureNavigationBar() {

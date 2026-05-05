@@ -20,6 +20,12 @@ struct SettingsView: View {
     @AppStorage("customDistanceKm") private var customDistanceKm: Double = 10.0
     @State private var customDistanceText: String = ""
 
+    /// アプリ全体のテーマ (Dark / Light)。マップも追従する。
+    @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
+    /// テーマ毎のアクセント色選択 (蛍光イエロー等)。テーマ切替後も独立復元。
+    @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
+    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.mossGreen.rawValue
+
     @State private var showDataSheet = false
     @State private var showStorageSwitchAlert = false
     @State private var sampleLoadMessage: String?
@@ -59,6 +65,7 @@ struct SettingsView: View {
                 librarySection
                 distanceUnitSection
                 customDistanceSection
+                appearanceSection
                 iCloudSection
                 aboutSection
                 developerSection
@@ -240,6 +247,83 @@ struct SettingsView: View {
         }
         customDistanceKm = parsed.toKm(from: unit)
         customDistanceText = formatCustomDistance(unit: unit)
+    }
+
+    // MARK: - Appearance (theme + accent)
+    //
+    // 設計トーン:
+    // - Dark = 夜のネオン (現行ブランド: 蛍光イエロー × ほぼ黒)
+    // - Light = 昼の自然光 (パーチメント基調 × 自然素材アクセント)
+    //
+    // テーマ切替で background / text / border は `UIColor(dynamicProvider:)` 経由で
+    // 自動追従。アクセント色だけ trait に紐づかないため、`RunJourneyApp` 側で
+    // `.id(...)` を付与して accent 変更時に view tree を再構築している。
+
+    private var currentTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
+
+    /// 現テーマに対応するアクセント rawValue を読み書きする Binding。
+    private var currentAccentBinding: Binding<String> {
+        currentTheme == .dark
+            ? Binding(get: { accentDarkRaw },  set: { accentDarkRaw = $0 })
+            : Binding(get: { accentLightRaw }, set: { accentLightRaw = $0 })
+    }
+
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Appearance")
+            VStack(alignment: .leading, spacing: 14) {
+                // Theme picker (Dark / Light) — distanceUnit と同じ segmented picker パターン。
+                Picker("Theme", selection: $appThemeRaw) {
+                    ForEach(AppTheme.allCases) { t in
+                        Label(t.label, systemImage: t.symbol).tag(t.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                // Accent swatch grid: 現テーマに対応する 5 色。
+                // 選択中は textPrimary 色のリングで強調する。
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5),
+                    spacing: 12
+                ) {
+                    ForEach(AccentChoice.options(for: currentTheme)) { choice in
+                        Button {
+                            currentAccentBinding.wrappedValue = choice.rawValue
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: choice.hex))
+                                    .frame(width: 36, height: 36)
+                                Circle()
+                                    .strokeBorder(
+                                        currentAccentBinding.wrappedValue == choice.rawValue
+                                            ? Color.textPrimary
+                                            : Color.clear,
+                                        lineWidth: 2
+                                    )
+                                    .frame(width: 40, height: 40)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                            .accessibilityLabel(choice.label)
+                            .accessibilityAddTraits(
+                                currentAccentBinding.wrappedValue == choice.rawValue
+                                    ? .isSelected : []
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+
+            Text("Dark suits city neon at night. Light brings natural daylight tones; the map switches with the theme.")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+        }
     }
 
     // MARK: - Data management

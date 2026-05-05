@@ -173,10 +173,14 @@ struct FlythroughMapView: UIViewRepresentable {
             r.lineCap = .round
             r.lineJoin = .round
             if polyline.title == OverlayKind.fullRoute.rawValue {
-                r.strokeColor = UIColor(red: 58/255, green: 58/255, blue: 74/255, alpha: 0.85)
+                // 走破前のフルルートは「うっすら筋が見える」程度。Light テーマではダーク
+                // ビジュアルでは目立たない暖灰色 borderColor が、ダーク/ライトどちらでも
+                // 同じ「控えめな下書き」表現になる。
+                r.strokeColor = UIColor(Color.borderColor).withAlphaComponent(0.85)
                 r.lineWidth = 4
             } else {
-                r.strokeColor = .white
+                // 走破済みの輝線。Dark では白、Light ではほぼ黒に切替えてコントラストを確保。
+                r.strokeColor = UIColor(Color.textPrimary)
                 r.lineWidth = 4
             }
             return r
@@ -310,7 +314,8 @@ final class PositionAnnotationView: MKAnnotationView {
 
         border.frame = bounds
         border.cornerRadius = size / 2
-        border.borderColor = UIColor.white.cgColor
+        // ランナードットの輪郭。Dark では白、Light では黒に自動切替 (UIColor.label)。
+        border.borderColor = UIColor.label.cgColor
         border.borderWidth = 2.5
         border.backgroundColor = UIColor.clear.cgColor
         layer.addSublayer(border)
