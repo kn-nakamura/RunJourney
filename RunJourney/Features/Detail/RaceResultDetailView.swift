@@ -25,25 +25,36 @@ struct RaceResultDetailView: View {
 
     var body: some View {
         ScrollView {
+            // ViewBuilder の child 上限 (10) を超えないよう、論理ブロックごとに Group でまとめる。
             VStack(alignment: .leading, spacing: 24) {
-                heroSection
-                weatherSummary
-                statsGrid
-                routeMapSection
-                splitsSection
-                lapChartSection
-                paceProfileSection
-                halfSplitSection
-                hrZoneSection
-                paceZoneSection
-                heartRateSection
-                cadenceSection
-                powerSection
-                speedSection
-                temperatureSection
-                elevationSection
-                gapSection
-                planVsActualSection
+                Group {
+                    heroSection
+                    weatherSummary
+                    statsGrid
+                    routeMapSection
+                }
+                Group {
+                    splitsSection
+                    lapChartSection
+                    paceProfileSection
+                    halfSplitSection
+                }
+                Group {
+                    hrZoneSection
+                    paceZoneSection
+                }
+                Group {
+                    heartRateSection
+                    cadenceSection
+                    powerSection
+                    speedSection
+                    temperatureSection
+                }
+                Group {
+                    elevationSection
+                    gapSection
+                    planVsActualSection
+                }
                 ResultMemoriesCard(result: result)
             }
             .padding()
