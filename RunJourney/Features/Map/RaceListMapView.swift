@@ -119,18 +119,33 @@ struct RaceListMapView: UIViewRepresentable {
                 : 32
             let padding = UIEdgeInsets(top: 32, left: 32, bottom: bottom, right: 32)
             if requestedRegionUpperHalf {
-                // ピンへの近接ズーム (fitRace) のときだけ MapKit 既定の硬いカーブを上書きし、
-                // 1.6 秒の easeInOut にする。`animated: true` のまま `UIView.animate` で
-                // 囲うと、その duration / curve が implicit にマップアニメへ反映される。
+                // ピンへの近接ズーム (fitRace) のときだけ MapKit 既定のカーブを上書きし、
+                // sin カーブ (easeInOutSine 近似 cubic-bezier(0.445, 0.05, 0.55, 0.95))
+                // で動かす。CATransaction の timing function は MKMapView 内部の
+                // CoreAnimation にも伝播するため、UIView.animate の curve オプションは外す。
+                // duration は現在 center と target の地理距離 (m) を log10 スケールで
+                // 0.6〜2.0 秒にマップ。近距離はキビキビ、遠距離はゆっくり遷移させる。
+                let fromCenter = mapView.region.center
+                let toCenter = region.center
+                let meters = CLLocation(latitude: fromCenter.latitude, longitude: fromCenter.longitude)
+                    .distance(from: CLLocation(latitude: toCenter.latitude, longitude: toCenter.longitude))
+                let duration = min(max(0.6 + 0.35 * log10(max(meters, 100) / 100), 0.6), 2.0)
+
+                CATransaction.begin()
+                CATransaction.setAnimationDuration(duration)
+                CATransaction.setAnimationTimingFunction(
+                    CAMediaTimingFunction(controlPoints: 0.445, 0.05, 0.55, 0.95)
+                )
                 UIView.animate(
-                    withDuration: 1.6,
+                    withDuration: duration,
                     delay: 0,
-                    options: [.curveEaseInOut, .beginFromCurrentState],
+                    options: [.beginFromCurrentState],
                     animations: {
                         mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
                     },
                     completion: nil
                 )
+                CATransaction.commit()
             } else {
                 mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
             }
