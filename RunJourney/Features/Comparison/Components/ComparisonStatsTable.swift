@@ -78,7 +78,14 @@ struct ComparisonStatsTable: View {
     }
 
     private func row(_ r: Row) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let timeBest = isBestTime(r.timeSec)
+        let paceBest = isBestPace(r.paceSecPerKm)
+        let hrBest = isBestHR(r.avgHR)
+        let cadBest = isBestCadence(r.avgCadence)
+        let powBest = isBestPower(r.avgPowerW)
+        let ascBest = isBestAscent(r.ascentM)
+
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Circle().fill(r.color).frame(width: 8, height: 8)
                 Text(r.name)
@@ -92,16 +99,41 @@ struct ComparisonStatsTable: View {
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                 cell(label: "Distance", value: distanceText(r.distanceM), highlighted: false)
-                cell(label: "Time", value: r.timeSec > 0 ? formatDuration(r.timeSec) : "—", highlighted: best.time == r.timeSec && r.timeSec > 0)
-                cell(label: "Avg Pace", value: paceText(r.paceSecPerKm), highlighted: best.pace == r.paceSecPerKm)
-                cell(label: "Avg HR", value: r.avgHR.map { "\($0) bpm" } ?? "—", highlighted: best.hr == r.avgHR && r.avgHR != nil)
-                cell(label: "Avg Cad", value: r.avgCadence.map { "\($0) spm" } ?? "—", highlighted: best.cad == r.avgCadence && r.avgCadence != nil)
-                cell(label: "Avg Pow", value: r.avgPowerW.map { String(format: "%.0f W", $0) } ?? "—", highlighted: best.pow == r.avgPowerW && r.avgPowerW != nil)
-                cell(label: "Ascent", value: r.ascentM.map { String(format: "%.0f m", $0) } ?? "—", highlighted: best.asc == r.ascentM && r.ascentM != nil)
+                cell(label: "Time", value: r.timeSec > 0 ? formatDuration(r.timeSec) : "—", highlighted: timeBest)
+                cell(label: "Avg Pace", value: paceText(r.paceSecPerKm), highlighted: paceBest)
+                cell(label: "Avg HR", value: r.avgHR.map { "\($0) bpm" } ?? "—", highlighted: hrBest)
+                cell(label: "Avg Cad", value: r.avgCadence.map { "\($0) spm" } ?? "—", highlighted: cadBest)
+                cell(label: "Avg Pow", value: r.avgPowerW.map { String(format: "%.0f W", $0) } ?? "—", highlighted: powBest)
+                cell(label: "Ascent", value: r.ascentM.map { String(format: "%.0f m", $0) } ?? "—", highlighted: ascBest)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private func isBestTime(_ v: Double) -> Bool {
+        guard v > 0, let b = best.time else { return false }
+        return v == b
+    }
+    private func isBestPace(_ v: Double?) -> Bool {
+        guard let v, v > 0, let b = best.pace else { return false }
+        return v == b
+    }
+    private func isBestHR(_ v: Int?) -> Bool {
+        guard let v, let b = best.hr else { return false }
+        return v == b
+    }
+    private func isBestCadence(_ v: Int?) -> Bool {
+        guard let v, let b = best.cad else { return false }
+        return v == b
+    }
+    private func isBestPower(_ v: Double?) -> Bool {
+        guard let v, let b = best.pow else { return false }
+        return v == b
+    }
+    private func isBestAscent(_ v: Double?) -> Bool {
+        guard let v, let b = best.asc else { return false }
+        return v == b
     }
 
     private func cell(label: String, value: String, highlighted: Bool) -> some View {

@@ -44,10 +44,10 @@ struct GAPOverlayChart: View {
                 .lineStyle(.init(lineWidth: 1.8))
             }
         }
-        .chartForegroundStyleScale([
-            "Pace": Color.accentPrimary.opacity(0.55),
-            "GAP":  Color.cat10K
-        ])
+        .chartForegroundStyleScale(
+            domain: ["Pace", "GAP"],
+            range: [Color.accentPrimary.opacity(0.55), Color.cat10K]
+        )
         .chartLegend(position: .top, alignment: .leading)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { value in
