@@ -13,6 +13,11 @@ struct RaceMapView: View {
     @Environment(SplashCoordinator.self) private var splashCoordinator
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
 
+    /// アプリ全体のテーマ。マップは Settings で選んだ Dark/Light に追従する
+    /// (旧 `mapSettings.colorMode` は `MapStylePanel` 上で disable 化済み)。
+    @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
+    private var appTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
+
     /// 地図に出すレース (lat/lng が未設定の `(0, 0)` レースは除外)。
     /// "+ → Add Race" で作った直後のレースは位置未確定なので、ユーザが
     /// LocationSearchField で住所を確定するまでピンを立てない。
@@ -72,7 +77,7 @@ struct RaceMapView: View {
         // - overlayLayer は ZStack 直下に置き safe area 内に保持。
         //   ハンバーガー / Layers / FAB がステータスバーやタブバーに被らない。
         ZStack {
-            ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
+            ColorSchemeOverride(scheme: appTheme.colorScheme) {
                 mapLayer
             }
             .ignoresSafeArea(edges: .top)

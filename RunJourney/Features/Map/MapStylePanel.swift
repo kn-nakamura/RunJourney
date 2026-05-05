@@ -59,7 +59,8 @@ struct MapStylePanel: View {
                 .frame(width: 150)
             }
 
-            // Color
+            // Color — Settings → Appearance のテーマに連動するため、ここでは表示のみ。
+            // enum / @AppStorage 値はそのまま残し、既存ユーザーの永続データ互換を保つ。
             HStack {
                 tintedLabel("Color", systemImage: "paintbrush")
                 Spacer()
@@ -70,8 +71,8 @@ struct MapStylePanel: View {
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
-                .disabled(!mapSettings.allowsColorMode)
-                .opacity(mapSettings.allowsColorMode ? 1 : 0.4)
+                .disabled(true)
+                .opacity(0.4)
             }
 
             // Elevation
@@ -111,9 +112,12 @@ struct MapStylePanel: View {
         } header: {
             SectionHeader(title: "Map")
         } footer: {
-            Text("\"POI\" hides cafe / park glyphs. City and place name labels are always shown by Apple Maps.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Map color follows the app theme. Change it in Settings → Appearance.")
+                Text("\"POI\" hides cafe / park glyphs. City and place name labels are always shown by Apple Maps.")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
     }
 
