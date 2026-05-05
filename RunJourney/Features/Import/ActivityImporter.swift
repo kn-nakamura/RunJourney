@@ -96,6 +96,37 @@ enum ActivityImporter {
         return result
     }
 
+    /// **既存の RaceResult に新しい activity をルートだけ上書き**して保存。
+    /// Edit 画面の「Replace activity file」フローから呼ばれる。
+    ///
+    /// 上書きされるフィールド (route 関連のみ):
+    ///   - `raceDate` (新ファイルに startDate があれば)
+    ///   - `finishTimeSec` (新ファイルに finishTimeSec があれば)
+    ///   - `lapData` / `trackPoints` / `summary`
+    ///
+    /// 保持されるフィールド (ユーザー手入力メタ):
+    ///   - weather (temp / description / code / condition)
+    ///   - bib / overallPlace / totalFinishers / ageGroupPlace
+    ///   - comment / isPB / isSB / isDNF / isDNS / attachments
+    @discardableResult
+    static func replaceTrackData(
+        _ activity: ParsedActivity,
+        on result: RaceResult,
+        context: ModelContext
+    ) -> RaceResult {
+        if let date = activity.startDate {
+            result.raceDate = date
+        }
+        if let t = activity.finishTimeSec {
+            result.finishTimeSec = t
+        }
+        result.lapData = activity.laps
+        result.trackPoints = ActivityMath.sampleTrackPoints(activity.trackPoints)
+        result.summary = activity.summary
+        try? context.save()
+        return result
+    }
+
     // MARK: - Helpers
 
     private static func makeResult(activity: ParsedActivity, race: Race) -> RaceResult {

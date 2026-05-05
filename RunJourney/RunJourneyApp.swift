@@ -14,7 +14,7 @@ struct RunJourneyApp: App {
     @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
     /// テーマ毎のアクセント色選択。テーマ切替後も各テーマで前回選んだ色が復元される。
     @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
-    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.mossGreen.rawValue
+    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.sunYellow.rawValue
 
     @State private var splashCoordinator = SplashCoordinator()
     @State private var modelContainer: ModelContainer?
