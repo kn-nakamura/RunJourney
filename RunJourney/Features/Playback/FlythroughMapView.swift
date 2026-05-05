@@ -94,25 +94,9 @@ struct FlythroughMapView: UIViewRepresentable {
             map.preferredConfiguration = configuration
         }
 
-        // 走破ライン更新: 60fps に制限してタイルレンダラーの thrash を防ぐ
-        let now = CACurrentMediaTime()
-        if now - coord.lastLineUpdateTime >= 1.0 / 60.0, let overlay = coord.progressOverlay {
-            coord.lastLineUpdateTime = now
-            let endIdx = min(traveledIndex, trackPointCoords.count - 1)
-            let traveled: [CLLocationCoordinate2D] = endIdx >= 0
-                ? Array(trackPointCoords[0...endIdx])
-                : []
-            overlay.update(traveledCoords: traveled, runnerCoord: runnerCoord, strokeColor: strokeColor)
-            if let renderer = map.renderer(for: overlay) as? ProgressRouteRenderer {
-                renderer.setNeedsDisplay()
-            }
-        }
-
-        // ランナードット annotation (MKAnnotationView = スクリーンスペース = 浮いて見える)
+        // ランナードット annotation の生成・削除（毎フレームでOK、頻度低）
         if let runner = runnerCoord {
-            if let ann = coord.positionAnnotation {
-                ann.coordinate = runner
-            } else {
+            if coord.positionAnnotation == nil {
                 let ann = PositionAnnotation(coordinate: runner, dotColor: strokeColor)
                 coord.positionAnnotation = ann
                 map.addAnnotation(ann)
@@ -120,6 +104,47 @@ struct FlythroughMapView: UIViewRepresentable {
         } else if let ann = coord.positionAnnotation {
             map.removeAnnotation(ann)
             coord.positionAnnotation = nil
+            coord.lastRunnerCoord = nil
+        }
+
+        // ライン+ポインタを同じ60Hzゲート内で同じ runnerCoord から反映する。
+        // ポインタ単独で120Hz更新するとライン末端から1ステップ離れる瞬間が見える。
+        // 60Hz離散更新したポインタ位置は PositionAnnotationView の CABasicAnimation で
+        // 120Hzパネル上でも線形補間されて視覚的には滑らかに見える。
+        let now = CACurrentMediaTime()
+        if now - coord.lastFrameUpdateTime >= 1.0 / 60.0 {
+            coord.lastFrameUpdateTime = now
+
+            if let overlay = coord.progressOverlay {
+                let endIdx = min(traveledIndex, trackPointCoords.count - 1)
+                let traveled: [CLLocationCoordinate2D] = endIdx >= 0
+                    ? Array(trackPointCoords[0...endIdx])
+                    : []
+                overlay.update(traveledCoords: traveled, runnerCoord: runnerCoord, strokeColor: strokeColor)
+                if let renderer = map.renderer(for: overlay) as? ProgressRouteRenderer {
+                    renderer.setNeedsDisplay()
+                }
+            }
+
+            if let runner = runnerCoord, let ann = coord.positionAnnotation {
+                // シーク等の大ジャンプ検出: 通常再生（最大512x = ~71m/frame）を大きく上回る
+                // 距離なら補間アニメを抑制して即座反映する。
+                let isSeek: Bool = {
+                    guard let prev = coord.lastRunnerCoord else { return true }
+                    let prevLoc = CLLocation(latitude: prev.latitude, longitude: prev.longitude)
+                    let nextLoc = CLLocation(latitude: runner.latitude, longitude: runner.longitude)
+                    return prevLoc.distance(from: nextLoc) > 200
+                }()
+                if isSeek, let view = map.view(for: ann) as? PositionAnnotationView {
+                    view.suppressAnimation = true
+                    ann.coordinate = runner
+                    view.layer.removeAnimation(forKey: "runnerMove")
+                    view.suppressAnimation = false
+                } else {
+                    ann.coordinate = runner
+                }
+                coord.lastRunnerCoord = runner
+            }
         }
 
         // Overview モード切替
@@ -148,9 +173,12 @@ struct FlythroughMapView: UIViewRepresentable {
         var positionAnnotation: PositionAnnotation?
         var wasInOverview: Bool = false
         var onUserInteraction: (() -> Void)?
-        /// ラインレンダラーは60fpsに制限（120Hzで setNeedsDisplay するとタイル再描画が
-        /// 常にキャンセルされ軌跡が消える）。ドット annotation は制限なし。
-        var lastLineUpdateTime: CFTimeInterval = 0
+        /// ライン+ポインタを同じ60Hzゲートで反映する。120Hzで setNeedsDisplay すると
+        /// タイル再描画が常にキャンセルされ軌跡が消えるため、ライン側は60Hz制約が必須。
+        /// ポインタも同じゲートに合流させてライン末端と完全一致させる。
+        var lastFrameUpdateTime: CFTimeInterval = 0
+        /// シーク検出用。前回反映した runnerCoord。
+        var lastRunnerCoord: CLLocationCoordinate2D?
 
         @objc func handleUserGesture(_ gesture: UIGestureRecognizer) {
             guard gesture.state == .began || gesture.state == .changed else { return }
@@ -298,6 +326,9 @@ final class PositionAnnotationView: MKAnnotationView {
     private let dot = CALayer()
     private let border = CALayer()
 
+    /// シーク等の大ジャンプ時に true にして補間アニメを抑制する。
+    var suppressAnimation: Bool = false
+
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
         let size: CGFloat = 18
@@ -325,6 +356,25 @@ final class PositionAnnotationView: MKAnnotationView {
     func configure(color: UIColor) {
         dot.backgroundColor = color.cgColor
         dot.shadowColor = color.cgColor
+    }
+
+    /// MapKit が coordinate 変更時に view.center を即時セットしてくる。
+    /// ライン更新と同じ60Hz間隔で離散的に飛ぶため、120Hzパネル上で滑らかに見せるために
+    /// 1フレーム間隔ぶん（1/60秒）の線形 CABasicAnimation を仕込む。
+    /// suppressAnimation 時はシーク扱いとして補間しない。
+    override var center: CGPoint {
+        didSet {
+            guard !suppressAnimation,
+                  oldValue != center,
+                  oldValue != .zero else { return }
+            let anim = CABasicAnimation(keyPath: "position")
+            anim.fromValue = NSValue(cgPoint: oldValue)
+            anim.toValue = NSValue(cgPoint: center)
+            anim.duration = 1.0 / 60.0
+            anim.timingFunction = CAMediaTimingFunction(name: .linear)
+            anim.isRemovedOnCompletion = true
+            layer.add(anim, forKey: "runnerMove")
+        }
     }
 }
 
