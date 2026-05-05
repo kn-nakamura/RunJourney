@@ -8,7 +8,10 @@ enum AdvancedAnalytics {
 
     private static let calendar = Calendar(identifier: .gregorian)
 
-    private static func isValid(_ r: RaceResult) -> Bool {
+    /// `nonisolated` にしている理由: ビルド設定が `-default-isolation=MainActor` のため
+    /// この helper を `Array.filter(_:)` に渡すと MainActor からの脱出について警告が出る。
+    /// この関数は純粋に値を読むだけなので nonisolated で問題ない。
+    nonisolated private static func isValid(_ r: RaceResult) -> Bool {
         !r.isDNF && !r.isDNS && (r.finishTimeSec ?? 0) > 0
     }
 
@@ -53,7 +56,8 @@ enum AdvancedAnalytics {
 
     /// 走った国の異なり数 (Race.country でユニーク、空白除去)。
     static func countryCount(_ results: [RaceResult]) -> Int {
-        let countries = results.compactMap { $0.race?.country?.trimmingCharacters(in: .whitespaces) }
+        let countries = results
+            .compactMap { $0.race?.country.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         return Set(countries).count
     }
