@@ -3,9 +3,11 @@ import Charts
 
 /// ラップごとのペース棒グラフ。Web版 LapChart.tsx 相当。
 /// 平均より速いラップは緑、遅いラップは赤、近いラップはアクセント色で表示。
+/// `targetPaceSecPerKm` を渡すと、目標ペースを破線の RuleMark で重ね描きする (Plan vs Actual)。
 struct LapPaceChart: View {
     let laps: [LapData]
     var compact: Bool = false
+    var targetPaceSecPerKm: Double? = nil
 
     @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
@@ -58,6 +60,17 @@ struct LapPaceChart: View {
                         Text("Avg \(formatPace(avg))")
                             .appText(.codeXxs)
                             .foregroundStyle(.tertiary)
+                    }
+            }
+
+            if let target = targetPaceSecPerKm, target > 0 {
+                RuleMark(y: .value("Target", target))
+                    .foregroundStyle(Color.cat10K.opacity(0.85))
+                    .lineStyle(.init(lineWidth: 1.5, dash: [2, 4]))
+                    .annotation(position: .bottomTrailing, alignment: .trailing, spacing: 0) {
+                        Text("Target \(formatPace(target))")
+                            .appText(.codeXxs)
+                            .foregroundStyle(Color.cat10K)
                     }
             }
         }

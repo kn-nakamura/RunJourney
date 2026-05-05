@@ -14,6 +14,7 @@ struct RaceResultEditView: View {
             placesSection
             commentSection
             flagsSection
+            PlanPickerRow(result: result)
             replaceFitSection
             AttachmentSection(owner: result)
             PhotoLinkSection(owner: result)

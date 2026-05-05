@@ -42,13 +42,10 @@ struct DashboardView: View {
                 }
                 if filteredResults.isEmpty {
                     emptyState
+                } else if selectedCategory == nil {
+                    allModeSections
                 } else {
-                    summaryGrid
-                    pbBoardSection
-                    yearChartSection
-                    if selectedCategory == nil {
-                        categoryChartSection
-                    }
+                    categoryModeSections
                 }
             }
             .padding()
@@ -60,6 +57,34 @@ struct DashboardView: View {
         // (Web 版の `<h1>DASHBOARD</h1>` と同じパターン)。
         .toolbar(.hidden, for: .navigationBar)
 #endif
+    }
+
+    // MARK: - All mode (selectedCategory == nil)
+    //
+    // "All" は距離が混在するので、平均ペースのような単一指標は意味を持たない。
+    // 代わりにアクティビティの「広がり」(年数・国・大会数) と「進捗」(年別距離・PB 推移)
+    // を中心に並べ、distribution カードで季節性を可視化する。
+
+    @ViewBuilder
+    private var allModeSections: some View {
+        activityGroupSection
+        pbBoardSection
+        progressGroupSection
+        distributionGroupSection
+        yearChartSection
+    }
+
+    // MARK: - Category mode
+
+    @ViewBuilder
+    private var categoryModeSections: some View {
+        summaryGrid
+        pbBoardSection
+        if let cat = selectedCategory {
+            categoryProgressionSection(category: cat)
+            paceDistributionSection(category: cat)
+        }
+        yearChartSection
     }
 
     // MARK: - Category filter pills
@@ -102,7 +127,9 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Stats summary grid
+    // MARK: - Stats summary grid (Category mode のみ)
+    //
+    // distance が揃っているカテゴリ単独モードでは Avg Pace が意味を持つので 4 枚並べる。
 
     private var summaryGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -115,6 +142,101 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - All mode: Activity group
+    //
+    // Avg Pace は意図的に外している (5K と Full の平均は無意味)。
+    // 代わりに「どれだけ走ってきたか」を示すストリーク・ユニークレース・国数を並べる。
+
+    private var activityGroupSection: some View {
+        let streak = AdvancedAnalytics.longestRacingStreak(filteredResults)
+        let mostActive = AdvancedAnalytics.mostActiveYear(filteredResults)
+        let unique = AdvancedAnalytics.uniqueRaceCount(filteredResults)
+        let countries = AdvancedAnalytics.countryCount(filteredResults)
+
+        return MetricGroupCard(title: "Activity") {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                StatCard(label: "Finishes", value: "\(aggregate.totalRaces)", unit: "", symbol: "flag.checkered", color: .accentPrimary)
+                StatCard(label: "Total Distance", value: PaceUtils.formatDistanceValue(km: aggregate.totalDistanceM / 1000, in: unit), unit: unit.label, symbol: "ruler", color: .cat10K)
+                StatCard(label: "Total Time", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
+                StatCard(label: "Longest Streak", value: streak > 0 ? "\(streak)" : "—", unit: streak > 0 ? "yr" : "", symbol: "flame.fill", color: .catUltra100K)
+                if let m = mostActive {
+                    StatCard(label: "Most-Active Year", value: "\(m.year)", unit: "\(m.count) races", symbol: "calendar", color: .catTrail)
+                }
+                StatCard(label: "Unique Races", value: "\(unique)", unit: "", symbol: "rosette", color: .cat10K)
+                if countries > 0 {
+                    StatCard(label: "Countries", value: "\(countries)", unit: "", symbol: "globe", color: .cat5K)
+                }
+            }
+        }
+    }
+
+    // MARK: - All mode: Progress group (年別距離 + PB 推移)
+
+    @ViewBuilder
+    private var progressGroupSection: some View {
+        let yearDistance = AdvancedAnalytics.distancePerYear(filteredResults)
+        let pbProgression = AdvancedAnalytics.pbProgression(filteredResults)
+        let hasPBProgression = pbProgression.values.contains { $0.count >= 2 }
+
+        if !yearDistance.isEmpty || hasPBProgression {
+            MetricGroupCard(title: "Progress") {
+                if !yearDistance.isEmpty {
+                    SectionHeader(title: "Distance per Year")
+                    DistancePerYearChart(data: yearDistance)
+                }
+                if hasPBProgression {
+                    SectionHeader(title: "PB Progression", subtitle: "by category")
+                        .padding(.top, 6)
+                    PBProgressionChart(data: pbProgression)
+                }
+            }
+        }
+    }
+
+    // MARK: - All mode: Distribution group (カテゴリ donut + Month heatmap)
+
+    @ViewBuilder
+    private var distributionGroupSection: some View {
+        let monthHeatmap = AdvancedAnalytics.monthHeatmap(filteredResults)
+
+        MetricGroupCard(title: "Distribution") {
+            if !categoryCounts.isEmpty {
+                categoryChartSection
+            }
+            if !monthHeatmap.isEmpty {
+                SectionHeader(title: "Month of Year")
+                    .padding(.top, 6)
+                MonthHeatmapChart(counts: monthHeatmap)
+            }
+        }
+    }
+
+    // MARK: - Category mode: PB progression for the single category
+
+    @ViewBuilder
+    private func categoryProgressionSection(category cat: RaceCategory) -> some View {
+        let timeline = AdvancedAnalytics.finishTimeTimeline(filteredResults)
+        if timeline.count >= 2 {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Finish Time Trend", subtitle: cat.displayName)
+                PBProgressionChart(data: [cat: timeline])
+            }
+        }
+    }
+
+    // MARK: - Category mode: pace histogram
+
+    @ViewBuilder
+    private func paceDistributionSection(category: RaceCategory) -> some View {
+        let buckets = AdvancedAnalytics.paceHistogram(filteredResults, bucketSec: 15)
+        if !buckets.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Pace Distribution", subtitle: "15s buckets")
+                PaceHistogramChart(buckets: buckets)
+            }
+        }
+    }
+
     // MARK: - PB Board
 
     private var pbBoardSection: some View {
@@ -123,7 +245,19 @@ struct DashboardView: View {
             VStack(spacing: 10) {
                 ForEach(RaceCategory.allCases) { cat in
                     if let result = pbs[cat] {
-                        PBCard(category: cat, result: result)
+                        NavigationLink {
+                            RaceResultDetailView(result: result)
+                        } label: {
+                            PBCard(category: cat, result: result)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            NavigationLink {
+                                ComparisonView(seedResults: results.filter { $0.race?.category == cat })
+                            } label: {
+                                Label("Compare with…", systemImage: "chart.line.uptrend.xyaxis")
+                            }
+                        }
                     }
                 }
                 if pbs.isEmpty {

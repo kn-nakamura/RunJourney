@@ -10,10 +10,18 @@ struct RaceResultDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
+    @AppStorage("userMaxHR") private var userMaxHR: Int = 0
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+
+    @Query private var allPlans: [PacePlan]
 
     @State private var showDeleteSheet = false
     @State private var showShareSheet = false
+
+    private var linkedPlan: PacePlan? {
+        guard let id = result.linkedPacePlanId else { return nil }
+        return allPlans.first { $0.id == id }
+    }
 
     var body: some View {
         ScrollView {
@@ -22,9 +30,20 @@ struct RaceResultDetailView: View {
                 weatherSummary
                 statsGrid
                 routeMapSection
+                splitsSection
                 lapChartSection
-                elevationSection
+                paceProfileSection
+                halfSplitSection
+                hrZoneSection
+                paceZoneSection
                 heartRateSection
+                cadenceSection
+                powerSection
+                speedSection
+                temperatureSection
+                elevationSection
+                gapSection
+                planVsActualSection
                 ResultMemoriesCard(result: result)
             }
             .padding()
@@ -283,9 +302,21 @@ struct RaceResultDetailView: View {
 
     private var lapChartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Lap Pace", subtitle: result.lapData.isEmpty ? nil : "\(result.lapData.count) laps")
-            LapPaceChart(laps: result.lapData)
+            SectionHeader(
+                title: "Lap Pace",
+                subtitle: lapChartSubtitle
+            )
+            LapPaceChart(laps: result.lapData, targetPaceSecPerKm: linkedPlan?.paceSecPerKm)
         }
+    }
+
+    private var lapChartSubtitle: String? {
+        if result.lapData.isEmpty { return nil }
+        if let plan = linkedPlan {
+            let name = plan.name.isEmpty ? "plan" : plan.name
+            return "\(result.lapData.count) laps · target \(name)"
+        }
+        return "\(result.lapData.count) laps"
     }
 
     private var elevationSection: some View {
@@ -299,6 +330,147 @@ struct RaceResultDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Heart Rate")
             HeartRateChart(trackPoints: result.trackPoints)
+        }
+    }
+
+    // MARK: - Splits
+
+    @ViewBuilder
+    private var splitsSection: some View {
+        if !result.lapData.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Splits", subtitle: "\(result.lapData.count) laps")
+                SplitsTable(laps: result.lapData)
+            }
+        }
+    }
+
+    // MARK: - Pace profile (rolling 1km)
+
+    @ViewBuilder
+    private var paceProfileSection: some View {
+        if result.trackPoints.count >= 2 {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Pace Profile", subtitle: "rolling per km")
+                PaceProfileChart(
+                    trackPoints: result.trackPoints,
+                    targetPaceSecPerKm: linkedPlan?.paceSecPerKm
+                )
+            }
+        }
+    }
+
+    // MARK: - Half split (negative / positive)
+
+    @ViewBuilder
+    private var halfSplitSection: some View {
+        if !result.trackPoints.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Pacing Strategy", subtitle: "first vs second half")
+                HalfSplitPanel(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    // MARK: - HR Zones
+
+    @ViewBuilder
+    private var hrZoneSection: some View {
+        let hasHR = result.trackPoints.contains { ($0.heartRate ?? 0) > 0 }
+        if hasHR {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "HR Zones", subtitle: userMaxHR > 0 ? "max \(userMaxHR) bpm" : "Settings → Heart Rate")
+                HRZoneBars(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    // MARK: - Pace Zones (relative to plan)
+
+    @ViewBuilder
+    private var paceZoneSection: some View {
+        if let plan = linkedPlan, !result.lapData.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(
+                    title: "Pace Zones",
+                    subtitle: plan.name.isEmpty ? "vs target" : "vs \(plan.name)"
+                )
+                PaceZoneBars(laps: result.lapData, targetPaceSecPerKm: plan.paceSecPerKm)
+            }
+        }
+    }
+
+    // MARK: - Cadence / Power / Speed / Temperature profiles
+
+    @ViewBuilder
+    private var cadenceSection: some View {
+        if result.trackPoints.contains(where: { ($0.cadence ?? 0) > 0 }) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Cadence")
+                CadenceProfileChart(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var powerSection: some View {
+        if result.trackPoints.contains(where: { ($0.powerW ?? 0) > 0 }) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Power")
+                PowerProfileChart(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var speedSection: some View {
+        if result.trackPoints.contains(where: { ($0.speedMs ?? 0) > 0 }) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Speed")
+                SpeedProfileChart(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var temperatureSection: some View {
+        if result.trackPoints.contains(where: { $0.temperatureC != nil }) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Temperature")
+                TemperatureProfileChart(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    // MARK: - GAP
+
+    @ViewBuilder
+    private var gapSection: some View {
+        if result.trackPoints.contains(where: { $0.altitudeM != nil }), result.trackPoints.count >= 5 {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Grade-Adjusted Pace", subtitle: "GAP vs raw pace")
+                GAPOverlayChart(trackPoints: result.trackPoints)
+            }
+        }
+    }
+
+    // MARK: - Plan vs Actual
+
+    @ViewBuilder
+    private var planVsActualSection: some View {
+        if let plan = linkedPlan, !result.lapData.isEmpty {
+            let deltas = AdvancedAnalytics.planLapDeltas(
+                actual: result.lapData,
+                targetSecPerKm: plan.paceSecPerKm
+            )
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(
+                    title: "Plan vs Actual",
+                    subtitle: plan.name.isEmpty ? "linked plan" : plan.name
+                )
+                CumulativeGapChart(deltas: deltas)
+                PlanVsActualTable(deltas: deltas, planName: plan.name.isEmpty ? "plan" : plan.name)
+            }
         }
     }
 

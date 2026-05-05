@@ -246,7 +246,19 @@ enum FITParser {
     }
 
     private static func buildLapEntry(values: [Int: FITValue], timestamp: UInt32?) -> FITLapEntry? {
-        // Total elapsed time (field 7, uint32, scale 1000)
+        // FIT lap message field index (Garmin SDK Profile.xlsx):
+        //   7  total_elapsed_time (uint32, scale 1000, sec)
+        //   9  total_distance     (uint32, scale 100,  m)
+        //   11 total_calories     (uint16, kcal)
+        //   15 avg_heart_rate     (uint8,  bpm)
+        //   16 max_heart_rate     (uint8,  bpm)
+        //   17 avg_cadence        (uint8,  rpm)
+        //   18 max_cadence        (uint8,  rpm)
+        //   19 avg_power          (uint16, watts)
+        //   20 max_power          (uint16, watts)
+        //   21 total_ascent       (uint16, m)
+        //   22 total_descent      (uint16, m)
+        //   24 lap_trigger        (enum)
         let totalElapsed: Double? = {
             if case let .uint32(v) = values[7] { return Double(v) / 1000.0 }
             return nil
@@ -261,7 +273,7 @@ enum FITParser {
         let maxHR: Int? = { if case let .uint8(v) = values[16], v > 0 { return Int(v) } else { return nil } }()
         let avgCadence: Int? = { if case let .uint8(v) = values[17], v > 0 { return Int(v) } else { return nil } }()
         let maxCadence: Int? = { if case let .uint8(v) = values[18], v > 0 { return Int(v) } else { return nil } }()
-        let calories: Double? = { if case let .uint16(v) = values[19] { return Double(v) } else { return nil } }()
+        let calories: Double? = { if case let .uint16(v) = values[11] { return Double(v) } else { return nil } }()
         let avgPower: Double? = { if case let .uint16(v) = values[19] { return Double(v) } else { return nil } }()
         let maxPower: Double? = { if case let .uint16(v) = values[20] { return Double(v) } else { return nil } }()
         let totalAscent: Double? = { if case let .uint16(v) = values[21] { return Double(v) } else { return nil } }()

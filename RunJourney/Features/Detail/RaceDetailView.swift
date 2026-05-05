@@ -330,6 +330,16 @@ struct RaceDetailView: View {
                             .padding(.top, 8)
                         MultiResultLapPaceChart(results: sortedResults)
                     }
+                    if sortedResults.count >= 2 {
+                        NavigationLink {
+                            ComparisonView(seedResults: sortedResults)
+                        } label: {
+                            Label("Open detailed comparison…", systemImage: "chart.line.uptrend.xyaxis")
+                                .appText(.bodySmBold)
+                                .foregroundStyle(Color.accentPrimary)
+                        }
+                        .padding(.top, 6)
+                    }
                 }
                 .padding(.vertical, 4)
             } label: {
