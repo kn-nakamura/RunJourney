@@ -111,8 +111,9 @@ struct FlythroughMapView: UIViewRepresentable {
         // ポインタ単独で120Hz更新するとライン末端から1ステップ離れる瞬間が見える。
         // 60Hz離散更新したポインタ位置は PositionAnnotationView の CABasicAnimation で
         // 120Hzパネル上でも線形補間されて視覚的には滑らかに見える。
+        // 停止中はDisplayLinkが動いておらず競合描画がないため、ゲートをバイパスして即時反映する。
         let now = CACurrentMediaTime()
-        if now - coord.lastFrameUpdateTime >= 1.0 / 60.0 {
+        if !isPlaying || now - coord.lastFrameUpdateTime >= 1.0 / 60.0 {
             coord.lastFrameUpdateTime = now
 
             if let overlay = coord.progressOverlay {
