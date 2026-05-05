@@ -306,8 +306,12 @@ struct RaceListMapView: UIViewRepresentable {
             let newCenterOffset = CGPoint(x: 0, y: centerOffsetY)
 
             // 画像とアンカーは即時差し替える (トランジションなし)。
-            view.image = image
-            view.centerOffset = newCenterOffset
+            // UIKit / MapKit の暗黙的アニメーション (bounds 変化によるスライド効果) を
+            // 抑止するため performWithoutAnimation で囲む。
+            UIView.performWithoutAnimation {
+                view.image = image
+                view.centerOffset = newCenterOffset
+            }
 
             // hit-test 矩形: 透明 padding を除いた、実際の可視ピン本体。
             // canvas が可視ピンサイズに絞られているので、image 全面 (= view bounds) も
