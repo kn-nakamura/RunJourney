@@ -57,7 +57,6 @@ struct PaceZoneBars: View {
                 }
             }
         }
-        .chartXAxis(.hidden)
         .chartYAxis {
             AxisMarks(position: .leading) { _ in
                 AxisValueLabel().font(.appFont(.codeXs))

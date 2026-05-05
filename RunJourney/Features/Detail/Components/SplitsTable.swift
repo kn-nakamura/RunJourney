@@ -104,7 +104,7 @@ struct SplitsTable: View {
                     Capsule()
                         .fill(PaceUtils.paceBarColor(pace: paceInt, basePace: averagePaceSec))
                         .frame(
-                            width: geo.size.width * PaceUtils.paceBarRatio(pace: paceInt, basePace: averagePaceSec),
+                            width: geo.size.width * CGFloat(PaceUtils.paceBarRatio(pace: paceInt, basePace: averagePaceSec)),
                             height: 6
                         )
                 }
