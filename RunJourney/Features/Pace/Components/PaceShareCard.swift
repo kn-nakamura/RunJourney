@@ -1,149 +1,131 @@
 import SwiftUI
 
 /// ペース計算機の結果を画像化するための SwiftUI View。
-/// 1080x1920 (Instagram Story / iPhone 縦長) を想定して固定幅で組む。
-/// Web 版 marathon-record-app の `ShareCard.tsx` の Portrait バージョン相当。
+///
+/// 旧実装は 1080×1920 (Story) 固定だったが、新シェアキット (`ShareStyleConfig`) に
+/// 揃えて Portrait / Square / Landscape / Wide の 4 サイズと、Dark/Light テーマ +
+/// アクセント色変更に対応する。
 struct PaceShareCard: View {
     let raceType: PaceRaceType
     let distanceKm: Double
     let goalTimeSeconds: Int
     let pacePerKm: Int
     let laps: [PaceLapSegment]
+    let unit: DistanceUnit
+    let config: ShareStyleConfig
 
-    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
-    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+    private var palette: SharePalette { config.theme.palette }
+    private var accentColor: Color { Color(hex: config.accent.hex) }
 
-    /// 画像の論理サイズ。`ImageRenderer` 側で scale を掛けて高解像度化する。
-    static let portraitSize = CGSize(width: 540, height: 960)  // 1080x1920 を 0.5x
+    /// 後方互換用の固定サイズ (旧 PaceShareSheet が参照していたサイズ)。
+    /// 新コードでは `config.format.logicalSize` を使う。
+    static let portraitSize = ShareFormat.portrait.logicalSize
 
     var body: some View {
-        ZStack(alignment: .top) {
-            // 背景: 黒地 + 黄色アクセントのグラデーション縁取り
-            Color.bgPrimary
-            VStack(spacing: 0) {
-                Color.accentPrimary.frame(height: 4)
-                Spacer()
-                Color.accentPrimary.frame(height: 4)
-            }
-            .opacity(0.8)
+        ZStack {
+            ShareCardKit.background(palette: palette, accent: accentColor, format: config.format)
 
-            VStack(spacing: 0) {
-                header
-                heroBlock
-                Divider()
-                    .overlay(.white.opacity(0.08))
-                    .padding(.horizontal, 28)
-                lapsBlock
-                Spacer()
-                footer
+            switch config.format {
+            case .portrait:
+                portraitLayout
+            case .square:
+                squareLayout
+            case .landscape, .wide:
+                horizontalLayout
             }
-            .padding(.top, 36)
-            .padding(.bottom, 24)
         }
-        .frame(width: Self.portraitSize.width, height: Self.portraitSize.height)
+        .frame(width: config.format.logicalSize.width,
+               height: config.format.logicalSize.height)
         .clipped()
     }
 
-    // MARK: - Header
+    // MARK: - Hero / shared
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("RUN JOURNEY")
-                .appText(.eyebrow)
-                .foregroundStyle(Color.textPrimary.opacity(0.78))
+            ShareCardKit.watermark(palette: palette, accent: accentColor)
             Text(raceType.labelLong)
                 .appText(.displayMd)
-                .foregroundStyle(Color.accentPrimary)
+                .foregroundStyle(accentColor)
         }
-        .padding(.bottom, 24)
     }
 
-    // MARK: - Hero (large pace)
-
+    @ViewBuilder
     private var heroBlock: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Text("AVERAGE PACE")
                 .appText(.eyebrow)
-                .foregroundStyle(Color.textPrimary.opacity(0.78))
+                .foregroundStyle(palette.textMuted)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: pacePerKm, in: unit)))
                     .appText(.codeXl)
-                    .foregroundStyle(Color.accentPrimary)
+                    .foregroundStyle(accentColor)
                 Text("/ \(unit.label)")
                     .appText(.bodyBaseBold)
-                    .foregroundStyle(Color.textPrimary.opacity(0.78))
-                    .padding(.bottom, 8)
+                    .foregroundStyle(palette.textMuted)
+                    .padding(.bottom, 6)
             }
-
-            HStack(spacing: 24) {
+            HStack(spacing: 18) {
                 metricColumn(
                     label: "DISTANCE",
                     value: PaceUtils.formatDistanceValue(km: distanceKm, in: unit),
                     suffix: unit.label
                 )
-                Divider().frame(height: 36).overlay(.white.opacity(0.15))
+                Divider().frame(height: 32).overlay(palette.border)
                 metricColumn(
                     label: "GOAL TIME",
                     value: PaceUtils.formatTimeSimple(goalTimeSeconds),
                     suffix: nil
                 )
             }
-            .padding(.top, 6)
         }
-        .padding(.horizontal, 28)
-        .padding(.bottom, 20)
     }
 
     private func metricColumn(label: String, value: String, suffix: String?) -> some View {
         VStack(spacing: 4) {
             Text(label)
                 .appText(.eyebrow)
-                .foregroundStyle(Color.textPrimary.opacity(0.78))
+                .foregroundStyle(palette.textMuted)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
                     .appText(.codeLg)
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
                 if let suffix {
                     Text(suffix)
                         .appText(.bodyBaseBold)
-                        .foregroundStyle(Color.textPrimary.opacity(0.78))
+                        .foregroundStyle(palette.textMuted)
                 }
             }
         }
     }
 
-    // MARK: - Laps
+    // MARK: - Splits
 
-    private var lapsBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    @ViewBuilder
+    private func splitsBlock(maxRows: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
             Text("SPLITS")
                 .appText(.eyebrow)
-                .foregroundStyle(Color.textPrimary.opacity(0.78))
+                .foregroundStyle(palette.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 6)
-
-            // 最大 11 行に絞って画像内に収める。多い時は等間隔で間引く。
-            let displayed = downsample(laps, max: 11)
+                .padding(.bottom, 4)
+            let displayed = downsample(laps, max: maxRows)
             ForEach(displayed) { lap in
                 lapRow(lap)
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 24)
     }
 
-    /// SPLITS 1 行: 背景に basePace 基準のグラデーションバー、上にラベル/タイムを重ねる。
     private func lapRow(_ lap: PaceLapSegment) -> some View {
         let isMilestone = lap.distanceLabel == "GOAL" || lap.distanceLabel == "HALF"
         let ratio = PaceUtils.paceBarRatio(pace: lap.pacePerKm, basePace: pacePerKm)
-        let color = PaceUtils.paceBarColor(pace: lap.pacePerKm, basePace: pacePerKm)
-
+        let barColor = PaceUtils.paceBarColor(pace: lap.pacePerKm, basePace: pacePerKm)
         return ZStack(alignment: .leading) {
             GeometryReader { geo in
                 LinearGradient(
                     gradient: Gradient(colors: [
-                        color.opacity(0.55),
-                        color.opacity(0.10)
+                        barColor.opacity(0.55),
+                        barColor.opacity(0.10)
                     ]),
                     startPoint: .leading,
                     endPoint: .trailing
@@ -152,35 +134,34 @@ struct PaceShareCard: View {
             }
             .allowsHitTesting(false)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Text(lapDistanceLabel(lap))
                     .appText(isMilestone ? .codeMdBold : .codeMd)
                     .foregroundStyle(lapColor(lap))
-                    .frame(width: 88, alignment: .leading)
+                    .frame(width: 78, alignment: .leading)
                 Text(PaceUtils.formatPaceSimple(PaceUtils.paceSecondsPerUnit(secPerKm: lap.pacePerKm, in: unit)))
                     .appText(.codeMdBold)
-                    .foregroundStyle(Color.accentPrimary)
+                    .foregroundStyle(accentColor)
                 Spacer()
                 Text(PaceUtils.formatTimeSimple(Int(lap.cumulativeTime)))
                     .appText(.codeLgBold)
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
-        .frame(minHeight: 50)
+        .frame(minHeight: 42)
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func lapColor(_ lap: PaceLapSegment) -> Color {
         switch lap.distanceLabel {
-        case "GOAL": return Color.accentPrimary
-        case "HALF": return .orange
-        default: return Color.textPrimary.opacity(0.85)
+        case "GOAL": return accentColor
+        case "HALF": return Color(hex: 0xF7A23B)
+        default: return palette.textPrimary.opacity(0.85)
         }
     }
 
-    /// HALF / GOAL はそのまま、それ以外は km 数値ラベルを単位変換して表示。
     private func lapDistanceLabel(_ lap: PaceLapSegment) -> String {
         if lap.distanceLabel == "HALF" || lap.distanceLabel == "GOAL" {
             return lap.distanceLabel
@@ -189,16 +170,14 @@ struct PaceShareCard: View {
         return "\(PaceUtils.formatDistanceValue(km: kmValue, in: unit)) \(unit.label)"
     }
 
-    /// 指定数を超える場合は均等間隔でサンプリングする。
-    /// 最初・HALF・GOAL は必ず残す。
+    /// 指定数を超える場合は均等間隔でサンプリングする。最初・HALF・GOAL は必ず残す。
     private func downsample(_ all: [PaceLapSegment], max: Int) -> [PaceLapSegment] {
         guard all.count > max else { return all }
         var indices: Set<Int> = [0, all.count - 1]
-        // HALF/GOAL は必須
         for (i, lap) in all.enumerated() where lap.distanceLabel == "HALF" || lap.distanceLabel == "GOAL" {
             indices.insert(i)
         }
-        let stride = Double(all.count) / Double(max - indices.count)
+        let stride = Double(all.count) / Double(Swift.max(1, max - indices.count))
         var i: Double = 0
         while indices.count < max {
             indices.insert(Int(i.rounded()))
@@ -210,27 +189,58 @@ struct PaceShareCard: View {
         }
     }
 
-    // MARK: - Footer
+    // MARK: - Layouts
+
+    private var portraitLayout: some View {
+        VStack(spacing: 0) {
+            header.padding(.top, 28)
+            heroBlock.padding(.vertical, 18)
+            Divider().overlay(palette.border).padding(.horizontal, 26)
+            splitsBlock(maxRows: 11)
+                .padding(.horizontal, 22)
+                .padding(.top, 14)
+            Spacer(minLength: 8)
+            footer.padding(.bottom, 14)
+        }
+    }
+
+    private var squareLayout: some View {
+        VStack(spacing: 8) {
+            header.padding(.top, 14)
+            heroBlock
+            splitsBlock(maxRows: 7)
+                .padding(.horizontal, 22)
+            Spacer(minLength: 4)
+            footer.padding(.bottom, 12)
+        }
+    }
+
+    private var horizontalLayout: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                header.frame(maxWidth: .infinity, alignment: .leading)
+                heroBlock.frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
+                footer
+            }
+            .padding(.leading, 26)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading) {
+                splitsBlock(maxRows: 6)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 18)
+            .padding(.trailing, 22)
+            .frame(maxWidth: .infinity)
+        }
+    }
 
     private var footer: some View {
-        VStack(spacing: 4) {
-            Text("Generated with RunJourney iOS")
-                .appText(.bodyXs)
-                .foregroundStyle(Color.textPrimary.opacity(0.55))
-        }
-        .padding(.horizontal, 28)
+        Text("RUN JOURNEY · iOS")
+            .appText(.eyebrow)
+            .foregroundStyle(palette.textMuted.opacity(0.65))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
-}
-
-#Preview {
-    PaceShareCard(
-        raceType: .full,
-        distanceKm: 42.195,
-        goalTimeSeconds: 4 * 3600,
-        pacePerKm: 341,
-        laps: PaceUtils.generateLaps(
-            config: PaceConstants.configs[.full]!,
-            goalTimeSeconds: 4 * 3600
-        )
-    )
 }

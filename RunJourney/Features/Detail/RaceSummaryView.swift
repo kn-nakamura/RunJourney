@@ -22,6 +22,7 @@ struct RaceSummaryView: View {
 
     @State private var showEditSheet = false
     @State private var showAddResultSheet = false
+    @State private var showMapShareSheet = false
 
     private var sortedResults: [RaceResult] {
         (race.results ?? []).sorted { $0.raceDate > $1.raceDate }
@@ -53,6 +54,16 @@ struct RaceSummaryView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
+                    showMapShareSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.accentPrimary)
+                }
+                .accessibilityLabel("Share Race")
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
                     showEditSheet = true
                 } label: {
                     Image(systemName: "square.and.pencil")
@@ -63,6 +74,9 @@ struct RaceSummaryView: View {
             }
         }
 #endif
+        .sheet(isPresented: $showMapShareSheet) {
+            MapShareSheet(races: [race], totalCount: 1, highlight: race)
+        }
         .sheet(isPresented: $showEditSheet) {
             NavigationStack {
                 RaceDetailView(race: race)

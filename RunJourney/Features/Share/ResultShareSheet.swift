@@ -3,54 +3,38 @@ import SwiftUI
 import UIKit
 #endif
 
-/// `PaceShareCard` を `ImageRenderer` で UIImage に焼き、ShareLink で共有するシート。
-///
-/// 旧実装は Story 縦長 (1080×1920) 固定だったが、`ShareStyleConfig` に対応して
-/// テーマ / アクセント / フォーマット (Portrait / Square / Landscape / Wide) を
-/// シート上で切り替えられるようになった。デフォルトはアプリ現状の設定。
-struct PaceShareSheet: View {
-    let raceType: PaceRaceType
-    let distanceKm: Double
-    let goalTimeSeconds: Int
-    let pacePerKm: Int
-    let laps: [PaceLapSegment]
-
+/// `RaceResult` を `ResultShareCard` 経由で画像化して共有 / 保存するシート。
+struct ResultShareSheet: View {
+    let result: RaceResult
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var systemColorScheme
     @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
 
     @State private var config: ShareStyleConfig
     @State private var appDefaults: ShareStyleConfig
+    @State private var showRoute: Bool
     @State private var hasResolvedDefaults = false
 
-    init(
-        raceType: PaceRaceType,
-        distanceKm: Double,
-        goalTimeSeconds: Int,
-        pacePerKm: Int,
-        laps: [PaceLapSegment]
-    ) {
-        self.raceType = raceType
-        self.distanceKm = distanceKm
-        self.goalTimeSeconds = goalTimeSeconds
-        self.pacePerKm = pacePerKm
-        self.laps = laps
+    init(result: RaceResult) {
+        self.result = result
+        // init() 時点では @Environment が読めないため一旦 dark を仮置き。
+        // .onAppear で systemColorScheme を解決して上書きする。
         let placeholder = ShareStyleConfig.defaultsFromAppSettings(systemColorScheme: .dark)
         _config = State(initialValue: placeholder)
         _appDefaults = State(initialValue: placeholder)
+        _showRoute = State(initialValue: !result.trackPoints.isEmpty)
     }
 
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
+    private var hasRoute: Bool { result.trackPoints.count >= 2 }
 
-    private var card: PaceShareCard {
-        PaceShareCard(
-            raceType: raceType,
-            distanceKm: distanceKm,
-            goalTimeSeconds: goalTimeSeconds,
-            pacePerKm: pacePerKm,
-            laps: laps,
+    private var card: ResultShareCard {
+        ResultShareCard(
+            result: result,
+            race: result.race,
             unit: unit,
-            config: config
+            config: config,
+            showRoute: showRoute && hasRoute
         )
     }
 
@@ -59,13 +43,14 @@ struct PaceShareSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     preview
+                    if hasRoute { routeToggle }
                     ShareStyleEditor(config: $config, appDefaults: appDefaults)
                     shareButton
                 }
                 .padding(16)
             }
             .background(Color.bgPrimary)
-            .navigationTitle("SHARE PACE")
+            .navigationTitle("SHARE RESULT")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -84,8 +69,11 @@ struct PaceShareSheet: View {
         }
     }
 
+    // MARK: - Preview
+
     private var preview: some View {
         let logical = config.format.logicalSize
+        // プレビュー幅にフィットするスケールを計算 (画面幅から左右 padding を除いた幅)。
         let maxPreviewW: CGFloat = 360
         let scale = min(maxPreviewW / logical.width, 1.0)
         return VStack(spacing: 6) {
@@ -101,13 +89,35 @@ struct PaceShareSheet: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Route toggle
+
+    private var routeToggle: some View {
+        Toggle(isOn: $showRoute) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Show Route")
+                    .appText(.bodySmBold)
+                    .foregroundStyle(Color.textPrimary)
+                Text("Plot the GPS track on the card")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .tint(Color.accentPrimary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: - Share
+
     private var shareButton: some View {
 #if os(iOS)
         Group {
             if let image = renderImage() {
                 ShareLink(
                     item: Image(uiImage: image),
-                    preview: SharePreview("Pace Plan", image: Image(uiImage: image))
+                    preview: SharePreview(result.race?.name ?? "Race Result",
+                                          image: Image(uiImage: image))
                 ) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
