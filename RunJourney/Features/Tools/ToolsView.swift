@@ -49,6 +49,7 @@ struct ToolsView: View {
         }
         .background(Color.bgPrimary)
 #if os(iOS)
+        .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
 #endif
     }

@@ -14,9 +14,11 @@ struct PaceTimeSpinner: View {
     @Binding var seconds: Int
     /// ペース表示時に goalTime 派生表示する場合に渡す。nil なら表示しない。
     let derivedGoalTimeSeconds: Int?
+    /// true にすると padding を小さくして derived line を省略する（高さ削減）
+    var compact: Bool = false
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: compact ? 6 : 8) {
             Text(title)
                 .appText(.eyebrow)
                 .foregroundStyle(.secondary)
@@ -29,14 +31,16 @@ struct PaceTimeSpinner: View {
                 paceSpinner
             }
 
-            // Reserve the derived-line slot even when nil so paired spinners share height.
-            Text(derivedGoalTimeSeconds.map { "→ \(PaceUtils.formatTimeSimple($0))" } ?? "→ ")
-                .appText(.codeXs)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .opacity(derivedGoalTimeSeconds == nil ? 0 : 1)
+            if !compact {
+                // Reserve the derived-line slot even when nil so paired spinners share height.
+                Text(derivedGoalTimeSeconds.map { "→ \(PaceUtils.formatTimeSimple($0))" } ?? "→ ")
+                    .appText(.codeXs)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .opacity(derivedGoalTimeSeconds == nil ? 0 : 1)
+            }
         }
-        .padding(12)
+        .padding(compact ? 8 : 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
     }
