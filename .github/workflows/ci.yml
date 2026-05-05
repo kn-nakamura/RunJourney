@@ -14,12 +14,11 @@ jobs:
   build-and-test:
     name: Build & test (iOS Simulator)
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     env:
       SCHEME: RunJourney
       PROJECT: RunJourney.xcodeproj
-      DESTINATION: platform=iOS Simulator,name=iPhone 17,OS=latest
 
     steps:
       - uses: actions/checkout@v4
@@ -35,23 +34,31 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes | grep -i ios || true
 
+      - name: Install iOS Simulator runtime
+        run: |
+          # Xcode 16+ ships Simulator runtimes separately from the IDE.
+          # Download the platform support so concrete simulator devices are
+          # available for building and running tests.
+          xcodebuild -downloadPlatform iOS
+
       - name: Resolve a bootable iPhone simulator
         id: sim
         run: |
-          # Pick the newest available iPhone simulator so we don't pin a name that the runner doesn't ship.
-          name=$(xcrun simctl list devices available \
-            | awk -F '[()]' '/^-- iOS/{rt=$0} /iPhone.*\(/{print rt" | "$0}' \
-            | grep -E "iPhone " \
-            | tail -n 1 \
-            | sed -E 's/.*\| *([^(]+) \(.*/\1/' \
-            | sed 's/[[:space:]]*$//')
-          if [ -z "$name" ]; then
+          # Find the newest available iPhone simulator and its exact iOS version.
+          # Using the precise version avoids xcodebuild rejecting "OS=latest" when
+          # the resolved version is older than the project's deployment target.
+          sim_line=$(xcrun simctl list devices available \
+            | awk '/^-- iOS/{match($0, /iOS ([0-9.]+)/, a); ios=a[1]} /iPhone.*\(/{if(ios) print ios"|"$0}' \
+            | tail -n 1)
+          if [ -z "$sim_line" ]; then
             echo "No iPhone simulator available on the runner." >&2
             xcrun simctl list devices available
             exit 1
           fi
-          echo "Selected simulator: $name"
-          echo "destination=platform=iOS Simulator,name=$name,OS=latest" >> "$GITHUB_OUTPUT"
+          ios_version=$(echo "$sim_line" | cut -d'|' -f1)
+          sim_name=$(echo "$sim_line" | cut -d'|' -f2 | sed -E 's/^ *//; s/ \(.*$//')
+          echo "Selected simulator: $sim_name (iOS $ios_version)"
+          echo "destination=platform=iOS Simulator,name=$sim_name,OS=$ios_version" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: |
