@@ -11,6 +11,12 @@ struct FileImportButton: View {
     @Environment(\.modelContext) private var modelContext
 
     var attachTo: Race? = nil
+    /// 指定すると、確認シートをスキップして既存 RaceResult のルートデータ
+    /// (trackPoints / lapData / summary / raceDate / finishTimeSec) を新ファイルで上書きする。
+    /// weather / bib / places / comment などユーザー手入力メタは保持される。
+    /// 上書き前に「Replace existing route?」確認ダイアログを表示する。
+    /// 複数ファイルが選ばれた場合は最初の 1 件のみが適用される。
+    var replaceOn: RaceResult? = nil
     var iconName: String = "square.and.arrow.down"
     var labelText: String = "Import File"
     /// 取り込み成功時に親へ通知するクロージャ。設定されている場合、内部の "Import Complete" アラートは出さず、
@@ -29,6 +35,8 @@ struct FileImportButton: View {
     @State private var currentIndex = 0
     @State private var importedSummary: ImportedSummary?
     @State private var errorMessage: String?
+    /// `replaceOn` モード時、parse 済みの上書き候補。confirm alert で実際に書き込む前のバッファ。
+    @State private var pendingReplace: PendingImport?
 
     /// 実体としてバインドされる「インポータ表示中」状態。外部 binding があればそれを優先。
     private var isImporterPresented: Binding<Bool> {
@@ -55,7 +63,7 @@ struct FileImportButton: View {
         .fileImporter(
             isPresented: isImporterPresented,
             allowedContentTypes: Self.allowedTypes,
-            allowsMultipleSelection: true
+            allowsMultipleSelection: replaceOn == nil
         ) { result in
             switch result {
             case .success(let urls):
@@ -84,6 +92,19 @@ struct FileImportButton: View {
             Button("OK") { importedSummary = nil }
         } message: { summary in
             Text(summary.message)
+        }
+        .alert("Replace existing route?", isPresented: Binding(
+            get: { pendingReplace != nil },
+            set: { if !$0 { pendingReplace = nil } }
+        ), presenting: pendingReplace) { pending in
+            Button("Replace", role: .destructive) {
+                applyReplace(pending: pending)
+            }
+            Button("Cancel", role: .cancel) {
+                pendingReplace = nil
+            }
+        } message: { _ in
+            Text("This will overwrite the route, laps, finish time, and start date with the imported file. Weather, bib, places, and comments will be preserved.")
         }
         .alert("Import Error", isPresented: Binding(
             get: { errorMessage != nil },
@@ -153,6 +174,13 @@ struct FileImportButton: View {
             errorMessage = "Some files failed to parse:\n" + failures.map { "• \($0.name): \($0.reason)" }.joined(separator: "\n")
         }
 
+        // replaceOn が指定されているときは「上書き確認」alert を出して、その応答後に書き込む。
+        // 複数ファイルが選ばれても最初の 1 件のみが対象。
+        if replaceOn != nil {
+            pendingReplace = items.first
+            return
+        }
+
         // attachTo が指定されているときは確認シートをスキップして即追加。
         if let race = attachTo {
             for item in items {
@@ -169,6 +197,25 @@ struct FileImportButton: View {
         pendingImports = items
         currentIndex = 0
         // sheet は currentPendingBinding 経由で自動表示される
+    }
+
+    /// Replace alert で「Replace」が押されたときの実書き込み。
+    private func applyReplace(pending: PendingImport) {
+        guard let target = replaceOn else {
+            pendingReplace = nil
+            return
+        }
+        _ = ActivityImporter.replaceTrackData(
+            pending.activity,
+            on: target,
+            context: modelContext
+        )
+        pendingReplace = nil
+        if let onCompleted {
+            onCompleted()
+        } else {
+            importedSummary = ImportedSummary(message: "Activity file replaced.")
+        }
     }
 
     private func handleConfirm(target: ImportConfirmationSheet.ImportTarget, pending: PendingImport) {

@@ -14,6 +14,7 @@ struct RaceResultEditView: View {
             placesSection
             commentSection
             flagsSection
+            replaceFitSection
             AttachmentSection(owner: result)
             PhotoLinkSection(owner: result)
         }
@@ -97,6 +98,26 @@ struct RaceResultEditView: View {
                 .frame(minHeight: 96)
         } header: {
             SectionHeader(title: "Comment")
+        }
+    }
+
+    // MARK: - Activity File (replace FIT/GPX/TCX)
+
+    /// 既存 result のルートデータ (trackPoints / lapData / summary / raceDate / finishTimeSec)
+    /// を新しいファイルで上書きする。weather / bib / places / comment は保持される。
+    /// FileImportButton 側で「Replace existing route?」確認 alert を出す。
+    private var replaceFitSection: some View {
+        Section {
+            FileImportButton(
+                replaceOn: result,
+                iconName: "arrow.triangle.2.circlepath",
+                labelText: "Replace activity file (.fit / .gpx / .tcx / .zip)"
+            )
+            .foregroundStyle(Color.accentPrimary)
+        } header: {
+            SectionHeader(title: "Activity File")
+        } footer: {
+            Text("Imports a new file and overwrites the route, laps, finish time, and start date. Weather, bib, places, and comments are preserved.")
         }
     }
 

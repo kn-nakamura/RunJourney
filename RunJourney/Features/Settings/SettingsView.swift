@@ -24,7 +24,11 @@ struct SettingsView: View {
     @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
     /// テーマ毎のアクセント色選択 (蛍光イエロー等)。テーマ切替後も独立復元。
     @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
-    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.mossGreen.rawValue
+    @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.sunYellow.rawValue
+
+    /// `.system` テーマ時に accent swatch grid をどちらの palette で描くかを決めるため、
+    /// 現在実際に適用されている system colorScheme を読み取る。
+    @Environment(\.colorScheme) private var systemColorScheme
 
     @State private var showDataSheet = false
     @State private var showStorageSwitchAlert = false
@@ -261,9 +265,21 @@ struct SettingsView: View {
 
     private var currentTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
 
+    /// `.system` テーマ時に「実際に効いている」palette テーマ (Dark / Light) を返す。
+    /// それ以外は `currentTheme` をそのまま返す。
+    /// accent swatch grid と accent binding はこちらを基準に動く。
+    private var resolvedPaletteTheme: AppTheme {
+        switch currentTheme {
+        case .dark:   return .dark
+        case .light:  return .light
+        case .system: return systemColorScheme == .dark ? .dark : .light
+        }
+    }
+
     /// 現テーマに対応するアクセント rawValue を読み書きする Binding。
+    /// `.system` のときは現在の system colorScheme に合った palette を選ぶ。
     private var currentAccentBinding: Binding<String> {
-        currentTheme == .dark
+        resolvedPaletteTheme == .dark
             ? Binding(get: { accentDarkRaw },  set: { accentDarkRaw = $0 })
             : Binding(get: { accentLightRaw }, set: { accentLightRaw = $0 })
     }
@@ -272,7 +288,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Appearance")
             VStack(alignment: .leading, spacing: 14) {
-                // Theme picker (Dark / Light) — distanceUnit と同じ segmented picker パターン。
+                // Theme picker (Dark / Light / System) — distanceUnit と同じ segmented picker パターン。
                 Picker("Theme", selection: $appThemeRaw) {
                     ForEach(AppTheme.allCases) { t in
                         Label(t.label, systemImage: t.symbol).tag(t.rawValue)
@@ -280,13 +296,14 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
-                // Accent swatch grid: 現テーマに対応する 5 色。
+                // Accent swatch grid: 現テーマに対応する色一覧。
+                // `.system` のときは現在の system colorScheme に合った palette (dark or light) を表示する。
                 // 選択中は textPrimary 色のリングで強調する。
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5),
                     spacing: 12
                 ) {
-                    ForEach(AccentChoice.options(for: currentTheme)) { choice in
+                    ForEach(AccentChoice.options(for: resolvedPaletteTheme)) { choice in
                         Button {
                             currentAccentBinding.wrappedValue = choice.rawValue
                         } label: {
@@ -319,7 +336,7 @@ struct SettingsView: View {
             .padding(.vertical, 14)
             .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
 
-            Text("Dark suits city neon at night. Light brings natural daylight tones; the map switches with the theme.")
+            Text("Dark suits city neon at night. Light brings natural daylight tones; the map switches with the theme. Choose System to follow your iOS appearance.")
                 .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)

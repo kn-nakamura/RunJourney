@@ -42,6 +42,12 @@ struct RouteFlythruView: View {
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
 
+    /// マップの light/dark をホーム画面 (RaceMapView) と統一するため、
+    /// `mapSettings.colorMode` ではなくアプリ全体テーマに追従させる。
+    /// `.system` のときは `colorScheme = nil` でシステム外観に追従する。
+    @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
+    private var appTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
+
     private let allCoords: [CLLocationCoordinate2D]
     private let trackPointCoords: [CLLocationCoordinate2D]
     private let cameraProfile: FollowCameraProfile
@@ -213,7 +219,7 @@ struct RouteFlythruView: View {
 
     @ViewBuilder
     private var mapLayer: some View {
-        ColorSchemeOverride(scheme: mapSettings.preferredColorScheme) {
+        ColorSchemeOverride(scheme: appTheme.colorScheme) {
 #if canImport(UIKit)
             FlythroughMapView(
                 allCoords: allCoords,
