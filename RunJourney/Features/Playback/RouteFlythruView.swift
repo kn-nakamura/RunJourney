@@ -271,6 +271,14 @@ struct RouteFlythruView: View {
         let dt = lastCameraUpdateAt == 0 ? (1.0 / 120.0) : (now - lastCameraUpdateAt)
         lastCameraUpdateAt = now
         let safeDt = max(dt, 1.0 / 240.0)
+        // 停止中のシーク操作ではスムージングをリセットしてカメラを即座にスナップさせる。
+        // 再生中は smoothDamp による慣性追跡を維持する。
+        if !controller.isPlaying {
+            hasInitializedSmoothing = false
+            latVelocity = 0
+            lngVelocity = 0
+            headingVelocity = 0
+        }
         advanceSmoothing(dt: safeDt)
         applyCamera()
     }
