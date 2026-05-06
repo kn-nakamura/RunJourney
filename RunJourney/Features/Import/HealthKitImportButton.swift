@@ -1,6 +1,7 @@
 #if canImport(HealthKit)
 import SwiftUI
 import SwiftData
+import HealthKit
 
 /// `FileImportButton` の HealthKit 版。タップで `HealthKitWorkoutPickerSheet` を開き、
 /// 選んだ HKWorkout を `ParsedActivity` に変換 → 既存の `ActivityImporter` フローへ流す。
