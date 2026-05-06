@@ -76,7 +76,6 @@ struct RouteFlythruView: View {
         ZStack {
             mapLayer
             VStack(spacing: 0) {
-                customHeader
                 if showSettings {
                     PlaybackSettingsPanel(
                         controller: controller,
@@ -104,6 +103,9 @@ struct RouteFlythruView: View {
             }
             .animation(.easeInOut(duration: 0.22), value: showSettings)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            customHeader
+        }
         .background(Color.bgPrimary)
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
@@ -122,9 +124,6 @@ struct RouteFlythruView: View {
         .onChange(of: controller.currentTime) { _, _ in
             updateCameraIfNeeded()
         }
-        .onChange(of: controller.isPlaying) { _, isPlaying in
-            if isPlaying, !followMode { activateFollowMode() }
-        }
     }
 
     // MARK: - Custom header
@@ -132,13 +131,14 @@ struct RouteFlythruView: View {
     @ViewBuilder
     private var customHeader: some View {
         VStack(spacing: 0) {
-            // Row 1: full race name (small)
+            // Row 1: full race name (small) — pushed below the status bar / dynamic island
             Text(result.race?.name ?? "Playback")
                 .appText(.bodyXs)
                 .foregroundStyle(Color.textMuted)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 3)
+                .padding(.top, 8)
+                .padding(.bottom, 3)
 
             // Row 2: back + Follow/Overview + spacer + gear + export
             HStack(spacing: 4) {

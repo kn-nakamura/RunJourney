@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 再生中の現在ペース・心拍・標高・距離・経過時間をオーバーレイで表示。
-/// 各列は固定幅 (frame(width:)) なので値が変わっても他列の位置が動かない。
+/// 経過/総時間は左固定。Dist / Pace / HR / Alt は等幅 4 カラムで右揃え、単位は固定幅。
 struct PlaybackHUD: View {
     let controller: PlaybackController
     let race: Race?
@@ -28,17 +28,16 @@ struct PlaybackHUD: View {
 
             hudDivider
 
-            metricColumn(label: "Dist",  value: distanceText, width: 66)
-            metricColumn(label: "Pace",  value: paceText,     width: 62)
-
-            if let hr = hrText {
-                metricColumn(label: "HR",  value: hr,   width: 62, valueColor: Color.catFullMarathon)
+            // Dist / Pace / HR / Alt: 4 等幅カラム、右揃え、単位は固定位置
+            HStack(alignment: .center, spacing: 6) {
+                metricColumn(label: "Dist", number: distanceNumberText, unit: distanceUnitText)
+                metricColumn(label: "Pace", number: paceNumberText,     unit: paceUnitText)
+                metricColumn(label: "HR",   number: hrNumberText,       unit: "bpm",
+                             numberColor: Color.catFullMarathon)
+                metricColumn(label: "Alt",  number: altNumberText,      unit: "m",
+                             numberColor: Color.cat10K)
             }
-            if let elev = elevText {
-                metricColumn(label: "Alt", value: elev, width: 46, valueColor: Color.cat10K)
-            }
-
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -55,55 +54,74 @@ struct PlaybackHUD: View {
             .padding(.horizontal, 8)
     }
 
+    /// 4 等幅カラムの 1 列。number は右側、unit は固定で number の右隣に貼り付く。
+    /// number だけが値更新で変化し、unit は同じ位置で動かない。
     @ViewBuilder
     private func metricColumn(
         label: String,
-        value: String,
-        width: CGFloat,
-        valueColor: Color = Color.textPrimary
+        number: String,
+        unit: String,
+        numberColor: Color = Color.textPrimary
     ) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .trailing, spacing: 1) {
             Text(label)
                 .appText(.bodyXs)
                 .foregroundStyle(.secondary)
-            Text(value)
-                .appText(.codeSm)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-                .foregroundStyle(valueColor)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Spacer(minLength: 0)
+                Text(number)
+                    .appText(.codeSm)
+                    .lineLimit(1)
+                    .foregroundStyle(numberColor)
+                Text(unit)
+                    .appText(.bodyXs)
+                    .foregroundStyle(.tertiary)
+            }
         }
-        // width: 固定幅でコンテンツが大きくなっても他列の位置が動かない
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Computed values
+    // MARK: - Computed values (number / unit を分離)
 
-    private var distanceText: String {
+    /// 距離の数値部のみ。単位 (km / mi / m) は別 Text で固定表示する。
+    private var distanceNumberText: String {
         guard let p = controller.currentPoint else { return "—" }
-        if unit == .km, p.distanceM < 1000 { return String(format: "%.0fm", p.distanceM) }
-        return PaceUtils.formatDistance(km: p.distanceM / 1000, in: unit)
-    }
-
-    private var paceText: String {
-        guard let p = controller.currentPoint else { return "—" }
-        if let speed = p.speedMs, speed > 0.1 {
-            let secPerKm = 1000.0 / speed
-            let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-            let m = displayed / 60
-            let s = displayed % 60
-            return String(format: "%d:%02d\(unit.perLabel)", m, s)
+        if unit == .km, p.distanceM < 1000 {
+            return String(format: "%.0f", p.distanceM)
         }
-        return "—"
+        let km = p.distanceM / 1000
+        let displayed = km.displayed(in: unit)
+        // 999.999 まで対応するため小数 3 桁を確保。
+        return String(format: "%.3f", displayed)
     }
 
-    private var hrText: String? {
-        guard let hr = controller.currentPoint?.heartRate, hr > 0 else { return nil }
-        return "\(hr) bpm"
+    /// 距離の単位部 (km / mi / m)。1000m 未満で km モードの時のみ "m"。
+    private var distanceUnitText: String {
+        guard let p = controller.currentPoint else { return unit.label }
+        if unit == .km, p.distanceM < 1000 { return "m" }
+        return unit.label
     }
 
-    private var elevText: String? {
-        guard let alt = controller.currentPoint?.altitudeM else { return nil }
-        return String(format: "%.0fm", alt)
+    private var paceNumberText: String {
+        guard let p = controller.currentPoint, let speed = p.speedMs, speed > 0.1 else { return "—" }
+        let secPerKm = 1000.0 / speed
+        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
+        let m = displayed / 60
+        let s = displayed % 60
+        return String(format: "%d:%02d", m, s)
+    }
+
+    private var paceUnitText: String { unit.perLabel }
+
+    private var hrNumberText: String {
+        guard let hr = controller.currentPoint?.heartRate, hr > 0 else { return "—" }
+        return "\(hr)"
+    }
+
+    private var altNumberText: String {
+        guard let alt = controller.currentPoint?.altitudeM else { return "—" }
+        return String(format: "%.0f", alt)
     }
 
     private func formatDuration(_ totalSec: Double) -> String {

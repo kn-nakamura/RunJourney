@@ -36,7 +36,7 @@ struct PlaybackSettingsPanel: View {
             rowSlider(
                 label: "Distance",
                 value: $localDistance,
-                range: 300...5000,
+                range: 300...8000,
                 format: "%.0f m"
             ) { localDistance = $0; userDistance = $0 }
 

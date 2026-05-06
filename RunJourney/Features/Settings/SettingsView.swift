@@ -22,6 +22,8 @@ struct SettingsView: View {
 
     /// HR ゾーン分析 (Z1〜Z5) で使う最大心拍。0 のときは未設定としてゾーン表示を抑止する。
     @AppStorage("userMaxHR") private var userMaxHR: Int = 0
+    @State private var maxHRText: String = ""
+    @FocusState private var maxHRFieldFocused: Bool
 
     /// アプリ全体のテーマ (Dark / Light)。マップも追従する。
     @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
@@ -381,18 +383,39 @@ struct SettingsView: View {
                     .appText(.bodyBase)
                     .foregroundStyle(Color.textPrimary)
                 Spacer()
-                if userMaxHR <= 0 {
-                    Text("Not set")
-                        .appText(.bodySm)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    Text("\(userMaxHR)")
-                        .appText(.codeBaseBold)
-                        .foregroundStyle(Color.accentPrimary)
-                    Text("bpm")
-                        .appText(.bodyXs)
-                        .foregroundStyle(.tertiary)
-                }
+#if os(iOS)
+                TextField("0", text: $maxHRText)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.appFont(.codeBaseBold))
+                    .foregroundStyle(Color.accentPrimary)
+                    .frame(width: 56)
+                    .focused($maxHRFieldFocused)
+                    .onAppear { maxHRText = userMaxHR > 0 ? "\(userMaxHR)" : "" }
+                    .onChange(of: userMaxHR) { _, newValue in
+                        if !maxHRFieldFocused {
+                            maxHRText = newValue > 0 ? "\(newValue)" : ""
+                        }
+                    }
+                    .onChange(of: maxHRFieldFocused) { _, isFocused in
+                        if !isFocused { commitMaxHR() }
+                    }
+                    .onSubmit { commitMaxHR() }
+#else
+                TextField("0", text: $maxHRText)
+                    .multilineTextAlignment(.trailing)
+                    .font(.appFont(.codeBaseBold))
+                    .foregroundStyle(Color.accentPrimary)
+                    .frame(width: 56)
+                    .onAppear { maxHRText = userMaxHR > 0 ? "\(userMaxHR)" : "" }
+                    .onChange(of: userMaxHR) { _, newValue in
+                        maxHRText = newValue > 0 ? "\(newValue)" : ""
+                    }
+                    .onSubmit { commitMaxHR() }
+#endif
+                Text("bpm")
+                    .appText(.bodyXs)
+                    .foregroundStyle(.tertiary)
                 Stepper("Max HR", value: $userMaxHR, in: 0...220, step: 1)
                     .labelsHidden()
             }
@@ -404,6 +427,22 @@ struct SettingsView: View {
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
         }
+    }
+
+    private func commitMaxHR() {
+        let trimmed = maxHRText.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            userMaxHR = 0
+            maxHRText = ""
+            return
+        }
+        guard let parsed = Int(trimmed) else {
+            maxHRText = userMaxHR > 0 ? "\(userMaxHR)" : ""
+            return
+        }
+        let clamped = max(0, min(220, parsed))
+        userMaxHR = clamped
+        maxHRText = clamped > 0 ? "\(clamped)" : ""
     }
 
     // MARK: - Appearance (theme + accent)
