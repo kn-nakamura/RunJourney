@@ -13,6 +13,7 @@ import SwiftData
 /// - 画像出力 (`PaceShareCard` + `ImageRenderer` で 1080x1920 PNG → ShareLink)
 struct PaceCalculatorView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.adaptiveLayout) private var layout
     @Query(sort: \PacePlan.createdAt, order: .reverse) private var savedPlans: [PacePlan]
 
     @State private var raceType: PaceRaceType = .full
@@ -97,35 +98,19 @@ struct PaceCalculatorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Pace Calculator")
-                    .appText(.displayLg)
+                    .appText(layout.isVerticallyCompact ? .displayMd : .displayLg)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                distanceSection
-                if raceType == .custom {
-                    customDistanceField
-                }
-                if !SubTargetGroups.all[raceType, default: []].isEmpty {
-                    GoalTimeQuickSelect(
-                        raceType: raceType,
-                        goalTimeSeconds: goalTimeSeconds,
-                        onSelect: { sec in
-                            applyGoalTime(sec)
-                        }
-                    )
-                }
-                spinnersGrid
-                resultHero
-                if !laps.isEmpty {
-                    splitsSection
-                }
-                shareSection
-                saveSection
-                if !savedPlans.isEmpty {
-                    savedPlansSection
+                if layout.prefersMultiColumn {
+                    twoColumnBody
+                } else {
+                    singleColumnBody
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, layout.standardPadding)
             .padding(.vertical, 16)
+            .frame(maxWidth: layout.contentMaxWidth ?? .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
         }
         .background(Color.bgPrimary)
 #if os(iOS)
@@ -182,6 +167,94 @@ struct PaceCalculatorView: View {
         }
     }
 
+    // MARK: - Layout dispatch
+
+    /// 縦持ち iPhone 用の従来縦並び。距離 → スピナー → ヒーロー → スプリット → 保存。
+    @ViewBuilder
+    private var singleColumnBody: some View {
+        distanceSection
+        if raceType == .custom {
+            customDistanceField
+        }
+        if !SubTargetGroups.all[raceType, default: []].isEmpty {
+            GoalTimeQuickSelect(
+                raceType: raceType,
+                goalTimeSeconds: goalTimeSeconds,
+                onSelect: { sec in
+                    Haptics.tap()
+                    applyGoalTime(sec)
+                }
+            )
+        }
+        spinnersGrid
+        resultHero
+        if !laps.isEmpty {
+            splitsSection
+        }
+        shareSection
+        saveSection
+        if !savedPlans.isEmpty {
+            savedPlansSection
+        }
+    }
+
+    /// 横向き iPhone / iPad / Mac 用の二段組。
+    /// 左に「設定」(Distance / GoalQuick / Spinners / Result hero / Share+Save) を集約し、
+    /// 右に「結果」(Splits + Saved Plans) を出して両方を同時に見られる。
+    @ViewBuilder
+    private var twoColumnBody: some View {
+        HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
+                distanceSection
+                if raceType == .custom {
+                    customDistanceField
+                }
+                if !SubTargetGroups.all[raceType, default: []].isEmpty {
+                    GoalTimeQuickSelect(
+                        raceType: raceType,
+                        goalTimeSeconds: goalTimeSeconds,
+                        onSelect: { sec in
+                            Haptics.tap()
+                            applyGoalTime(sec)
+                        }
+                    )
+                }
+                spinnersGrid
+                resultHero
+                shareSection
+                saveSection
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            VStack(alignment: .leading, spacing: 18) {
+                if !laps.isEmpty {
+                    splitsSection
+                } else {
+                    // splits が空 (= pacePerKm が 0) のときに右カラムが完全に空になると
+                    // 二段組の左右バランスが崩れるので、プレースホルダで埋める。
+                    splitsPlaceholder
+                }
+                if !savedPlans.isEmpty {
+                    savedPlansSection
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// splits が空のときに右カラムを保持するためのダミー。
+    private var splitsPlaceholder: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Splits")
+            Text("Set a goal time or pace to see split table here.")
+                .appText(.bodySm)
+                .foregroundStyle(.secondary)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
     // MARK: - Distance section
 
     private var distanceSection: some View {
@@ -193,7 +266,10 @@ struct PaceCalculatorView: View {
                         DistanceTab(
                             label: type.label,
                             isActive: raceType == type,
-                            action: { raceType = type }
+                            action: {
+                                Haptics.tap()
+                                raceType = type
+                            }
                         )
                     }
                 }
@@ -319,6 +395,7 @@ struct PaceCalculatorView: View {
 
     private var shareSection: some View {
         Button {
+            Haptics.selection()
             showShareSheet = true
         } label: {
             HStack {
@@ -347,6 +424,7 @@ struct PaceCalculatorView: View {
                     .padding(.vertical, 10)
                     .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
                 Button {
+                    Haptics.success()
                     savePlan()
                 } label: {
                     Image(systemName: "bookmark.fill")
@@ -369,6 +447,7 @@ struct PaceCalculatorView: View {
             VStack(spacing: 6) {
                 ForEach(savedPlans) { plan in
                     Button {
+                        Haptics.selection()
                         loadPlan(plan)
                     } label: {
                         SavedPlanRow(plan: plan)

@@ -32,6 +32,7 @@ struct MapAddFAB: View {
 
     var body: some View {
         Button {
+            Haptics.selection()
             showActionSheet = true
         } label: {
             Image(systemName: "plus")
@@ -123,6 +124,7 @@ struct MapAddFAB: View {
         if PremiumLimits.canAddRace(currentCount: races.count, hasPremium: purchases.hasPremium) {
             presentNewRace()
         } else {
+            Haptics.warning()
             paywallReason = "Free plan supports up to \(PremiumLimits.freeRaceLimit) races. Upgrade to add more."
         }
     }
@@ -131,6 +133,7 @@ struct MapAddFAB: View {
     /// 既存 Result 総数が上限に達していたらここで止める。
     private func attemptAddResult() {
         guard PremiumLimits.canAddResult(currentCount: allResults.count, hasPremium: purchases.hasPremium) else {
+            Haptics.warning()
             paywallReason = "Free plan supports up to \(PremiumLimits.freeResultLimit) total results. Upgrade to add more."
             return
         }

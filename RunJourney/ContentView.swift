@@ -2,12 +2,16 @@ import SwiftUI
 import SwiftData
 
 /// アプリのルート。
-/// - iPhone (compact): TabView で 「地図 / ダッシュボード / ペース / 設定」 を切替
-/// - iPad / Mac (regular): NavigationSplitView の sidebar から切替
+/// - iPhone (compact h, regular v): TabView で 「地図 / ダッシュボード / ペース / ツール / 設定」 を切替
+/// - iPhone landscape (compact h, compact v): TabView を維持しつつ各画面側で横向きを活かしたレイアウトに分岐
+/// - iPad / Mac (regular h): NavigationSplitView の sidebar から切替。detail 側で広い画面を活かす多カラム構成
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @State private var selectedSection: AppSection = .map
+    /// iPad / Mac の sidebar 表示状態。横画面では普段は出しっぱなしにしたいので `.all` を初期値にする。
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     enum AppSection: String, Hashable, CaseIterable, Identifiable {
         case map
@@ -37,22 +41,34 @@ struct ContentView: View {
         }
     }
 
-    var body: some View {
-#if os(iOS)
-        if horizontalSizeClass == .regular {
-            sidebarSplitView
-        } else {
-            tabView
-        }
-#else
-        sidebarSplitView
-#endif
+    private var layout: AdaptiveLayout {
+        AdaptiveLayout.resolve(horizontal: horizontalSizeClass, vertical: verticalSizeClass)
     }
 
-    // MARK: - iPhone
+    var body: some View {
+        Group {
+            if layout.isWide {
+                sidebarSplitView
+            } else {
+                tabView
+            }
+        }
+        .environment(\.adaptiveLayout, layout)
+    }
+
+    // MARK: - iPhone (portrait & landscape)
 
     private var tabView: some View {
-        let tv = TabView(selection: $selectedSection) {
+        let binding = Binding<AppSection>(
+            get: { selectedSection },
+            set: { newValue in
+                if newValue != selectedSection {
+                    Haptics.tap()
+                }
+                selectedSection = newValue
+            }
+        )
+        let tv = TabView(selection: binding) {
             Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
                 NavigationStack { RaceMapView() }
             }
@@ -82,7 +98,7 @@ struct ContentView: View {
     // MARK: - iPad / Mac
 
     private var sidebarSplitView: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: sidebarSelectionBinding) {
                 Section("RunJourney") {
                     ForEach(AppSection.allCases) { section in
@@ -92,18 +108,21 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("RunJourney")
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
             NavigationStack {
-                switch selectedSection {
-                case .map:       RaceMapView()
-                case .dashboard: DashboardView()
-                case .pace:      PaceCalculatorView()
-                case .tools:     ToolsView()
-                case .settings:  SettingsView()
+                Group {
+                    switch selectedSection {
+                    case .map:       RaceMapView()
+                    case .dashboard: DashboardView()
+                    case .pace:      PaceCalculatorView()
+                    case .tools:     ToolsView()
+                    case .settings:  SettingsView()
+                    }
                 }
             }
         }
+        .navigationSplitViewStyle(.balanced)
     }
 
     private var sidebarSelectionBinding: Binding<AppSection?> {
