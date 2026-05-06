@@ -10,6 +10,13 @@ import MapKit
 /// 地図は `RaceListMapView`（MKMapView を `UIViewRepresentable` で直接ラップ）を使う。
 /// この副作用は SwiftUI Map 特有で、MKMapView を介すと発生しない。
 struct RaceMapView: View {
+    /// シートで表示中 (= ピンタップ後のレース詳細表示中) のレース。`@Binding` にして
+    /// 親 (`ContentView`) からも参照できるようにする。iPad 横では ContentView ルートで
+    /// 「左半分に重ねるオーバーレイ」を描画するため、この値を上に流す必要がある。
+    /// iPhone (TabView 経由) でもこの binding は使われ、自前の `.sheet(item:)` で
+    /// 下シートを発火する従来挙動を維持する。
+    @Binding var sheetRace: Race?
+
     @Environment(SplashCoordinator.self) private var splashCoordinator
     @Environment(\.adaptiveLayout) private var layout
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
@@ -44,7 +51,6 @@ struct RaceMapView: View {
     /// シート表示用の `sheetRace`、ピンの拡大/アイコン化用の `iconifiedRace` と
     /// 3 つに分離することで、ズーム → シート → アイコン化のタイミングを個別制御する。
     @State private var selectedRace: Race?
-    @State private var sheetRace: Race?
     /// ピンを「拡大＋アイコン表示」状態にするレース。`sheetRace` の onChange と同期して
     /// セット/解除されるため、シート出現と同じタイミングでピンがアイコンに切替わる。
     @State private var iconifiedRace: Race?
@@ -110,7 +116,12 @@ struct RaceMapView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(item: $sheetRace) { race in
+        // iPad (横/縦どちらも) では ContentView ルートでカスタムオーバーレイを描画するので、
+        // RaceMapView 内の `.sheet` は発火させない (発火するとシステム形式のフォームシートが
+        // 重なって見える)。判定は `usesSidebarRoot` (= wide || padPortrait)。
+        // iPhone (compact) のときだけ従来どおり `.sheet` で下シートを出す。
+        // sheetRace 自体は親 ContentView へ伝播させる @Binding 値。
+        .sheet(item: layout.usesSidebarRoot ? .constant(nil) : $sheetRace) { race in
             NavigationStack {
                 RaceSummaryView(race: race)
                     .toolbar {
@@ -200,6 +211,8 @@ struct RaceMapView: View {
 
     /// iPad / Mac 用。左に永続サイドドロワー (折りたたみ可)、右に地図 + 既存オーバーレイ。
     /// 地図のハンバーガーボタンは sheet を開く代わりに `showPersistentDrawer` を切替える。
+    /// レース詳細は ContentView ルートでこの View の上に「左半分オーバーレイ」として
+    /// 重ねるので、ここでは詳細パネルを描画しない (`sheetRace` の値は親に伝播するだけ)。
     private var wideMapBody: some View {
         HStack(spacing: 0) {
             if showPersistentDrawer {
@@ -339,8 +352,8 @@ struct RaceMapView: View {
     // MARK: - Actions
 
     /// レース 1 件にフィットする。ピン位置を画面上半分の中央に置く近接ズーム。
-    /// 直後にシートが下半分を覆う前提で、シートに隠れない位置にピンを寄せておく。
-    /// (ルートは RESULTS 詳細のミニマップ側で見るので、メイン地図ではピン拡大に専念)。
+    /// 直後に詳細パネルが下から引き上がる前提で、ピンを上半分中央に置くことで
+    /// ズーム中はピンが視認でき、詳細が出たあとは自然に隠れる。
     private func fitRace(_ race: Race) {
         animate(
             toRegion: MKCoordinateRegion(

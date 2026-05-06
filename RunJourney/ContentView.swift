@@ -14,6 +14,10 @@ struct ContentView: View {
     @State private var selectedSection: AppSection = .map
     /// iPad / Mac の sidebar 表示状態。横画面では普段は出しっぱなしにしたいので `.all` を初期値にする。
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    /// レース詳細表示中のレース。iPad 横ではこの値を見て ContentView ルートで
+    /// 「画面の左半分に下から引き上がるオーバーレイ」を描画する。iPhone (TabView 経路) では
+    /// RaceMapView 内部の `.sheet(item:)` がこの binding を見て従来どおり下シートを出す。
+    @State private var presentedDetailRace: Race?
 
     enum AppSection: String, Hashable, CaseIterable, Identifiable {
         case map
@@ -58,15 +62,76 @@ struct ContentView: View {
         // 子孫はすべて `\.adaptiveLayout` 経由で参照する。
         GeometryReader { proxy in
             let layout = resolvedLayout(containerWidth: proxy.size.width)
-            Group {
-                if layout.usesSidebarRoot {
-                    sidebarSplitView
-                } else {
-                    tabView
+            ZStack(alignment: .topLeading) {
+                Group {
+                    if layout.usesSidebarRoot {
+                        sidebarSplitView
+                    } else {
+                        tabView
+                    }
+                }
+
+                // iPad 横/縦で詳細オーバーレイを ContentView ルートで描画。下から引き上がる。
+                // - 横 (isWide): 画面の左半分を占める縦長パネル
+                // - 縦 (padPortrait): 画面の下半分を占める横長パネル (iPhone の bottom sheet と
+                //   同じ視覚スタイル。`.sheet` の iPad form sheet 適応を回避するため自前で出す)
+                // 外側 sidebar / RACES ドロワー / 地図は静止したまま、このパネルだけが動く。
+                if let race = presentedDetailRace {
+                    if layout.isWide {
+                        detailOverlay(race: race)
+                            .frame(width: proxy.size.width / 2)
+                            .frame(maxHeight: .infinity)
+                            .transition(.move(edge: .bottom))
+                            .zIndex(100)
+                    } else if layout == .padPortrait {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            detailOverlay(race: race)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: proxy.size.height * 0.65)
+                                .clipShape(.rect(topLeadingRadius: 28, topTrailingRadius: 28))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.move(edge: .bottom))
+                        .zIndex(100)
+                    }
                 }
             }
+            // adaptiveLayout は ZStack 全体にかける。detailOverlay 内の RaceResultDetailView が
+            // `usesSidebarRoot` を見てフライスルーを `.fullScreenCover` で全画面表示するために必要。
             .environment(\.adaptiveLayout, layout)
+            .animation(.easeInOut(duration: 0.3), value: presentedDetailRace == nil)
         }
+    }
+
+    /// iPad 横で画面の左半分に重ねる「下から引き上がる」レース詳細オーバーレイ。
+    /// ContentView ルートで描画することで NavigationSplitView の外側 sidebar も
+    /// 含めて覆える。Close で binding を nil に戻すと下へスライドして消える。
+    @ViewBuilder
+    private func detailOverlay(race: Race) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    Haptics.tap()
+                    presentedDetailRace = nil
+                } label: {
+                    Text("Close")
+                        .appText(.bodyBaseBold)
+                        .foregroundStyle(Color.accentPrimary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close Race Detail")
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            NavigationStack {
+                RaceSummaryView(race: race)
+            }
+        }
+        .background(Color.bgPrimary)
     }
 
     // MARK: - iPhone (portrait & landscape)
@@ -83,7 +148,7 @@ struct ContentView: View {
         )
         let tv = TabView(selection: binding) {
             Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
-                NavigationStack { RaceMapView() }
+                NavigationStack { RaceMapView(sheetRace: $presentedDetailRace) }
             }
             Tab(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName, value: AppSection.dashboard) {
                 NavigationStack { DashboardView() }
@@ -126,7 +191,7 @@ struct ContentView: View {
             NavigationStack {
                 Group {
                     switch selectedSection {
-                    case .map:       RaceMapView()
+                    case .map:       RaceMapView(sheetRace: $presentedDetailRace)
                     case .dashboard: DashboardView()
                     case .pace:      PaceCalculatorView()
                     case .tools:     ToolsView()
