@@ -14,11 +14,10 @@ struct ResultShareSheet: View {
     @State private var appDefaults: ShareStyleConfig
     @State private var showRoute: Bool
     @State private var hasResolvedDefaults = false
+    @State private var enabledMetrics: Set<ResultMetric> = Set(ResultMetric.allCases)
 
     init(result: RaceResult) {
         self.result = result
-        // init() 時点では @Environment が読めないため一旦 dark を仮置き。
-        // .onAppear で systemColorScheme を解決して上書きする。
         let placeholder = ShareStyleConfig.defaultsFromAppSettings(systemColorScheme: .dark)
         _config = State(initialValue: placeholder)
         _appDefaults = State(initialValue: placeholder)
@@ -34,7 +33,8 @@ struct ResultShareSheet: View {
             race: result.race,
             unit: unit,
             config: config,
-            showRoute: showRoute && hasRoute
+            showRoute: showRoute && hasRoute,
+            enabledMetrics: enabledMetrics
         )
     }
 
@@ -44,6 +44,7 @@ struct ResultShareSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     preview
                     if hasRoute { routeToggle }
+                    metricsSection
                     ShareStyleEditor(config: $config, appDefaults: appDefaults)
                     shareButton
                 }
@@ -73,7 +74,6 @@ struct ResultShareSheet: View {
 
     private var preview: some View {
         let logical = config.format.logicalSize
-        // プレビュー幅にフィットするスケールを計算 (画面幅から左右 padding を除いた幅)。
         let maxPreviewW: CGFloat = 360
         let scale = min(maxPreviewW / logical.width, 1.0)
         return VStack(spacing: 6) {
@@ -106,6 +106,81 @@ struct ResultShareSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: - Metrics section
+
+    private var availableMetrics: [ResultMetric] {
+        let s = result.summary
+        return ResultMetric.allCases.filter { metric in
+            switch metric {
+            case .avgPace:  return (s?.avgPaceSecPerKm ?? 0) > 0
+            case .distance: return (s?.totalDistanceM ?? 0) > 0
+            case .avgHR:    return s?.avgHeartRate != nil
+            case .ascent:   return (s?.elevationGainM ?? 0) > 0
+            case .cadence:  return s?.avgCadence != nil
+            case .temp:     return result.weatherTempC != nil || s?.avgTemperatureC != nil
+            case .place:    return result.overallPlace != nil
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var metricsSection: some View {
+        let metrics = availableMetrics
+        if !metrics.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("METRICS")
+                    .appText(.eyebrow)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 14)
+
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2),
+                    spacing: 8
+                ) {
+                    ForEach(metrics) { metric in
+                        metricPill(metric)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
+            }
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private func metricPill(_ metric: ResultMetric) -> some View {
+        let selected = enabledMetrics.contains(metric)
+        return Button {
+            if selected {
+                enabledMetrics.remove(metric)
+            } else {
+                enabledMetrics.insert(metric)
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(selected ? Color.accentPrimary : Color.textPrimary.opacity(0.4))
+                Text(metric.label)
+                    .appText(.bodySmBold)
+                    .foregroundStyle(Color.textPrimary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                selected ? Color.accentPrimary.opacity(0.14) : Color.bgTertiary,
+                in: RoundedRectangle(cornerRadius: 10)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(selected ? Color.accentPrimary : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Share
