@@ -18,6 +18,14 @@ struct RaceResultDetailView: View {
     @State private var showDeleteSheet = false
     @State private var showShareSheet = false
     @State private var showAIReviewSheet = false
+    /// iPad / Mac でフライスルーを画面いっぱいに表示するための fullScreenCover フラグ。
+    /// iPhone では NavigationLink で push する従来挙動を維持する (swipe-back を残すため)。
+    @State private var showFullscreenFlythrough = false
+
+    /// `ContentView` が `\.adaptiveLayout` 経由で流す端末プロファイル。
+    /// iPad では NavigationStack の detail 列に push すると sidebar に挟まれて狭く
+    /// 見えるので、フライスルーだけは fullScreenCover で全画面に乗せ替える。
+    @Environment(\.adaptiveLayout) private var layout
 
     private var linkedPlan: PacePlan? {
         guard let id = result.linkedPacePlanId else { return nil }
@@ -106,6 +114,11 @@ struct RaceResultDetailView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ResultShareSheet(result: result)
+        }
+        // iPad / Mac 専用: フライスルーを画面いっぱいに乗せる。
+        // RouteFlythruView 内の `dismiss()` (chevron.left ボタン) でそのまま閉じられる。
+        .fullScreenCover(isPresented: $showFullscreenFlythrough) {
+            RouteFlythruView(result: result)
         }
         .sheet(isPresented: $showAIReviewSheet) {
             AIReviewSheet(result: result, race: result.race, plan: linkedPlan)
@@ -276,50 +289,69 @@ struct RaceResultDetailView: View {
             if coords.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(title: "Route", subtitle: "Tap to play flythrough")
-                    NavigationLink {
-                        RouteFlythruView(result: result)
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Map {
-                                MapPolyline(coordinates: coords)
-                                    .stroke(
-                                        result.race?.category.pinColor ?? .accentPrimary,
-                                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
-                                    )
-                                if let first = coords.first {
-                                    Annotation("Start", coordinate: first) {
-                                        Image(systemName: "flag.checkered")
-                                            .foregroundStyle(.white)
-                                            .padding(6)
-                                            .background(Color.cat10K, in: Circle())
-                                    }
-                                }
-                                if let last = coords.last, coords.count > 1 {
-                                    Annotation("Finish", coordinate: last) {
-                                        Image(systemName: "flag.fill")
-                                            .foregroundStyle(.white)
-                                            .padding(6)
-                                            .background(Color.catFullMarathon, in: Circle())
-                                    }
-                                }
-                            }
-                            .mapStyle(.standard(elevation: .realistic))
-                            .frame(height: 240)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .allowsHitTesting(false)
-
-                            // 右上に控えめな再生インジケータ
-                            Image(systemName: "play.fill")
-                                .foregroundStyle(.black)
-                                .padding(10)
-                                .background(Color.accentPrimary, in: Circle())
-                                .shadow(radius: 3)
-                                .padding(10)
+                    // iPad は NavigationSplitView の detail 列内に push するとサイドバーに
+                    // 挟まれて狭くなるので、Button + fullScreenCover で全画面に乗せ替える。
+                    // iPhone はそもそも全幅なので NavigationLink の push (swipe-back あり)
+                    // を維持する方が UX 的に自然。
+                    if layout.usesSidebarRoot {
+                        Button {
+                            showFullscreenFlythrough = true
+                        } label: {
+                            routeMapPreview(coords: coords)
                         }
+                        .buttonStyle(.plain)
+                    } else {
+                        NavigationLink {
+                            RouteFlythruView(result: result)
+                        } label: {
+                            routeMapPreview(coords: coords)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    /// ルートマップのプレビュー (タップ前の状態)。タップ操作は呼び出し側で包む。
+    @ViewBuilder
+    private func routeMapPreview(coords: [CLLocationCoordinate2D]) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Map {
+                MapPolyline(coordinates: coords)
+                    .stroke(
+                        result.race?.category.pinColor ?? .accentPrimary,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                    )
+                if let first = coords.first {
+                    Annotation("Start", coordinate: first) {
+                        Image(systemName: "flag.checkered")
+                            .foregroundStyle(.white)
+                            .padding(6)
+                            .background(Color.cat10K, in: Circle())
+                    }
+                }
+                if let last = coords.last, coords.count > 1 {
+                    Annotation("Finish", coordinate: last) {
+                        Image(systemName: "flag.fill")
+                            .foregroundStyle(.white)
+                            .padding(6)
+                            .background(Color.catFullMarathon, in: Circle())
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .realistic))
+            .frame(height: 240)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .allowsHitTesting(false)
+
+            // 右上に控えめな再生インジケータ
+            Image(systemName: "play.fill")
+                .foregroundStyle(.black)
+                .padding(10)
+                .background(Color.accentPrimary, in: Circle())
+                .shadow(radius: 3)
+                .padding(10)
         }
     }
 

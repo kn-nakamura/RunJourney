@@ -4,7 +4,9 @@ import SwiftData
 /// アプリのルート。
 /// - iPhone (compact h, regular v): TabView で 「地図 / ダッシュボード / ペース / ツール / 設定」 を切替
 /// - iPhone landscape (compact h, compact v): TabView を維持しつつ各画面側で横向きを活かしたレイアウトに分岐
-/// - iPad / Mac (regular h): NavigationSplitView の sidebar から切替。detail 側で広い画面を活かす多カラム構成
+/// - iPad 縦 / iPad 横 / Mac (regular h): NavigationSplitView の sidebar から切替。
+///   ただし iPad 縦 (`padPortrait`) は detail 幅が狭いので、各画面はマルチカラム化を抑え
+///   単段スクロールに戻す (`AdaptiveLayout.prefersMultiColumn` が false を返す)。
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -41,19 +43,30 @@ struct ContentView: View {
         }
     }
 
-    private var layout: AdaptiveLayout {
-        AdaptiveLayout.resolve(horizontal: horizontalSizeClass, vertical: verticalSizeClass)
+    private func resolvedLayout(containerWidth: CGFloat?) -> AdaptiveLayout {
+        AdaptiveLayout.resolve(
+            horizontal: horizontalSizeClass,
+            vertical: verticalSizeClass,
+            containerWidth: containerWidth
+        )
     }
 
     var body: some View {
-        Group {
-            if layout.isWide {
-                sidebarSplitView
-            } else {
-                tabView
+        // iPad は縦/横どちらも h:regular で SizeClass だけだと見分けがつかないため、
+        // ルートで GeometryReader を噛ませてウィンドウ実幅を AdaptiveLayout.resolve() に
+        // 渡す (= `padPortrait` の判定根拠)。GeometryReader はここでだけ使い、
+        // 子孫はすべて `\.adaptiveLayout` 経由で参照する。
+        GeometryReader { proxy in
+            let layout = resolvedLayout(containerWidth: proxy.size.width)
+            Group {
+                if layout.usesSidebarRoot {
+                    sidebarSplitView
+                } else {
+                    tabView
+                }
             }
+            .environment(\.adaptiveLayout, layout)
         }
-        .environment(\.adaptiveLayout, layout)
     }
 
     // MARK: - iPhone (portrait & landscape)
