@@ -26,8 +26,8 @@ struct FollowCameraProfile: Equatable {
     var centerSoftZoneM: Double = 40
 
     static let marathonDefault = FollowCameraProfile(
-        distance: 1500,
-        pitch: 60,
+        distance: 3000,
+        pitch: 75,
         lookAheadSec: 4,
         centerResponseSec: 0.26,
         bearingResponseSec: 1.5
@@ -107,14 +107,16 @@ enum PlaybackMath {
         let shortBias = max(-factor, 0)
         let longBias  = max( factor, 0)
 
-        // フルマラソン基準値: distance=1500m, pitch=60, lookAhead=4s, bearingResp=0.42s
+        // フルマラソン基準値: distance=3000m (2x), pitch=75, lookAhead=4s, bearingResp=1.5s
+        // distance: 体感的に「もう少し引いた俯瞰」感を出すため 2x スケール。
+        // pitch: 60 だと体感 45° しか感じないので 75 まで起こしてダイナミックなフライスルーに。
         let distance = clamp(
-            1500 - shortBias * 700 + longBias * 800,
-            min: 600, max: 3500
+            3000 - shortBias * 1400 + longBias * 1600,
+            min: 1200, max: 7000
         )
         let pitch = clamp(
-            60 + shortBias * 1.5 - longBias * 3.2,
-            min: 52, max: 62
+            75 + shortBias * 1.5 - longBias * 3.2,
+            min: 65, max: 80
         )
         let lookAhead = clamp(
             4.0 - shortBias * 0.45 + longBias * 1.0,
