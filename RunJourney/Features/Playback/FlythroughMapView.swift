@@ -107,11 +107,9 @@ struct FlythroughMapView: UIViewRepresentable {
             coord.lastRunnerCoord = nil
         }
 
-        // ライン+ポインタを同じ60Hzゲート内で同じ runnerCoord から反映する。
-        // ポインタ単独で120Hz更新するとライン末端から1ステップ離れる瞬間が見える。
-        // 60Hz離散更新したポインタ位置は PositionAnnotationView の CABasicAnimation で
-        // 120Hzパネル上でも線形補間されて視覚的には滑らかに見える。
-        // 停止中はDisplayLinkが動いておらず競合描画がないため、ゲートをバイパスして即時反映する。
+        // 走破ラインは 60Hz ゲート内で更新する。120Hz で setNeedsDisplay すると
+        // タイル再描画が常にキャンセルされ軌跡が消えるため、ライン側は 60Hz 制約が必須。
+        // 停止中は DisplayLink が動いておらず競合描画がないため、ゲートをバイパスして即時反映する。
         let now = CACurrentMediaTime()
         if !isPlaying || now - coord.lastFrameUpdateTime >= 1.0 / 60.0 {
             coord.lastFrameUpdateTime = now
@@ -126,26 +124,33 @@ struct FlythroughMapView: UIViewRepresentable {
                     renderer.setNeedsDisplay()
                 }
             }
+        }
 
-            if let runner = runnerCoord, let ann = coord.positionAnnotation {
-                // シーク等の大ジャンプ検出: 通常再生（最大512x = ~71m/frame）を大きく上回る
-                // 距離なら補間アニメを抑制して即座反映する。
-                let isSeek: Bool = {
-                    guard let prev = coord.lastRunnerCoord else { return true }
-                    let prevLoc = CLLocation(latitude: prev.latitude, longitude: prev.longitude)
-                    let nextLoc = CLLocation(latitude: runner.latitude, longitude: runner.longitude)
-                    return prevLoc.distance(from: nextLoc) > 200
-                }()
-                if isSeek, let view = map.view(for: ann) as? PositionAnnotationView {
-                    view.suppressAnimation = true
-                    ann.coordinate = runner
-                    view.layer.removeAnimation(forKey: "runnerMove")
-                    view.suppressAnimation = false
-                } else {
-                    ann.coordinate = runner
-                }
-                coord.lastRunnerCoord = runner
+        // ランナー coord はゲート外で毎フレーム更新する。setCamera が 120Hz で動くため、
+        // 60Hz ゲートに入れると偶数フレームで「カメラだけ前進 → 旧 coord が後退投影」となり
+        // 奇数フレームで前方ジャンプ → ぶるぶる前後揺れが発生する。
+        if let runner = runnerCoord, let ann = coord.positionAnnotation {
+            // シーク等の大ジャンプ検出: 通常再生（最大512x = ~71m/frame）を大きく上回る
+            // 距離なら補間アニメを抑制して即座反映する。
+            let isSeek: Bool = {
+                guard let prev = coord.lastRunnerCoord else { return true }
+                let prevLoc = CLLocation(latitude: prev.latitude, longitude: prev.longitude)
+                let nextLoc = CLLocation(latitude: runner.latitude, longitude: runner.longitude)
+                return prevLoc.distance(from: nextLoc) > 200
+            }()
+            if isSeek, let view = map.view(for: ann) as? PositionAnnotationView {
+                view.suppressAnimation = true
+                ann.coordinate = runner
+                view.layer.removeAnimation(forKey: "runnerMove")
+                view.suppressAnimation = false
+            } else if let prev = coord.lastRunnerCoord,
+                      prev.latitude == runner.latitude,
+                      prev.longitude == runner.longitude {
+                // 同一 coord のときは didSet を不要発火させない。
+            } else {
+                ann.coordinate = runner
             }
+            coord.lastRunnerCoord = runner
         }
 
         // Overview モード切替
@@ -359,17 +364,19 @@ final class PositionAnnotationView: MKAnnotationView {
         dot.shadowColor = color.cgColor
     }
 
-    /// MapKit が coordinate 変更時に view.center を即時セットしてくる。
-    /// ライン更新と同じ60Hz間隔で離散的に飛ぶため、120Hzパネル上で滑らかに見せるために
-    /// 1フレーム間隔ぶん（1/60秒）の線形 CABasicAnimation を仕込む。
+    /// MapKit が coordinate 変更時 / カメラ移動時に view.center を即時セットしてくる。
+    /// 1フレーム間隔ぶん（1/60秒）の線形 CABasicAnimation で滑らかにつなぐ。
+    /// fromValue にモデル値 oldValue を使うと進行中アニメ上書き時に presentation layer が
+    /// 直前ターゲットへジャンプするため、現在描画位置 (presentation) から繋ぐ。
     /// suppressAnimation 時はシーク扱いとして補間しない。
     override var center: CGPoint {
         didSet {
             guard !suppressAnimation,
                   oldValue != center,
                   oldValue != .zero else { return }
+            let from = layer.presentation()?.position ?? oldValue
             let anim = CABasicAnimation(keyPath: "position")
-            anim.fromValue = NSValue(cgPoint: oldValue)
+            anim.fromValue = NSValue(cgPoint: from)
             anim.toValue = NSValue(cgPoint: center)
             anim.duration = 1.0 / 60.0
             anim.timingFunction = CAMediaTimingFunction(name: .linear)
