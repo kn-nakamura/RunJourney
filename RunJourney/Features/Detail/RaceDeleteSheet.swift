@@ -76,9 +76,11 @@ struct RaceDeleteSheet: View {
                 onRaceDeleted()
             }
         } message: {
-            Text(resultCount == 0
-                 ? "This will permanently delete this race entry."
-                 : "This will permanently delete the race and \(resultCount) linked result\(resultCount == 1 ? "" : "s").")
+            if resultCount == 0 {
+                Text("This will permanently delete this race entry.")
+            } else {
+                Text("This will permanently delete the race and \(resultCount) linked result(s).")
+            }
         }
         .sheet(isPresented: $showResultPicker) {
             ResultPickerSheet(race: race) {

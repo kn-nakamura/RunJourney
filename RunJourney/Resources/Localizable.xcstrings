@@ -1,0 +1,871 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    "Adds 8 demo races across Japan. Skips duplicates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Fügt 8 Demo-Rennen in ganz Japan hinzu. Duplikate werden übersprungen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añade 8 carreras de demostración por todo Japón. Omite duplicados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ajoute 8 courses de démonstration à travers le Japon. Les doublons sont ignorés." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Aggiunge 8 gare dimostrative in tutto il Giappone. I duplicati vengono ignorati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日本各地のデモレース 8 件を追加します。重複はスキップします。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "일본 각지의 데모 레이스 8개를 추가해요. 중복은 건너뜁니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Adiciona 8 corridas de demonstração pelo Japão. Duplicatas são ignoradas." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加 8 场日本各地的示例赛事，重复项会被跳过。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "新增 8 場日本各地的示範賽事，重複項目會被略過。" } }
+      }
+    },
+    "AI Review is unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "AI Review ist nicht verfügbar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "AI Review no está disponible" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "AI Review est indisponible" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "AI Review non è disponibile" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "AI レビューを利用できません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "AI 리뷰를 사용할 수 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "AI Review está indisponível" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "AI 评论不可用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "AI 評論無法使用" } }
+      }
+    },
+    "AI Review requires iOS 26 or later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "AI Review erfordert iOS 26 oder neuer" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "AI Review requiere iOS 26 o posterior" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "AI Review nécessite iOS 26 ou ultérieur" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "AI Review richiede iOS 26 o successivo" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "AI レビューには iOS 26 以降が必要です" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "AI 리뷰는 iOS 26 이상이 필요해요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "AI Review requer iOS 26 ou posterior" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "AI 评论需要 iOS 26 或更高版本" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "AI 評論需要 iOS 26 或以上版本" } }
+      }
+    },
+    "AI Review Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "AI Review nicht verfügbar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "AI Review no disponible" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "AI Review indisponible" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "AI Review non disponibile" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "AI レビューを利用できません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "AI 리뷰를 사용할 수 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "AI Review indisponível" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "AI 评论不可用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "AI 評論無法使用" } }
+      }
+    },
+    "Apple Intelligence is disabled in Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence ist in den Einstellungen deaktiviert" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence está desactivado en Ajustes" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence est désactivé dans Réglages" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence è disattivato nelle Impostazioni" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence が設定でオフになっています" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "설정에서 Apple Intelligence가 꺼져 있어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence está desativado nos Ajustes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence 已在设置中关闭" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence 已在設定中關閉" } }
+      }
+    },
+    "Apple Intelligence is not available on this device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence ist auf diesem Gerät nicht verfügbar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence no está disponible en este dispositivo" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence n'est pas disponible sur cet appareil" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence non è disponibile su questo dispositivo" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このデバイスでは Apple Intelligence を利用できません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 기기에서는 Apple Intelligence를 사용할 수 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apple Intelligence não está disponível neste dispositivo" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此设备不支持 Apple Intelligence" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "此裝置不支援 Apple Intelligence" } }
+      }
+    },
+    "Attach PDFs to your races and results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Hänge PDFs an deine Rennen und Ergebnisse an." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adjunta archivos PDF a tus carreras y resultados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Attachez des PDF à vos courses et résultats." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Allega PDF alle tue gare e ai tuoi risultati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レースや結果に PDF を添付できます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "레이스나 결과에 PDF를 첨부할 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Anexe PDFs às suas corridas e resultados." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "可在赛事与成绩中添加 PDF 附件。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "可在賽事與成績中新增 PDF 附件。" } }
+      }
+    },
+    "Checking…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wird geprüft…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Comprobando…" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérification…" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Controllo in corso…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "確認中…" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "확인 중…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificando…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "检查中…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "檢查中…" } }
+      }
+    },
+    "Choose what to delete. This cannot be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wähle aus, was gelöscht werden soll. Kann nicht rückgängig gemacht werden." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige qué eliminar. No se puede deshacer." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez ce que vous voulez supprimer. Action irréversible." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Scegli cosa eliminare. Operazione irreversibile." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "削除する対象を選んでください。元に戻せません。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "삭제할 항목을 선택해 주세요. 되돌릴 수 없어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Escolha o que deseja apagar. Não pode ser desfeito." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请选择要删除的内容。无法撤销。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請選擇要刪除的內容。無法復原。" } }
+      }
+    },
+    "Dark suits city neon at night. Light brings natural daylight tones; the map switches with the theme. Choose System to follow your iOS appearance." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dark passt zu nächtlichem Stadt-Neon, Light bringt natürliche Tageslichttöne, und die Karte folgt dem Thema. Wähle System, um dem iOS-Erscheinungsbild zu folgen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Dark se adapta al neón nocturno; Light aporta tonos de luz natural y el mapa cambia con el tema. Elige System para seguir la apariencia de iOS." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le mode Dark va avec les néons urbains la nuit ; Light apporte des tons de lumière naturelle et la carte suit le thème. Choisissez System pour suivre l'apparence d'iOS." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Dark si adatta al neon notturno della città; Light porta tonalità di luce naturale e la mappa segue il tema. Scegli System per seguire l'aspetto di iOS." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Dark は夜のシティネオンに、Light は昼の自然光に合います。マップもテーマに連動します。System を選ぶと iOS の外観設定に追従します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Dark는 야간 네온 분위기에, Light는 자연광 톤에 어울리며 지도도 테마에 따라 바뀌어요. System을 선택하면 iOS 외관 설정을 따릅니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Dark combina com o neon noturno da cidade; Light traz tons de luz natural e o mapa muda junto com o tema. Escolha System para acompanhar a aparência do iOS." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Dark 适合夜晚的霓虹氛围；Light 呈现自然日光色调，地图也会随主题切换。选择 System 即跟随 iOS 外观设置。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Dark 適合夜晚的霓虹氛圍；Light 呈現自然日光色調，地圖會隨主題切換。選擇 System 將跟隨 iOS 外觀設定。" } }
+      }
+    },
+    "Deletes all registered results (times, routes). Race entries are kept." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löscht alle registrierten Ergebnisse (Zeiten, Strecken). Renn-Einträge bleiben erhalten." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elimina todos los resultados registrados (tiempos, rutas). Las carreras se conservan." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprime tous les résultats enregistrés (temps, parcours). Les courses sont conservées." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Elimina tutti i risultati registrati (tempi, percorsi). Le gare vengono conservate." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "登録済みの結果（タイム・ルート）をすべて削除します。レース情報は保持されます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "등록된 모든 결과(기록·경로)를 삭제해요. 레이스 항목은 유지됩니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apaga todos os resultados registrados (tempos, rotas). As corridas são mantidas." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除所有已记录的成绩（用时、路线）。赛事条目保留。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "刪除所有已記錄的成績（用時、路線）。賽事條目會保留。" } }
+      }
+    },
+    "Deletes all saved pace plans." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löscht alle gespeicherten Pace-Pläne." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elimina todos los planes de ritmo guardados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprime tous les plans d'allure enregistrés." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Elimina tutti i piani di ritmo salvati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "保存済みのペースプランをすべて削除します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "저장된 페이스 플랜을 모두 삭제해요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apaga todos os planos de ritmo salvos." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除所有已保存的配速方案。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "刪除所有已儲存的配速計畫。" } }
+      }
+    },
+    "Deletes everything (races, results, pace plans). Cannot be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löscht alles (Rennen, Ergebnisse, Pace-Pläne). Kann nicht rückgängig gemacht werden." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elimina todo (carreras, resultados, planes de ritmo). No se puede deshacer." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprime tout (courses, résultats, plans d'allure). Action irréversible." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Elimina tutto (gare, risultati, piani di ritmo). Operazione irreversibile." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべて（レース・結果・ペースプラン）を削除します。元に戻せません。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "모든 데이터(레이스·결과·페이스 플랜)를 삭제해요. 되돌릴 수 없어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apaga tudo (corridas, resultados, planos de ritmo). Não pode ser desfeito." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除所有内容（赛事、成绩、配速方案）。无法撤销。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "刪除所有內容（賽事、成績、配速計畫）。無法復原。" } }
+      }
+    },
+    "Deletes race entries and all linked results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löscht Renn-Einträge und alle verknüpften Ergebnisse." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elimina las carreras y todos sus resultados asociados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprime les courses et tous leurs résultats associés." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Elimina le gare e tutti i risultati collegati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レース情報と紐づく結果をすべて削除します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "레이스 항목과 연결된 모든 결과를 삭제해요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apaga as corridas e todos os resultados vinculados." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除赛事条目及其全部关联成绩。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "刪除賽事條目及其所有關聯成績。" } }
+      }
+    },
+    "Failed to render image" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bild konnte nicht erstellt werden" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudo generar la imagen" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Échec du rendu de l'image" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impossibile generare l'immagine" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "画像の生成に失敗しました" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지 생성에 실패했어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Falha ao gerar a imagem" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图片生成失败" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "影像產生失敗" } }
+      }
+    },
+    "Free is limited to %lld races and %lld total results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Die kostenlose Version ist auf %lld Rennen und insgesamt %lld Ergebnisse begrenzt." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La versión gratuita está limitada a %lld carreras y %lld resultados en total." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "La version gratuite est limitée à %lld courses et %lld résultats au total." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "La versione gratuita è limitata a %lld gare e %lld risultati totali." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "無料プランでは最大 %lld 件のレースと累計 %lld 件の結果まで利用できます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "무료 플랜은 최대 %lld 개의 레이스와 누적 %lld 개의 결과까지만 사용할 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "A versão gratuita está limitada a %lld corridas e %lld resultados no total." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "免费版最多支持 %lld 场赛事和共计 %lld 项成绩。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "免費版最多支援 %lld 場賽事和共計 %lld 筆成績。" } }
+      }
+    },
+    "Generating…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wird erstellt…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Generando…" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Génération…" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Generazione in corso…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "生成中…" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "생성 중…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Gerando…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成中…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "產生中…" } }
+      }
+    },
+    "Generation returned an empty response" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Die Generierung hat eine leere Antwort zurückgegeben" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La generación devolvió una respuesta vacía" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "La génération a renvoyé une réponse vide" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "La generazione ha restituito una risposta vuota" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "生成結果が空でした" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "생성 결과가 비어 있어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "A geração retornou uma resposta vazia" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成返回了空响应" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "生成傳回空白回應" } }
+      }
+    },
+    "Generative model is not ready yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Das generative Modell ist noch nicht bereit" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "El modelo generativo aún no está listo" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le modèle génératif n'est pas encore prêt" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Il modello generativo non è ancora pronto" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "生成モデルの準備ができていません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "생성 모델이 아직 준비되지 않았어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "O modelo generativo ainda não está pronto" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成模型尚未就绪" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "生成模型尚未就緒" } }
+      }
+    },
+    "Get a coach-style reflection on this race, generated on-device by Apple Intelligence." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erhalte eine Trainer-artige Reflexion zu diesem Rennen, von Apple Intelligence direkt auf dem Gerät erstellt." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Obtén una reflexión estilo entrenador sobre esta carrera, generada en el dispositivo por Apple Intelligence." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Obtenez une analyse façon coach de cette course, générée sur l'appareil par Apple Intelligence." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Ottieni una riflessione in stile coach su questa gara, generata sul dispositivo da Apple Intelligence." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このレースについて、コーチ風の振り返りを Apple Intelligence がデバイス上で生成します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 레이스에 대한 코치 스타일의 회고를 Apple Intelligence가 기기 내에서 생성해요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Receba uma reflexão estilo treinador sobre esta corrida, gerada no dispositivo pelo Apple Intelligence." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "由 Apple Intelligence 在设备端生成本场赛事的教练式赛后回顾。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "由 Apple Intelligence 在裝置端產生本場賽事的教練式賽後回顧。" } }
+      }
+    },
+    "If iCloud sync is enabled, deletions also propagate to all linked devices." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wenn iCloud-Sync aktiviert ist, werden Löschungen auch auf allen verknüpften Geräten angewendet." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Si iCloud está activado, las eliminaciones también se aplican a todos los dispositivos enlazados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Si la synchronisation iCloud est activée, les suppressions se propagent à tous les appareils liés." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Se la sincronizzazione iCloud è attiva, le eliminazioni vengono propagate a tutti i dispositivi collegati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "iCloud 同期が有効な場合、削除はすべての連携デバイスにも反映されます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "iCloud 동기화가 켜져 있으면 삭제는 연결된 모든 기기에 반영돼요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Com a sincronização do iCloud ativada, as exclusões também são propagadas para todos os dispositivos vinculados." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "若已启用 iCloud 同步，删除操作会同步到所有关联设备。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "若已啟用 iCloud 同步，刪除動作會同步到所有關聯裝置。" } }
+      }
+    },
+    "Image export is iOS only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bildexport ist nur unter iOS verfügbar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La exportación de imagen solo está disponible en iOS" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "L'export d'image est uniquement disponible sur iOS" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "L'esportazione dell'immagine è disponibile solo su iOS" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "画像書き出しは iOS のみ対応です" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지 내보내기는 iOS에서만 지원돼요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "A exportação de imagem só está disponível no iOS" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图片导出仅在 iOS 上可用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "影像匯出僅支援 iOS" } }
+      }
+    },
+    "Import TCX / GPX / FIT / ZIP from the Map tab to see your stats here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Importiere TCX / GPX / FIT / ZIP über den Map-Tab, um deine Statistiken hier zu sehen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Importa TCX / GPX / FIT / ZIP desde la pestaña Map para ver tus estadísticas aquí." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Importez TCX / GPX / FIT / ZIP depuis l'onglet Map pour voir vos statistiques ici." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Importa TCX / GPX / FIT / ZIP dalla scheda Map per vedere qui le tue statistiche." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Map タブから TCX / GPX / FIT / ZIP を読み込むと、ここに統計が表示されます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Map 탭에서 TCX / GPX / FIT / ZIP을 가져오면 통계가 여기 나와요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Importe TCX / GPX / FIT / ZIP na aba Map para ver suas estatísticas aqui." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 Map 标签页导入 TCX / GPX / FIT / ZIP，统计数据将显示在这里。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "在 Map 標籤頁匯入 TCX / GPX / FIT / ZIP，統計資料就會在這裡顯示。" } }
+      }
+    },
+    "Loading price..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Preis wird geladen…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cargando precio…" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Chargement du prix…" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Caricamento prezzo…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "価格を読み込み中…" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "가격을 불러오는 중…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Carregando preço…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在加载价格…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在載入價格…" } }
+      }
+    },
+    "Loading workouts..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Trainings werden geladen…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cargando entrenamientos…" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Chargement des séances…" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Caricamento allenamenti…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ワークアウトを読み込み中…" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "운동을 불러오는 중…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Carregando treinos…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在加载训练记录…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在載入訓練紀錄…" } }
+      }
+    },
+    "Map (iOS only)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Karte (nur iOS)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mapa (solo iOS)" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Carte (iOS uniquement)" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Mappa (solo iOS)" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "マップ (iOS のみ)" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "지도 (iOS 전용)" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Mapa (somente iOS)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "地图（仅 iOS）" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "地圖（僅 iOS）" } }
+      }
+    },
+    "No Data Yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Noch keine Daten" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay datos" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Pas encore de données" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Nessun dato ancora" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "データがまだありません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "아직 데이터가 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ainda não há dados" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无数据" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "尚無資料" } }
+      }
+    },
+    "No Matching Data" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine passenden Daten" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay datos coincidentes" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune donnée correspondante" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Nessun dato corrispondente" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "該当するデータがありません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "일치하는 데이터가 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Nenhum dado correspondente" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有匹配的数据" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "找不到符合的資料" } }
+      }
+    },
+    "No results in the selected category. Pick \"All\" or another category." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine Ergebnisse in der ausgewählten Kategorie. Wähle „All\" oder eine andere Kategorie." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay resultados en la categoría seleccionada. Elige \"All\" u otra categoría." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun résultat dans la catégorie sélectionnée. Choisissez « All » ou une autre catégorie." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Nessun risultato nella categoria selezionata. Scegli \"All\" o un'altra categoria." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "選択中のカテゴリに該当する結果はありません。「All」または別のカテゴリを選んでください。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "선택한 카테고리에 해당하는 결과가 없어요. \"All\" 또는 다른 카테고리를 선택해 보세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não há resultados na categoria selecionada. Escolha \"All\" ou outra categoria." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前类别下没有成绩。请选择 \"All\" 或其他类别。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "目前類別下沒有成績。請選擇「All」或其他類別。" } }
+      }
+    },
+    "No results yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Noch keine Ergebnisse" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay resultados" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun résultat pour le moment" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Nessun risultato ancora" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "まだ結果がありません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "아직 결과가 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ainda não há resultados" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还没有成绩" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "還沒有成績" } }
+      }
+    },
+    "Optional support — no extra features" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Freiwillige Unterstützung – keine Zusatzfunktionen" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Apoyo opcional, sin funciones extra" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Soutien facultatif — sans fonctionnalités supplémentaires" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Supporto opzionale — nessuna funzione extra" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "任意の応援 ― 追加機能はありません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "선택적 후원 — 추가 기능은 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apoio opcional — sem recursos adicionais" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自愿支持——不附加额外功能" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "自願支持——不附加額外功能" } }
+      }
+    },
+    "Pick 2+ Results" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "2 oder mehr Ergebnisse auswählen" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige 2 o más resultados" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez 2 résultats ou plus" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Seleziona 2 o più risultati" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "2 件以上の結果を選択" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "2개 이상의 결과를 선택해 주세요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Escolha 2 ou mais resultados" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 2 项及以上成绩" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選擇 2 筆以上的成績" } }
+      }
+    },
+    "Plot the GPS track on the card" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "GPS-Track auf der Karte einzeichnen" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Dibuja la traza GPS en la tarjeta" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tracer la trace GPS sur la carte" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Traccia il percorso GPS sulla card" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "カードに GPS トラックを描画します" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "카드에 GPS 경로를 그려요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Desenha o trajeto GPS no cartão" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在卡片上绘制 GPS 轨迹" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "在卡片上繪製 GPS 軌跡" } }
+      }
+    },
+    "Premium Feature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Premium-Funktion" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Función Premium" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fonction Premium" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Funzione Premium" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プレミアム機能" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "프리미엄 기능" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Recurso Premium" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "高级功能" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "進階功能" } }
+      }
+    },
+    "Race entry only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nur Renn-Eintrag" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Solo la carrera" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Course uniquement" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Solo voce gara" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レース情報のみ" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "레이스 항목만" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Somente a corrida" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅赛事条目" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "僅賽事條目" } }
+      }
+    },
+    "Records stay on this device only. Fastest, most private." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aufzeichnungen bleiben nur auf diesem Gerät. Am schnellsten, am privatesten." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Los datos se quedan solo en este dispositivo. Lo más rápido y privado." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Les enregistrements restent uniquement sur cet appareil. Plus rapide et plus privé." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "I dati restano solo su questo dispositivo. Più veloce e più privato." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "記録はこのデバイス内にのみ保存されます。最速で最もプライベート。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록은 이 기기에만 저장돼요. 가장 빠르고 가장 비공개적이에요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Os registros ficam apenas neste dispositivo. Mais rápido e mais privado." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "记录仅保存在本机。速度最快，隐私最佳。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "紀錄僅保存在本機。速度最快，隱私最佳。" } }
+      }
+    },
+    "Records sync across your iPhone, iPad and Mac via iCloud (same Apple ID)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aufzeichnungen werden zwischen deinem iPhone, iPad und Mac über iCloud synchronisiert (gleiche Apple-ID)." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Los datos se sincronizan entre tu iPhone, iPad y Mac a través de iCloud (mismo Apple ID)." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Les enregistrements se synchronisent entre votre iPhone, iPad et Mac via iCloud (même identifiant Apple)." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "I dati si sincronizzano tra iPhone, iPad e Mac tramite iCloud (stesso Apple ID)." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "同じ Apple ID を使う iPhone・iPad・Mac の間で iCloud 経由で同期します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "같은 Apple ID를 쓰는 iPhone·iPad·Mac에서 iCloud로 기록이 동기화돼요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Os registros são sincronizados entre seu iPhone, iPad e Mac via iCloud (mesmo Apple ID)." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "通过 iCloud 在使用同一 Apple ID 的 iPhone、iPad 和 Mac 之间同步记录。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "透過 iCloud 在使用同一 Apple ID 的 iPhone、iPad 與 Mac 之間同步紀錄。" } }
+      }
+    },
+    "Reset to app defaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Auf App-Standard zurücksetzen" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Restablecer valores predeterminados" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réinitialiser aux valeurs par défaut" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Ripristina i valori predefiniti" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アプリの初期値に戻す" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "앱 기본값으로 재설정" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Restaurar padrões do app" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重置为应用默认值" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "重置為 App 預設值" } }
+      }
+    },
+    "Save a frequently-used distance to recall it via the Custom button across pace tools." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Speichere eine häufig genutzte Distanz und rufe sie über die Custom-Taste in allen Pace-Tools wieder ab." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guarda una distancia frecuente para usarla con el botón Custom en las herramientas de ritmo." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Enregistrez une distance fréquente pour la rappeler via le bouton Custom dans tous les outils d'allure." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Salva una distanza usata di frequente e richiamala con il pulsante Custom in tutti gli strumenti di ritmo." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "よく使う距離を保存して、各ペースツールの Custom ボタンから呼び出せます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "자주 쓰는 거리를 저장해 각 페이스 도구의 Custom 버튼에서 불러올 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Salve uma distância usada com frequência para acessá-la pelo botão Custom nas ferramentas de ritmo." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存常用距离，在各配速工具中通过 Custom 按钮快速调用。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "儲存常用距離，可在各配速工具中透過 Custom 按鈕快速取用。" } }
+      }
+    },
+    "Save brochures, route maps, and event-day shots — synced via iCloud." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Speichere Broschüren, Streckenkarten und Fotos vom Renntag – synchronisiert über iCloud." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guarda folletos, mapas de ruta y fotos del día — sincronizado vía iCloud." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Enregistrez brochures, plans de parcours et photos du jour J — synchronisés via iCloud." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Salva brochure, mappe di percorso e foto del giorno gara — sincronizzate via iCloud." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "パンフレット・コースマップ・当日の写真を保存。iCloud で同期できます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "팸플릿·코스 지도·당일 사진을 저장하고 iCloud로 동기화돼요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Salve folhetos, mapas de percurso e fotos do dia — sincronizados via iCloud." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存赛事手册、路线图与当日照片，通过 iCloud 同步。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "儲存賽事手冊、路線圖與當日照片，透過 iCloud 同步。" } }
+      }
+    },
+    "Set a goal time or pace to see split table here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Lege eine Zielzeit oder einen Pace fest, um hier die Splittabelle zu sehen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Define un tiempo objetivo o un ritmo para ver la tabla de parciales aquí." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Définissez un objectif de temps ou d'allure pour voir le tableau des splits ici." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Imposta un tempo o un ritmo obiettivo per vedere qui la tabella degli split." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ゴールタイムまたはペースを設定すると、ここにスプリット表が表示されます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "목표 시간이나 페이스를 설정하면 스플릿 표가 여기 나와요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Defina um tempo ou ritmo alvo para ver a tabela de parciais aqui." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置目标时间或配速后，分段表将显示在这里。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "設定目標時間或配速後，分段表將顯示在這裡。" } }
+      }
+    },
+    "Sign in to iCloud in Settings to enable sync." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Melde dich in den Einstellungen bei iCloud an, um die Synchronisierung zu aktivieren." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Inicia sesión en iCloud desde Ajustes para habilitar la sincronización." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connectez-vous à iCloud dans Réglages pour activer la synchronisation." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Accedi a iCloud dalle Impostazioni per attivare la sincronizzazione." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "同期するには、設定で iCloud にサインインしてください。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "동기화를 사용하려면 설정에서 iCloud에 로그인하세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Entre no iCloud em Ajustes para ativar a sincronização." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请在系统设置中登录 iCloud 以启用同步。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請在系統設定中登入 iCloud 以啟用同步。" } }
+      }
+    },
+    "Tap a row for details and charts. Open \"Year-over-Year\" below to overlay multiple results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tippe auf eine Zeile für Details und Diagramme. Öffne unten „Year-over-Year\", um mehrere Ergebnisse zu überlagern." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Toca una fila para ver detalles y gráficos. Abre \"Year-over-Year\" abajo para superponer varios resultados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Touchez une ligne pour les détails et les graphiques. Ouvrez « Year-over-Year » ci-dessous pour superposer plusieurs résultats." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tocca una riga per dettagli e grafici. Apri \"Year-over-Year\" qui sotto per sovrapporre più risultati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "行をタップで詳細とチャートを表示。下の「Year-over-Year」を開くと複数の結果を重ねられます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "행을 탭하면 상세와 차트가 나와요. 아래의 \"Year-over-Year\"를 열면 여러 결과를 겹쳐 볼 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Toque em uma linha para ver detalhes e gráficos. Abra \"Year-over-Year\" abaixo para sobrepor vários resultados." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "点按行查看详情和图表。展开下方的 \"Year-over-Year\" 可叠加多场成绩比较。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "點按列查看詳情與圖表。展開下方的「Year-over-Year」可疊加多筆成績比較。" } }
+      }
+    },
+    "Tap a row to load, swipe to delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tippe zum Laden, wische zum Löschen" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Toca una fila para cargar, desliza para eliminar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Touchez une ligne pour charger, balayez pour supprimer" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tocca una riga per caricare, scorri per eliminare" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "行をタップで読み込み、スワイプで削除" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "행을 탭하면 불러오고, 스와이프하면 삭제돼요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Toque em uma linha para carregar, deslize para apagar" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "点按行加载，滑动删除" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "點按列載入，滑動刪除" } }
+      }
+    },
+    "Tap the slider button to pick 2 to 4 results from the same category." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tippe auf die Slider-Schaltfläche, um 2 bis 4 Ergebnisse aus derselben Kategorie auszuwählen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Toca el botón del control deslizante para elegir entre 2 y 4 resultados de la misma categoría." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Touchez le bouton curseur pour choisir 2 à 4 résultats de la même catégorie." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tocca il pulsante slider per scegliere da 2 a 4 risultati della stessa categoria." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "スライダーボタンをタップして、同じカテゴリから 2〜4 件の結果を選択してください。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "슬라이더 버튼을 탭해 같은 카테고리에서 2~4개의 결과를 선택해 주세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Toque no botão do controle deslizante para escolher de 2 a 4 resultados da mesma categoria." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "点按滑块按钮，从同一类别中选择 2 到 4 项成绩。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "點按滑桿按鈕，從同一類別中選擇 2 到 4 筆成績。" } }
+      }
+    },
+    "This cannot be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kann nicht rückgängig gemacht werden." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se puede deshacer." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Action irréversible." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Operazione irreversibile." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "元に戻せません。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "되돌릴 수 없어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não pode ser desfeito." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法撤销。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法復原。" } }
+      }
+    },
+    "This will permanently delete the race and %lld linked result(s)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Dieses Rennen und %lld verknüpftes Ergebnis werden endgültig gelöscht." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Dieses Rennen und %lld verknüpfte Ergebnisse werden endgültig gelöscht." } }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "This will permanently delete the race and %lld linked result." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "This will permanently delete the race and %lld linked results." } }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Esto eliminará permanentemente la carrera y %lld resultado vinculado." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Esto eliminará permanentemente la carrera y %lld resultados vinculados." } }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Cela supprimera définitivement la course et %lld résultat lié." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Cela supprimera définitivement la course et %lld résultats liés." } }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Questo eliminerà definitivamente la gara e %lld risultato collegato." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Questo eliminerà definitivamente la gara e %lld risultati collegati." } }
+            }
+          }
+        },
+        "ja" : {
+          "variations" : {
+            "plural" : {
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "このレースと紐づく結果 %lld 件を完全に削除します。" } }
+            }
+          }
+        },
+        "ko" : {
+          "variations" : {
+            "plural" : {
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "이 레이스와 연결된 결과 %lld개를 완전히 삭제해요." } }
+            }
+          }
+        },
+        "pt-BR" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Isso apagará permanentemente a corrida e %lld resultado vinculado." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Isso apagará permanentemente a corrida e %lld resultados vinculados." } }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "这将永久删除该赛事及其 %lld 项关联成绩。" } }
+            }
+          }
+        },
+        "zh-Hant" : {
+          "variations" : {
+            "plural" : {
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "這將永久刪除該賽事及其 %lld 項關聯成績。" } }
+            }
+          }
+        }
+      }
+    },
+    "This will permanently delete this race entry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dieser Renn-Eintrag wird endgültig gelöscht." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esto eliminará permanentemente esta carrera." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Cela supprimera définitivement cette course." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Questa gara verrà eliminata definitivamente." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このレース情報を完全に削除します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 레이스 항목을 완전히 삭제해요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Isso apagará permanentemente esta corrida." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "这将永久删除此赛事条目。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "這將永久刪除此賽事條目。" } }
+      }
+    },
+    "This will permanently delete this result, including laps and route." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dieses Ergebnis wird einschließlich Runden und Strecke endgültig gelöscht." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esto eliminará permanentemente este resultado, incluidas vueltas y ruta." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Cela supprimera définitivement ce résultat, y compris les tours et le tracé." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Questo eliminerà definitivamente questo risultato, inclusi giri e percorso." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "この結果を、ラップと経路も含めて完全に削除します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 결과를 랩과 경로를 포함해 완전히 삭제해요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Isso apagará permanentemente este resultado, incluindo voltas e rota." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "这将永久删除此成绩，包括分段和路线。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "這將永久刪除此成績，包含分段與路線。" } }
+      }
+    },
+    "Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nicht verfügbar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No disponible" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Indisponible" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Non disponibile" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "利用できません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "사용할 수 없어요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Indisponível" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不可用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法使用" } }
+      }
+    },
+    "Unlimited races and results, plus PDF / image attachments." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Unbegrenzte Rennen und Ergebnisse plus PDF-/Bild-Anhänge." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Carreras y resultados ilimitados, además de adjuntos PDF / imagen." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Courses et résultats illimités, plus pièces jointes PDF / image." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Gare e risultati illimitati, oltre ad allegati PDF / immagine." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レース・結果が無制限になり、PDF / 画像の添付も使えます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "레이스와 결과를 무제한으로, PDF·이미지 첨부도 사용할 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Corridas e resultados ilimitados, além de anexos em PDF / imagem." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无限赛事与成绩，并支持 PDF / 图片附件。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "賽事與成績無上限，並支援 PDF / 圖片附件。" } }
+      }
+    },
+    "Unlock unlimited races, results, and PDF / image attachments." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Schalte unbegrenzte Rennen, Ergebnisse und PDF-/Bild-Anhänge frei." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desbloquea carreras, resultados y adjuntos PDF / imagen ilimitados." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Débloquez courses, résultats et pièces jointes PDF / image illimités." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Sblocca gare, risultati e allegati PDF / immagine illimitati." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レース・結果・PDF / 画像の添付を無制限に解放します。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "무제한 레이스·결과와 PDF·이미지 첨부를 잠금 해제하세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Desbloqueie corridas, resultados e anexos PDF / imagem ilimitados." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "解锁无限的赛事、成绩与 PDF / 图片附件。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "解鎖無限的賽事、成績與 PDF / 圖片附件。" } }
+      }
+    },
+    "Used for HR Zone analysis (Z1–Z5) on race detail. Set to 0 to hide zone bars." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wird für die HR-Zonenanalyse (Z1–Z5) in den Rennen-Details verwendet. Auf 0 setzen, um die Zonenbalken auszublenden." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Se usa para el análisis de zonas de FC (Z1–Z5) en el detalle de carrera. Pon 0 para ocultar las barras de zona." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Utilisé pour l'analyse des zones FC (Z1–Z5) dans le détail de course. Mettez 0 pour masquer les barres de zone." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Usato per l'analisi delle zone FC (Z1–Z5) nel dettaglio gara. Imposta 0 per nascondere le barre di zona." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レース詳細の HR ゾーン分析 (Z1〜Z5) で使用します。0 にするとゾーンバーは非表示。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "레이스 상세의 HR 존 분석(Z1–Z5)에 사용합니다. 0으로 설정하면 존 바가 숨겨져요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Usado na análise de zonas de FC (Z1–Z5) no detalhe da corrida. Defina 0 para ocultar as barras de zona." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用于赛事详情中的心率区间分析（Z1–Z5）。设为 0 即可隐藏区间条。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "用於賽事詳情的心率區間分析（Z1–Z5）。設為 0 即可隱藏區間條。" } }
+      }
+    },
+    "Use your own image as the race logo, not just a URL." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nutze dein eigenes Bild als Renn-Logo – nicht nur eine URL." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Usa tu propia imagen como logo de carrera, no solo una URL." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Utilisez votre propre image comme logo de course, et pas seulement une URL." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Usa la tua immagine come logo della gara, non solo un URL." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "URL だけでなく、自分の画像をレースのロゴとして使えます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "URL 뿐 아니라 직접 가진 이미지를 레이스 로고로 쓸 수 있어요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Use sua própria imagem como logotipo da corrida, não apenas uma URL." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不只支持 URL，还可使用你自己的图片作为赛事标志。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "不只支援 URL，還可使用你自己的圖片作為賽事標誌。" } }
+      }
+    },
+    "Where should RunJourney save your races and results?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wo soll RunJourney deine Rennen und Ergebnisse speichern?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Dónde debe guardar RunJourney tus carreras y resultados?" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Où RunJourney doit-il enregistrer vos courses et résultats ?" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Dove RunJourney deve salvare gare e risultati?" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "レースと結果の保存先を選んでください。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "RunJourney가 레이스와 결과를 어디에 저장할까요?" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Onde o RunJourney deve salvar suas corridas e resultados?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请选择 RunJourney 保存赛事与成绩的位置。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請選擇 RunJourney 儲存賽事與成績的位置。" } }
+      }
+    },
+    "You can change this later in Settings, but switching does not migrate existing data." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Du kannst dies später in den Einstellungen ändern, aber ein Wechsel überträgt vorhandene Daten nicht." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Puedes cambiarlo más tarde en Ajustes, pero al cambiar no se migran los datos existentes." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vous pourrez le modifier plus tard dans Réglages, mais le changement ne migre pas les données existantes." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Puoi cambiarlo in seguito dalle Impostazioni, ma il passaggio non migra i dati esistenti." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "後から設定で変更できますが、保存先を切り替えても既存データは移行されません。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "나중에 설정에서 변경할 수 있지만, 저장 위치를 바꿔도 기존 데이터는 이전되지 않아요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Você pode mudar isso depois em Ajustes, mas a troca não migra os dados existentes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "可在设置中随时更改，但切换保存位置不会迁移已有数据。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "可在設定中隨時更改，但切換儲存位置不會遷移既有資料。" } }
+      }
+    },
+    "Your support means a lot. Keep on running." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Deine Unterstützung bedeutet viel. Lauf weiter." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tu apoyo significa mucho. Sigue corriendo." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Votre soutien compte énormément. Continuez à courir." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Il tuo supporto è prezioso. Continua a correre." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "応援ありがとうございます。これからもランを楽しんでください。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "응원해 주셔서 감사해요. 앞으로도 즐거운 러닝을!" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Seu apoio significa muito. Continue correndo." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "你的支持非常重要。继续奔跑吧。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "你的支持非常重要。繼續奔跑吧。" } }
+      }
+    }
+  }
+}

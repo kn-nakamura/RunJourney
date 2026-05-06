@@ -66,10 +66,10 @@ struct SettingsView: View {
         }
         var summary: String {
             switch self {
-            case .results: return "Deletes all registered results (times, routes). Race entries are kept."
-            case .races: return "Deletes race entries and all linked results."
-            case .plans: return "Deletes all saved pace plans."
-            case .everything: return "Deletes everything (races, results, pace plans). Cannot be undone."
+            case .results: return String(localized: "Deletes all registered results (times, routes). Race entries are kept.")
+            case .races: return String(localized: "Deletes race entries and all linked results.")
+            case .plans: return String(localized: "Deletes all saved pace plans.")
+            case .everything: return String(localized: "Deletes everything (races, results, pace plans). Cannot be undone.")
             }
         }
     }
