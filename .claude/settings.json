@@ -1,0 +1,10 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "permissions": {
+        "allow": [
+            "Bash(gh run list:*)",
+            "Bash(gh run view:*)",
+            "Bash(gh auth status:*)"
+        ]
+    }
+}
