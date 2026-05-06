@@ -7,10 +7,10 @@ import SwiftUI
 /// Delete を押した時のみ `onDelete()` が呼ばれる。誤操作で削除に至らないことを優先した構造。
 struct DeleteConfirmSheet: View {
     let title: String
-    let message: String
-    let confirmLabel: String
-    let finalAlertTitle: String
-    let finalAlertMessage: String
+    let message: LocalizedStringKey
+    let confirmLabel: LocalizedStringKey
+    let finalAlertTitle: LocalizedStringKey
+    let finalAlertMessage: LocalizedStringKey
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
