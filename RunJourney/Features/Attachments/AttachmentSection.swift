@@ -12,12 +12,14 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
     let owner: Owner
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(PurchaseManager.self) private var purchases
 
     @State private var showFileImporter = false
     @State private var pendingPhotosItem: PhotosPickerItem? = nil
     @State private var editingAttachment: Attachment? = nil
     @State private var errorMessage: String? = nil
     @State private var showPhotosPicker = false
+    @State private var paywallReason: String? = nil
 
     private var sortedAttachments: [Attachment] {
         (owner.attachments ?? []).sorted {
@@ -52,10 +54,11 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
         } header: {
             SectionHeader(title: "Attachments", subtitle: sortedAttachments.isEmpty ? nil : "\(sortedAttachments.count)") {
                 AddAttachmentMenu(
+                    binaryRequiresPremium: PremiumLimits.binaryAttachmentRequiresPremium && !purchases.hasPremium,
                     onAddText: { addAttachment(kind: .text) },
                     onAddLink: { addAttachment(kind: .url) },
-                    onAddPDF:  { showFileImporter = true },
-                    onAddImage: { showPhotosPicker = true }
+                    onAddPDF:  { handleAddPDF() },
+                    onAddImage: { handleAddImage() }
                 )
             }
         } footer: {
@@ -86,6 +89,29 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
                 editingAttachment = nil
             }
         }
+        .sheet(item: Binding<PaywallReason?>(
+            get: { paywallReason.map(PaywallReason.init) },
+            set: { paywallReason = $0?.text }
+        )) { reason in
+            PaywallSheet(reason: reason.text)
+        }
+    }
+
+    /// PDF / Image 添付は Premium 限定。未加入なら paywall を出す。
+    private func handleAddPDF() {
+        if PremiumLimits.binaryAttachmentRequiresPremium && !purchases.hasPremium {
+            paywallReason = "Attach PDFs to your races and results."
+        } else {
+            showFileImporter = true
+        }
+    }
+
+    private func handleAddImage() {
+        if PremiumLimits.binaryAttachmentRequiresPremium && !purchases.hasPremium {
+            paywallReason = "Attach photos to your races and results."
+        } else {
+            showPhotosPicker = true
+        }
     }
 
     // MARK: - Add / Delete
@@ -103,10 +129,7 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
     private func deleteAttachments(at offsets: IndexSet) {
         for index in offsets {
             let attachment = sortedAttachments[index]
-            // ローカルファイル本体も掃除
-            if attachment.relativePath != nil {
-                AttachmentStore.delete(attachment.relativePath)
-            }
+            AttachmentStore.deleteLocalArtifacts(for: attachment)
             modelContext.delete(attachment)
         }
         try? modelContext.save()
@@ -119,16 +142,10 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             do {
-                let attachmentID = UUID()
-                let ingested = try AttachmentStore.ingestPickedFile(
-                    at: url,
-                    ownerID: owner.id,
-                    attachmentID: attachmentID
-                )
+                let ingested = try AttachmentStore.readPickedFile(at: url)
                 let filename = url.deletingPathExtension().lastPathComponent
                 let attachment = Attachment(kind: .pdf, label: filename.isEmpty ? "PDF" : filename)
-                attachment.id = attachmentID
-                attachment.relativePath = ingested.relativePath
+                attachment.binaryData = ingested.data
                 attachment.originalFilename = url.lastPathComponent
                 attachment.byteSize = ingested.byteSize
                 attachment.mimeType = ingested.mimeType
@@ -152,12 +169,11 @@ struct AttachmentSection<Owner: AttachmentOwner>: View {
                 errorMessage = "Could not read picked image."
                 return
             }
-            let attachmentID = UUID()
+            try AttachmentStore.validate(data)
             let ext = item.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
-            let relative = try AttachmentStore.save(data, ownerID: owner.id, attachmentID: attachmentID, ext: ext)
             let attachment = Attachment(kind: .image, label: "Image")
-            attachment.id = attachmentID
-            attachment.relativePath = relative
+            attachment.binaryData = data
+            attachment.originalFilename = "image.\(ext)"
             attachment.byteSize = data.count
             attachment.mimeType = UTType(filenameExtension: ext)?.preferredMIMEType
             attachment.sortOrder = (sortedAttachments.last?.sortOrder ?? -1) + 1

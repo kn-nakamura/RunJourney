@@ -71,10 +71,18 @@ struct AddResultSheet: View {
                 onCompleted: { dismiss() }
             )
             .foregroundStyle(Color.accentPrimary)
+
+            HealthKitImportButton(
+                attachTo: race,
+                iconName: "heart.text.square",
+                labelText: "Import from Apple Health",
+                onCompleted: { dismiss() }
+            )
+            .foregroundStyle(Color.accentPrimary)
         } header: {
             SectionHeader(title: "Import (Optional)")
         } footer: {
-            Text("Upload a workout file to auto-fill date, finish time, laps and GPS track. Otherwise enter the result manually below.")
+            Text("Upload a workout file or pick a recent run from Apple Health to auto-fill date, finish time, laps and GPS track. Otherwise enter the result manually below.")
         }
     }
 

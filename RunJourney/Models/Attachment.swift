@@ -20,7 +20,12 @@ final class Attachment {
     // 種別ごとに片方が埋まる polymorphic payload
     var textValue: String? = nil          // .text
     var urlString: String? = nil          // .url
-    /// .pdf / .image: Documents 起点の相対パス（再インストールに耐える）
+    /// .pdf / .image: バイナリ本体。CloudKit に乗ると 1MB 超は CKAsset として転送される。
+    /// 旧データは `relativePath` 経由の Documents ファイルに本体があり、ここは nil の場合がある。
+    /// 読み出しは `AttachmentStore.fileURL(for:)` を経由すること（旧データはそのままフォールバック）。
+    @Attribute(.externalStorage)
+    var binaryData: Data? = nil
+    /// 旧スキーマ互換: Documents 起点の相対パス。新規保存では使わず `binaryData` のみ書く。
     var relativePath: String? = nil
     var originalFilename: String? = nil   // .pdf / .image
     var mimeType: String? = nil           // .pdf / .image

@@ -18,6 +18,8 @@ struct MapAddFAB: View {
     let races: [Race]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(PurchaseManager.self) private var purchases
+    @Query private var allResults: [RaceResult]
 
     @State private var showActionSheet: Bool = false
     @State private var newRace: Race? = nil
@@ -26,6 +28,7 @@ struct MapAddFAB: View {
     /// 「Add Result → レース選択」のドロワー用。map のピン側とは連動させない
     /// (ローカルなピッカーなので、開く度にリセットされる挙動で良い)。
     @State private var pickerFilters = RaceFilters()
+    @State private var paywallReason: String? = nil
 
     var body: some View {
         Button {
@@ -50,14 +53,10 @@ struct MapAddFAB: View {
         .accessibilityLabel("Add")
         .confirmationDialog("Add", isPresented: $showActionSheet, titleVisibility: .visible) {
             Button("Add Race") {
-                presentNewRace()
+                attemptAddRace()
             }
             Button("Add Result") {
-                if races.isEmpty {
-                    presentNewRace()
-                } else {
-                    showRacePicker = true
-                }
+                attemptAddResult()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -110,6 +109,35 @@ struct MapAddFAB: View {
         }
         .sheet(item: $pickedRace) { race in
             AddResultSheet(race: race)
+        }
+        .sheet(item: Binding<PaywallReason?>(
+            get: { paywallReason.map(PaywallReason.init) },
+            set: { paywallReason = $0?.text }
+        )) { reason in
+            PaywallSheet(reason: reason.text)
+        }
+    }
+
+    /// 無料プランの上限に当たれば paywall、そうでなければ Race Info シートを開く。
+    private func attemptAddRace() {
+        if PremiumLimits.canAddRace(currentCount: races.count, hasPremium: purchases.hasPremium) {
+            presentNewRace()
+        } else {
+            paywallReason = "Free plan supports up to \(PremiumLimits.freeRaceLimit) races. Upgrade to add more."
+        }
+    }
+
+    /// Result 追加は「Race を選ぶ前」と「Race を作って即追加」の 2 経路があるが、どちらも
+    /// 既存 Result 総数が上限に達していたらここで止める。
+    private func attemptAddResult() {
+        guard PremiumLimits.canAddResult(currentCount: allResults.count, hasPremium: purchases.hasPremium) else {
+            paywallReason = "Free plan supports up to \(PremiumLimits.freeResultLimit) total results. Upgrade to add more."
+            return
+        }
+        if races.isEmpty {
+            attemptAddRace()
+        } else {
+            showRacePicker = true
         }
     }
 

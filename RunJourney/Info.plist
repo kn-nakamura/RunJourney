@@ -12,6 +12,10 @@
 	<string>RunJourney uses Photos to attach race brochures, route maps, and event-day photos to your races and results.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RunJourney can include microphone audio when you record the screen (optional).</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>RunJourney reads running workouts (route, distance, finish time, heart rate) from Apple Health so you can attach them to a race result.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>RunJourney does not currently write workouts back to Apple Health.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

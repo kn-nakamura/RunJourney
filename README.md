@@ -11,6 +11,7 @@
 ### 取り込み
 - **TCX / GPX / FIT / ZIP** の4形式に対応した自前パーサ（外部依存ゼロ）
 - ZIP は中の `.fit` を自動展開
+- **Apple Health** からランニングワークアウト (HKWorkout) を直接取り込み可能（ルート / 心拍 / ラップ）
 - 取り込み確認シートで「新しい大会として作成」「既存の大会に結果を追加」を選択可能
 - 開始地点が近い既存大会は自動で「近場」として優先表示
 
@@ -59,7 +60,8 @@
 ### 設定
 - 登録データの件数表示
 - データ削除（結果のみ / 大会と結果 / プランのみ / すべて）
-- iCloud 同期ステータス（MVPはローカル）
+- 保存先切替（On This Device / iCloud Sync）
+- iCloud Sync 選択時は CloudKit アカウントの状態を表示（Sync Active / Not Signed In / Restricted など）
 - アプリ情報・GitHub リンク
 
 ## 技術スタック
@@ -68,7 +70,7 @@
 |---|---|
 | UI | SwiftUI（iPhone/iPad/Macマルチプラットフォーム1ターゲット） |
 | 最低OS | iOS 26.4 / iPadOS 26.4 / macOS 26.4 |
-| データ | SwiftData (CloudKit対応設計、現状ローカル) |
+| データ | SwiftData + CloudKit private DB ミラーリング (オプトイン) |
 | 地図 | MapKit (Map, MapPolyline, MapCamera) |
 | チャート | Swift Charts (BarMark / LineMark / AreaMark / SectorMark) |
 | GPX/TCX | 標準 XMLParser |
@@ -130,10 +132,102 @@ RunJourney/
 
 ## 既知の制約
 
-- **CloudKit 同期はオフ**: Personal Team では Container Dashboard 使用不可。
-  Apple Developer Program 加入時に `ModelConfiguration(cloudKitDatabase: .private)` へ切替で有効化。
 - **画面録画は iOS 実機推奨**: シミュレータでは `RPScreenRecorder.isAvailable == false` のことが多い。
 - **フライスルーのカメラ追従**: 高速時にランナーが画面から見切れることがある（Phase 5 polish 予定）。
+- **PhotoAsset 添付**: `PHAsset.localIdentifier` はデバイスローカルなので CloudKit 越しに別端末で解決できない。Photos Library から選んだ画像は端末をまたぐ表示はできない（PDF / Photo Picker 画像など `binaryData` を持つ添付は同期される）。
+
+## アプリ内課金 (StoreKit 2)
+
+### 商品構成
+| Product ID | 種別 | 用途 |
+|---|---|---|
+| `runjourney.premium` | Non-Consumable | Premium 機能 (無制限の Race / Result、PDF / 画像添付、ロゴ画像) |
+| `runjourney.tip.small` | Consumable | Tip Jar (小) |
+| `runjourney.tip.medium` | Consumable | Tip Jar (中) |
+| `runjourney.tip.large` | Consumable | Tip Jar (大) |
+
+### 無料プランの上限
+- 大会 (Race) 5 件まで
+- 結果 (RaceResult) 合計 20 件まで
+- 添付はノート / リンクのみ（PDF・画像は Premium）
+- 大会ロゴは URL のみ（画像アップロードは Premium）
+
+上限を超えた状態で「+」をタップすると `PaywallSheet` が開き、Premium 一括購入と Tip Jar
+の支援動線が表示される。Premium はデバイス間で `AppStore.sync()` 経由で復元できる。
+
+### Apple Developer Portal / App Store Connect 作業
+1. App Store Connect で本アプリの「アプリ内課金」セクションに 4 つの Product を登録
+   - Product ID は上表どおり。type はそれぞれ Non-Consumable / Consumable
+   - 価格と各国向けローカライズ表記 (英/日) は `RunJourney/Resources/StoreKitConfiguration.storekit`
+     を参照
+2. Sandbox テスト用の Apple ID をデバイスに追加（App Store Connect → Users and Access → Sandbox Testers）
+3. 実機で `Settings → App Store → Sandbox Account` を切替して動作確認
+
+### Xcode 上のローカルテスト
+バンドルされている `RunJourney/Resources/StoreKitConfiguration.storekit` を Scheme で
+有効化すると、Sandbox テスタ無しでも購入動作の検証ができる。
+
+1. Xcode の Scheme editor (`Product → Scheme → Edit Scheme`) を開く
+2. `Run → Options` タブ → **StoreKit Configuration** ドロップダウン →
+   `StoreKitConfiguration.storekit` を選択
+3. 実行すると `PurchaseManager` が同 ファイルから商品を読み込み、Premium 購入や
+   Tip Jar 購入をシミュレート可能になる
+
+### コード構造
+- `Services/PurchaseManager.swift` — StoreKit 2 を `@Observable` でラップ。`hasPremium` と
+  `tipCount` を公開、`Transaction.updates` を購読
+- `Services/PremiumLimits.swift` — 無料上限とフィーチャーフラグ
+- `Features/Paywall/PaywallSheet.swift` — Premium + Tip Jar の購入シート
+
+## HealthKit
+
+Apple Health に保存されているランニングワークアウト (HKWorkout) を読み込み、既存の
+ファイル取り込みと同じパイプライン (`ParsedActivity` → `ActivityImporter`) で
+RaceResult として保存できる。
+
+`Services/HealthKitWorkoutFetcher.swift` が以下を取得する:
+- HKWorkout 本体（startDate / endDate / duration / totalDistance）
+- HKWorkoutRoute（GPS 座標の時系列）
+- 心拍 (HKQuantityType .heartRate)
+- ラップは workout の `.lap` イベントを優先、無ければ 1km ごとに自動分割
+
+UI 入口は `AddResultSheet` の "Import (Optional)" セクション → "Import from Apple Health"。
+
+### 必要な portal 作業
+1. Apple Developer Portal の App ID で **HealthKit** capability を ON
+2. 端末側で初回タップ時に権限ダイアログが表示される（`NSHealthShareUsageDescription` を表示）
+3. 後から権限を再付与/取り消ししたい場合は iOS Settings → Health → Data Access & Devices → RunJourney
+
+## WeatherKit
+
+レース詳細の Weather セクションでは Apple WeatherKit を最優先、失敗時は
+Open-Meteo Archive にフォールバックする (`Services/WeatherFetcher.swift`)。
+
+### 必要な portal 作業
+1. Apple Developer Portal の App ID で **WeatherKit** capability を ON
+2. 月 50 万コール無料枠以内で運用
+3. シミュレータでは entitlement が無いと毎回失敗 → Open-Meteo にフォールバックする想定
+
+実機の場合、entitlement とコードは揃っているので Apple Developer Program に
+加入して App ID を更新すれば即座に WeatherKit が優先される。
+
+## iCloud / CloudKit 同期
+
+オンボーディング時 or Settings → Storage で `iCloud Sync` を選ぶと SwiftData が
+CloudKit private DB をミラーリングする。
+
+### 同期される内容
+- `Race` / `RaceResult` / `PacePlan` 各レコード
+- `Attachment` のバイナリ (PDF / 画像) — `binaryData` プロパティで保存し、
+  1MB 超は CloudKit が自動的に CKAsset として転送する
+- `Race.logoData` (大会ロゴ画像)
+
+### 必要な portal 作業（Apple Developer Program 加入後）
+1. [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers/list) で
+   iCloud Container `iCloud.com.kn-nakamura.RunJourney` を作成
+2. App ID の Capabilities で iCloud (CloudKit) を有効化し、上記コンテナを紐付け
+3. 初回実機起動後、CloudKit Console でスキーマを Development → Production に deploy
+4. (任意) 別端末で動作確認
 
 ## ライセンス
 

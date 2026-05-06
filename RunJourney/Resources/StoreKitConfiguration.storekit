@@ -1,0 +1,100 @@
+{
+  "identifier" : "RunJourneyStoreKit",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "RunJourneyPremium001",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited races and results, plus PDF and image attachments.",
+          "displayName" : "RunJourney Premium",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "登録できる大会・結果を無制限にし、PDF や画像の添付を解放します。",
+          "displayName" : "RunJourney Premium",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "runjourney.premium",
+      "referenceName" : "RunJourney Premium",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "RunJourneyTipSmall",
+      "localizations" : [
+        {
+          "description" : "A small thank you to support development.",
+          "displayName" : "Small Tip",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "開発を応援する小さなチップ。",
+          "displayName" : "ささやかなチップ",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "runjourney.tip.small",
+      "referenceName" : "Small Tip",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "RunJourneyTipMedium",
+      "localizations" : [
+        {
+          "description" : "A medium thank you to support development.",
+          "displayName" : "Medium Tip",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "開発を応援する中サイズのチップ。",
+          "displayName" : "ふつうのチップ",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "runjourney.tip.medium",
+      "referenceName" : "Medium Tip",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "11.99",
+      "familyShareable" : false,
+      "internalID" : "RunJourneyTipLarge",
+      "localizations" : [
+        {
+          "description" : "A generous thank you to support development.",
+          "displayName" : "Large Tip",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "開発を応援する大きなチップ。",
+          "displayName" : "気前のいいチップ",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "runjourney.tip.large",
+      "referenceName" : "Large Tip",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

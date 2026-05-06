@@ -3,9 +3,10 @@ import SwiftData
 
 /// Race Logo を URL で指定するための入力フィールド。
 ///
-/// `RaceLogoStore.url(for:)` は http(s) スキームを passthrough するので、
+/// `RaceLogoStore.fileURL(for:)` は http(s) スキームを passthrough するので、
 /// ここでは `race.logoURL` に URL 文字列を直接書き込むだけで良い。
-/// PhotosPicker で選んだローカル画像があった場合は、保存ファイルを掃除してから上書きする。
+/// 旧データのローカル画像 / 新データの `logoData` バイナリがあった場合は、
+/// commit 時に掃除してから URL を上書きする。
 struct RaceLogoUrlField: View {
     @Bindable var race: Race
 
@@ -62,10 +63,9 @@ struct RaceLogoUrlField: View {
         let trimmed = draft.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         guard canCommit else { return }
-        // ローカルファイルがあれば一旦消してから URL を採用
-        if let existing = race.logoURL, !existing.hasPrefix("http") {
-            RaceLogoStore.delete(existing)
-        }
+        // ローカルファイル / バイナリ / tmp キャッシュがあれば掃除してから URL を採用
+        RaceLogoStore.deleteLocalArtifacts(for: race)
+        race.logoData = nil
         race.logoURL = trimmed
     }
 }
