@@ -112,43 +112,21 @@ struct RaceListMapView: UIViewRepresentable {
         // upperHalf=true のときは bottom 余白をマップ高さの半分にして、ピンを
         // 画面上半分の中央へ寄せる (ピンタップ後のシートに隠れない位置に置く)。
         // それ以外は四方均等パディングで通常フィット。
+        //
+        // アニメーションは `CameraFlyAnimator` で自前駆動する。MKMapView 標準の
+        // `setVisibleMapRect(animated: true)` は内部独自のタイミングカーブで動き、
+        // CATransaction の timing function を一切尊重しないため、終端で滑らかに減速
+        // させたい場合は CADisplayLink で frame 単位に補間するしかない。
         if let region = requestedRegion {
             let mapRect = Self.makeMapRect(region: region)
             let bottom: CGFloat = requestedRegionUpperHalf
                 ? max(mapView.bounds.height / 2, 32)
                 : 32
             let padding = UIEdgeInsets(top: 32, left: 32, bottom: bottom, right: 32)
-            if requestedRegionUpperHalf {
-                // ピンへの近接ズーム (fitRace) のときだけ MapKit 既定のカーブを上書きし、
-                // sin カーブ (easeInOutSine 近似 cubic-bezier(0.445, 0.05, 0.55, 0.95))
-                // で動かす。CATransaction の timing function は MKMapView 内部の
-                // CoreAnimation にも伝播するため、UIView.animate の curve オプションは外す。
-                // duration は現在 center と target の地理距離 (m) を log10 スケールで
-                // 0.6〜2.0 秒にマップ。近距離はキビキビ、遠距離はゆっくり遷移させる。
-                let fromCenter = mapView.region.center
-                let toCenter = region.center
-                let meters = CLLocation(latitude: fromCenter.latitude, longitude: fromCenter.longitude)
-                    .distance(from: CLLocation(latitude: toCenter.latitude, longitude: toCenter.longitude))
-                let duration = min(max(0.6 + 0.35 * log10(max(meters, 100) / 100), 0.6), 2.0)
-
-                CATransaction.begin()
-                CATransaction.setAnimationDuration(duration)
-                CATransaction.setAnimationTimingFunction(
-                    CAMediaTimingFunction(controlPoints: 0.445, 0.05, 0.55, 0.95)
-                )
-                UIView.animate(
-                    withDuration: duration,
-                    delay: 0,
-                    options: [.beginFromCurrentState],
-                    animations: {
-                        mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
-                    },
-                    completion: nil
-                )
-                CATransaction.commit()
-            } else {
-                mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
-            }
+            // edgePadding を反映した最終可視 rect を先に確定して、それを終点として
+            // CADisplayLink で補間する。intermediate frame では padding 計算を挟まない。
+            let targetRect = mapView.mapRectThatFits(mapRect, edgePadding: padding)
+            context.coordinator.cameraAnimator.animate(mapView: mapView, to: targetRect)
             DispatchQueue.main.async {
                 self.requestedRegion = nil
             }
@@ -206,6 +184,9 @@ struct RaceListMapView: UIViewRepresentable {
         var lastZoomScale: CGFloat = 1.0
         /// density モード時のピン毎のスケール係数 (1.0 = 通常)。
         var perPinScale: [PersistentIdentifier: CGFloat] = [:]
+        /// 親からの region 変更要求を CADisplayLink で滑らかに補間するアニメータ。
+        /// MKMapView 標準アニメーションは終端で急停止する癖があるため自前駆動する。
+        let cameraAnimator = CameraFlyAnimator()
 
         init(parent: RaceListMapView) {
             self.parent = parent
@@ -532,5 +513,144 @@ final class RaceAnnotation: NSObject, MKAnnotation {
     init(race: Race) { self.race = race }
     var coordinate: CLLocationCoordinate2D { race.coordinate }
     var title: String? { race.name.isEmpty ? "Race" : race.name }
+}
+
+// MARK: - CameraFlyAnimator
+
+/// `MKMapView` の visible rect を CADisplayLink で frame 単位に補間する自前カメラ駆動。
+///
+/// MKMapView 標準の `setVisibleMapRect(animated: true)` は内部独自のタイミングカーブで
+/// 動作し、CATransaction の timing function や UIView.animate の curve オプションを
+/// **一切尊重しない**。結果として遠景 → ピンのような大きなズームでは「中盤までは
+/// macro view のまま → 終端で急加速してピンに突き刺さる」という不快な動きになる。
+///
+/// このクラスは:
+/// - **easeOutCubic** で「速めにスタート → 終端で正確に減速して着地」させる
+/// - **ズーム量を log 空間で補間** して、知覚的に均等な拡大/縮小を実現する
+///   (linear 補間だと幅が大きい序盤は変化が見えず、終盤で急に拡大する)
+/// - **距離 + ズーム変化量** を組み合わせた duration (0.55〜1.8 秒) で
+///   近距離はキビキビ、Japan-wide からピンへの大ズームはたっぷり時間を取る
+@MainActor
+final class CameraFlyAnimator {
+    private var displayLink: CADisplayLink?
+    private var startTime: CFTimeInterval = 0
+    private var duration: CFTimeInterval = 0
+    private var fromCenterX: Double = 0
+    private var fromCenterY: Double = 0
+    private var toCenterX: Double = 0
+    private var toCenterY: Double = 0
+    private var fromLogW: Double = 0
+    private var toLogW: Double = 0
+    private var aspect: Double = 1.0
+    private weak var mapView: MKMapView?
+
+    deinit {
+        displayLink?.invalidate()
+    }
+
+    /// 現在の visible rect から `targetRect` まで滑らかに飛ぶ。`targetRect` は
+    /// edgePadding を既に反映した最終可視 rect であること (呼び出し側で
+    /// `mapRectThatFits(_:edgePadding:)` 適用済み)。実行中に再呼び出しされたら
+    /// 現在地点から新ターゲットへ滑らかに継続する。
+    func animate(mapView: MKMapView, to targetRect: MKMapRect) {
+        cancel()
+        let fromRect = mapView.visibleMapRect
+        guard targetRect.size.width > 0,
+              targetRect.size.height > 0,
+              fromRect.size.width > 0,
+              fromRect.size.height > 0
+        else {
+            mapView.setVisibleMapRect(targetRect, animated: false)
+            return
+        }
+        self.mapView = mapView
+        self.fromCenterX = fromRect.midX
+        self.fromCenterY = fromRect.midY
+        self.toCenterX = targetRect.midX
+        self.toCenterY = targetRect.midY
+        self.fromLogW = log(fromRect.size.width)
+        self.toLogW = log(targetRect.size.width)
+        // 終点アスペクトを保持。intermediate frame もこの比率で高さを派生させる。
+        self.aspect = targetRect.size.height / targetRect.size.width
+
+        // duration: 「距離 (m)」と「ズーム倍率 (log2)」の大きい方を尺にする。
+        //   - 同ズームで遠くへパンする → 距離が支配
+        //   - 同地点で深くズームする → ズーム倍率が支配
+        //   - Japan-wide → ピン: 両方大きいが、ズーム倍率 (log2) の方が約 9〜10 で支配的
+        // 0.13 秒 / work-unit, 下限 0.55s / 上限 1.8s に丸める。
+        let fromCenter = MKMapPoint(x: fromCenterX, y: fromCenterY)
+        let toCenter = MKMapPoint(x: toCenterX, y: toCenterY)
+        let meters = MKMetersBetweenMapPoints(fromCenter, toCenter)
+        let distFactor = log10(max(meters, 100) / 100)              // 0..~5
+        let zoomRatio = max(fromRect.size.width, targetRect.size.width)
+            / min(fromRect.size.width, targetRect.size.width)
+        let zoomFactor = log2(zoomRatio)                            // 0..~10
+        let workUnits = max(distFactor * 1.3, zoomFactor)
+        self.duration = min(max(0.55 + workUnits * 0.13, 0.55), 1.8)
+        self.startTime = CACurrentMediaTime()
+
+        // CADisplayLink は target を strong に保持するため、self を直接渡すと
+        // retain cycle (animator → link、link → animator)。ビューが破棄されても
+        // link が runloop に残り続けて animator が解放されない。weak proxy を
+        // 噛ませて self を弱参照にし、解放経路を確保する。
+        let proxy = WeakAnimatorProxy(owner: self)
+        let link = CADisplayLink(target: proxy, selector: #selector(WeakAnimatorProxy.forward))
+        link.add(to: .main, forMode: .common)
+        self.displayLink = link
+    }
+
+    /// CADisplayLink から呼び戻されるエントリポイント。proxy 経由の呼び出しが内部で実装に飛ぶ。
+    fileprivate func tickFromProxy() {
+        tick()
+    }
+
+    func cancel() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    private func tick() {
+        guard let mapView = mapView, let link = displayLink else { return }
+        let elapsed = link.timestamp - startTime
+        let t = min(max(elapsed / duration, 0), 1)
+        let eased = Self.easeOutCubic(t)
+
+        // 中心は MKMapPoint 空間で線形補間。中心点の経路はほぼ大円距離に等しい
+        // (Japan スケールなら誤差は知覚不能)。
+        let cx = fromCenterX + (toCenterX - fromCenterX) * eased
+        let cy = fromCenterY + (toCenterY - fromCenterY) * eased
+        // 幅は log 空間で補間。同じ「t の進捗」でも、幅の大きい時は大きく、
+        // 小さくなったら細やかに動かないと知覚的に均等にならない。
+        let logW = fromLogW + (toLogW - fromLogW) * eased
+        let w = exp(logW)
+        let h = w * aspect
+        let rect = MKMapRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
+        mapView.setVisibleMapRect(rect, animated: false)
+
+        if t >= 1 {
+            cancel()
+        }
+    }
+
+    /// easeOutCubic: f(t) = 1 - (1 - t)^3
+    /// 序盤の速度 = 3 (平均の 3 倍)、終盤の速度 = 0 (完全停止)。
+    /// 「速めにスタート → 着地点で正確に減速して停止」の感覚を出す。
+    private static func easeOutCubic(_ t: Double) -> Double {
+        let p = 1 - t
+        return 1 - p * p * p
+    }
+}
+
+/// CADisplayLink の strong 参照から `CameraFlyAnimator` を切り離す weak ホルダ。
+/// これがないと link → animator → link の retain cycle で animator が解放されない。
+@MainActor
+private final class WeakAnimatorProxy: NSObject {
+    weak var owner: CameraFlyAnimator?
+    init(owner: CameraFlyAnimator) {
+        self.owner = owner
+    }
+    @objc func forward() {
+        owner?.tickFromProxy()
+    }
 }
 #endif
