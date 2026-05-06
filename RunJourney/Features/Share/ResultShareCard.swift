@@ -1,6 +1,26 @@
 import SwiftUI
 import CoreLocation
 
+// MARK: - ResultMetric
+
+enum ResultMetric: String, CaseIterable, Identifiable {
+    case avgPace, distance, avgHR, ascent, cadence, temp, place
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .avgPace:  return "AVG PACE"
+        case .distance: return "DISTANCE"
+        case .avgHR:    return "AVG HR"
+        case .ascent:   return "ASCENT"
+        case .cadence:  return "CADENCE"
+        case .temp:     return "TEMP"
+        case .place:    return "PLACE"
+        }
+    }
+}
+
+// MARK: - ResultShareCard
+
 /// 1 件の `RaceResult` を共有用画像にレンダリングする SwiftUI View。
 /// `ShareStyleConfig` (theme / accent / format) に従ってサイズ・配色を切替える。
 struct ResultShareCard: View {
@@ -10,6 +30,24 @@ struct ResultShareCard: View {
     let config: ShareStyleConfig
     /// ルート (TrackPoint) を描画するか。座標が 2 点未満なら自動的に false 扱い。
     let showRoute: Bool
+    /// 表示するメトリクスの集合。nil の場合はすべて表示 (後方互換)。
+    let enabledMetrics: Set<ResultMetric>?
+
+    init(
+        result: RaceResult,
+        race: Race?,
+        unit: DistanceUnit,
+        config: ShareStyleConfig,
+        showRoute: Bool,
+        enabledMetrics: Set<ResultMetric>? = nil
+    ) {
+        self.result = result
+        self.race = race
+        self.unit = unit
+        self.config = config
+        self.showRoute = showRoute
+        self.enabledMetrics = enabledMetrics
+    }
 
     private var palette: SharePalette { config.theme.palette }
     private var accentColor: Color { Color(hex: config.accent.hex) }
@@ -124,31 +162,35 @@ struct ResultShareCard: View {
         let unit: String?
     }
 
+    private func isEnabled(_ metric: ResultMetric) -> Bool {
+        enabledMetrics?.contains(metric) ?? true
+    }
+
     private func makeStats(max: Int) -> [Stat] {
         var arr: [Stat] = []
         let s = result.summary
-        if let pace = s?.avgPaceSecPerKm, pace > 0 {
+        if isEnabled(.avgPace), let pace = s?.avgPaceSecPerKm, pace > 0 {
             let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(pace.rounded()), in: unit)
             let m = displayed / 60
             let sec = displayed % 60
             arr.append(Stat(label: "AVG PACE", value: String(format: "%d:%02d", m, sec), unit: unit.perLabel))
         }
-        if let dist = s?.totalDistanceM, dist > 0 {
+        if isEnabled(.distance), let dist = s?.totalDistanceM, dist > 0 {
             arr.append(Stat(label: "DISTANCE", value: PaceUtils.formatDistanceValue(km: dist / 1000, in: unit), unit: unit.label))
         }
-        if let hr = s?.avgHeartRate {
+        if isEnabled(.avgHR), let hr = s?.avgHeartRate {
             arr.append(Stat(label: "AVG HR", value: "\(hr)", unit: "bpm"))
         }
-        if let elev = s?.elevationGainM, elev > 0 {
+        if isEnabled(.ascent), let elev = s?.elevationGainM, elev > 0 {
             arr.append(Stat(label: "ASCENT", value: String(format: "%.0f", elev), unit: "m"))
         }
-        if let cad = s?.avgCadence {
+        if isEnabled(.cadence), let cad = s?.avgCadence {
             arr.append(Stat(label: "CADENCE", value: "\(cad)", unit: "spm"))
         }
-        if let temp = result.weatherTempC ?? s?.avgTemperatureC {
+        if isEnabled(.temp), let temp = result.weatherTempC ?? s?.avgTemperatureC {
             arr.append(Stat(label: "TEMP", value: String(format: "%.1f", temp), unit: "°C"))
         }
-        if let place = result.overallPlace {
+        if isEnabled(.place), let place = result.overallPlace {
             if let total = result.totalFinishers {
                 arr.append(Stat(label: "PLACE", value: "\(place)/\(total)", unit: nil))
             } else {
@@ -201,7 +243,6 @@ struct ResultShareCard: View {
 
     private var portraitLayout: some View {
         VStack(spacing: 0) {
-            // Header band
             VStack(spacing: 8) {
                 ShareCardKit.watermark(palette: palette, accent: accentColor)
                 badges()
@@ -224,7 +265,6 @@ struct ResultShareCard: View {
 
             Spacer(minLength: 10)
 
-            // Stats grid 2×2
             VStack(spacing: 8) {
                 let stats = makeStats(max: 4)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
@@ -234,7 +274,6 @@ struct ResultShareCard: View {
             }
             .padding(.horizontal, 22)
 
-            // Route panel (taller in portrait)
             if hasRoute {
                 routeView()
                     .padding(.top, 14)
@@ -268,7 +307,6 @@ struct ResultShareCard: View {
             heroTime
                 .padding(.vertical, 4)
 
-            // Single row of stats (3) when route is shown, 2x2 grid otherwise.
             if hasRoute {
                 let stats = makeStats(max: 3)
                 HStack(spacing: 8) {
@@ -296,7 +334,6 @@ struct ResultShareCard: View {
 
     private var horizontalLayout: some View {
         HStack(alignment: .top, spacing: 0) {
-            // Left: identity + time + stats
             VStack(alignment: .leading, spacing: 12) {
                 ShareCardKit.watermark(palette: palette, accent: accentColor)
                 badges()
@@ -322,7 +359,6 @@ struct ResultShareCard: View {
             .padding(.vertical, 22)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Right: route or accent panel
             if hasRoute {
                 routeView()
                     .padding(.vertical, 22)

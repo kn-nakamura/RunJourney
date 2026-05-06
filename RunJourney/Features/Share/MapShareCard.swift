@@ -1,12 +1,27 @@
 import SwiftUI
 import CoreLocation
 
+// MARK: - MapMetric
+
+enum MapMetric: String, CaseIterable, Identifiable {
+    case races, distance, countries, cities
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .races:     return "RACES"
+        case .distance:  return "DISTANCE"
+        case .countries: return "COUNTRIES"
+        case .cities:    return "CITIES"
+        }
+    }
+}
+
+// MARK: - MapShareCard
+
 /// マップ画面 (= ピン散布図) を共有用画像にレンダリングする SwiftUI View。
 ///
-/// ピン背景には実際の地図タイルではなく、`SharePinField` で簡易メルカトル投影した
-/// アクセント色のドットを並べる。これは:
-/// - Mapbox / Apple Maps の利用規約上、サードパーティ画像書き出しに制限があるため
-/// - レンダリングをアプリ内のアセットだけで完結させたいため
+/// mapComposite が渡された場合は MKMapSnapshotter の合成画像 (地図タイル + ピン) を使用。
+/// 渡されない場合は `SharePinField` で簡易メルカトル投影したフォールバック表示にする。
 struct MapShareCard: View {
     let races: [Race]
     /// 実フィルタ後のレース数 (例: カテゴリ絞込中なら表示中件数)。races.count と
@@ -16,6 +31,28 @@ struct MapShareCard: View {
     let highlight: Race?
     let unit: DistanceUnit
     let config: ShareStyleConfig
+    /// MKMapSnapshotter で生成した合成画像 (地図 + ピン)。nil ならフォールバック描画。
+    let mapComposite: Image?
+    /// 表示するメトリクスの集合。
+    let enabledMapMetrics: Set<MapMetric>
+
+    init(
+        races: [Race],
+        totalCount: Int,
+        highlight: Race? = nil,
+        unit: DistanceUnit,
+        config: ShareStyleConfig,
+        mapComposite: Image? = nil,
+        enabledMapMetrics: Set<MapMetric> = Set(MapMetric.allCases)
+    ) {
+        self.races = races
+        self.totalCount = totalCount
+        self.highlight = highlight
+        self.unit = unit
+        self.config = config
+        self.mapComposite = mapComposite
+        self.enabledMapMetrics = enabledMapMetrics
+    }
 
     private var palette: SharePalette { config.theme.palette }
     private var accentColor: Color { Color(hex: config.accent.hex) }
@@ -41,7 +78,6 @@ struct MapShareCard: View {
     // MARK: - Building blocks
 
     private var pins: [SharePinField.Pin] {
-        // (0,0) のレースは除外。座標未確定なので地図にも出していない。
         races
             .filter { !($0.lat == 0 && $0.lng == 0) }
             .map { race in
@@ -57,8 +93,16 @@ struct MapShareCard: View {
         ZStack {
             RoundedRectangle(cornerRadius: 18)
                 .fill(palette.bgTertiary.opacity(0.6))
-            SharePinField(pins: pins, palette: palette, accent: accentColor)
-                .padding(8)
+            if let composite = mapComposite {
+                composite
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(2)
+            } else {
+                SharePinField(pins: pins, palette: palette, accent: accentColor)
+                    .padding(8)
+            }
         }
         .overlay(
             RoundedRectangle(cornerRadius: 18)
@@ -73,13 +117,11 @@ struct MapShareCard: View {
 
     private var heroSubtitle: String {
         if highlight != nil {
-            // Race highlighted: show category + location subtitle.
             let parts = [highlight?.category.displayName, highlight?.city, highlight?.country]
                 .compactMap { $0 }
                 .filter { !$0.isEmpty }
             return parts.joined(separator: " · ")
         }
-        // All races mode: show counts + categories.
         let categoryCount = Set(races.map(\.category)).count
         if races.count == totalCount {
             return "\(races.count) races · \(categoryCount) categories"
@@ -114,26 +156,25 @@ struct MapShareCard: View {
 
     @ViewBuilder
     private var totalsBlock: some View {
-        // 合計距離 (PB / 結果がある race のみ加算するわけではなく、各 race の distance)
         let totalKm = races.reduce(0.0) { $0 + ($1.distanceKm ?? $1.category.defaultDistanceKm ?? 0) }
         let countries = Set(races.compactMap { $0.country.isEmpty ? nil : $0.country }).count
+        let cities = Set(races.compactMap { $0.city.isEmpty ? nil : $0.city }).count
 
-        HStack(spacing: 12) {
-            statTile(
-                label: "RACES",
-                value: "\(races.count)",
-                unit: nil
-            )
-            statTile(
-                label: "DISTANCE",
-                value: PaceUtils.formatDistanceValue(km: totalKm, in: unit),
-                unit: unit.label
-            )
-            statTile(
-                label: "COUNTRIES",
-                value: "\(countries)",
-                unit: nil
-            )
+        let tiles: [(metric: MapMetric, label: String, value: String, unit: String?)] = [
+            (.races,     "RACES",     "\(races.count)",                                                   nil),
+            (.distance,  "DISTANCE",  PaceUtils.formatDistanceValue(km: totalKm, in: unit),               self.unit.label),
+            (.countries, "COUNTRIES", "\(countries)",                                                     nil),
+            (.cities,    "CITIES",    "\(cities)",                                                        nil),
+        ]
+
+        let visible = tiles.filter { enabledMapMetrics.contains($0.metric) }
+
+        if !visible.isEmpty {
+            HStack(spacing: 12) {
+                ForEach(visible, id: \.metric.id) { tile in
+                    statTile(label: tile.label, value: tile.value, unit: tile.unit)
+                }
+            }
         }
     }
 
@@ -248,9 +289,6 @@ struct MapShareCard: View {
 // MARK: - FlowingHStack
 
 /// 単一行に収まらないときに自動で折り返す簡易 HStack。
-/// SwiftUI 標準の `FlowLayout` (iOS 16+ Layout) を使えば短く書けるが、
-/// プロジェクト全体で iOS 17 を最低想定としつつ、テキストフォールバック挙動を
-/// 安定させるため自前で持つ。
 struct FlowingHStack<Content: View>: View {
     let spacing: CGFloat
     let content: () -> Content
