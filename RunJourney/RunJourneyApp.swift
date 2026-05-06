@@ -15,6 +15,8 @@ struct RunJourneyApp: App {
     /// テーマ毎のアクセント色選択。テーマ切替後も各テーマで前回選んだ色が復元される。
     @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
     @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.sunYellow.rawValue
+    /// アプリ内言語。Settings → Language で切替。`.system` 以外は端末設定と独立して固定する。
+    @AppStorage(AppLanguage.userDefaultsKey) private var appLanguageRaw: String = AppLanguage.system.rawValue
 
     @State private var splashCoordinator = SplashCoordinator()
     @State private var modelContainer: ModelContainer?
@@ -24,12 +26,18 @@ struct RunJourneyApp: App {
     @State private var purchaseManager = PurchaseManager()
 
     init() {
+        // SwiftUI 構築前に AppleLanguages を反映しておくことで、起動直後の Bundle.main 参照
+        // (= `String(localized:)`) が選択言語で解決されるようにする。
+        AppLanguage.applyToSystem(AppLanguage.resolve(
+            UserDefaults.standard.string(forKey: AppLanguage.userDefaultsKey) ?? AppLanguage.system.rawValue
+        ))
 #if os(iOS)
         AppUIKitAppearance.configureAll()
 #endif
     }
 
     private var currentTheme: AppTheme { AppTheme.resolve(appThemeRaw) }
+    private var currentLanguage: AppLanguage { AppLanguage.resolve(appLanguageRaw) }
 
     var body: some Scene {
         WindowGroup {
@@ -63,8 +71,10 @@ struct RunJourneyApp: App {
             }
             // アクセントだけ変えても trait は変わらないため、`UIColor(dynamicProvider:)`
             // は再評価されない。`.id(...)` でツリーを強制再構築し全 Color を再解決する。
-            .id("\(appThemeRaw)|\(accentDarkRaw)|\(accentLightRaw)")
+            // 言語切替も同様に Locale 環境を全 Text に再解決させたいので id に含める。
+            .id("\(appThemeRaw)|\(accentDarkRaw)|\(accentLightRaw)|\(appLanguageRaw)")
             .preferredColorScheme(currentTheme.colorScheme)
+            .environment(\.locale, currentLanguage.localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current)
             .tint(.accentPrimary)
             .background(Color.bgPrimary)
 #if os(iOS)
@@ -72,6 +82,11 @@ struct RunJourneyApp: App {
                 // Nav/Tab Bar の UIKit Appearance は launch 時の trait を捕まえるだけなので
                 // テーマ切替に追従しない。明示的に再注入する。
                 AppUIKitAppearance.refreshForTheme()
+            }
+            .onChange(of: appLanguageRaw) { _, newValue in
+                // SwiftUI Text(LocalizedStringKey) は environment(\.locale) で即時切替されるが、
+                // `String(localized:)` 等 Bundle.main 経由の参照のため AppleLanguages も更新する。
+                AppLanguage.applyToSystem(AppLanguage.resolve(newValue))
             }
 #endif
         }

@@ -27,6 +27,8 @@ struct SettingsView: View {
 
     /// アプリ全体のテーマ (Dark / Light)。マップも追従する。
     @AppStorage(AppTheme.userDefaultsKey) private var appThemeRaw: String = AppTheme.dark.rawValue
+    /// アプリ内言語 (System / English / Japanese)。端末設定とは独立して切替可能。
+    @AppStorage(AppLanguage.userDefaultsKey) private var appLanguageRaw: String = AppLanguage.system.rawValue
     /// テーマ毎のアクセント色選択 (蛍光イエロー等)。テーマ切替後も独立復元。
     @AppStorage(AccentChoice.storageKeyDark)  private var accentDarkRaw: String  = AccentChoice.neonYellow.rawValue
     @AppStorage(AccentChoice.storageKeyLight) private var accentLightRaw: String = AccentChoice.sunYellow.rawValue
@@ -140,6 +142,7 @@ struct SettingsView: View {
         customDistanceSection
         heartRateSection
         appearanceSection
+        languageSection
         iCloudSection
         aboutSection
         developerSection
@@ -163,6 +166,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
             VStack(alignment: .leading, spacing: 20) {
                 appearanceSection
+                languageSection
                 aboutSection
                 developerSection
             }
@@ -532,6 +536,56 @@ struct SettingsView: View {
             .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
 
             Text("Dark suits city neon at night. Light brings natural daylight tones; the map switches with the theme. Choose System to follow your iOS appearance.")
+                .appText(.bodyXs)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    // MARK: - Language
+    //
+    // 端末の iOS 言語設定とは独立してアプリ内言語を切替えるためのピッカー。
+    // SwiftUI の `Text(LocalizedStringKey)` は `RunJourneyApp` が注入する
+    // `.environment(\.locale, …)` で即時切替され、`String(localized:)` 系も
+    // `AppleLanguages` UserDefaults 上書きで次の参照から新ロケールを返す。
+
+    /// 現在の選択を AppLanguage に解決し直すヘルパ。Picker label に使う。
+    private var currentLanguage: AppLanguage { AppLanguage.resolve(appLanguageRaw) }
+
+    private var languageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Language")
+            // Menu + Picker パターン = ボタンに現在値を出して、タップで選択肢のドロップダウンを開く。
+            // iOS 標準のフォーム外でドロップダウンを表現する素直な書き方。
+            Menu {
+                Picker("Language", selection: $appLanguageRaw) {
+                    ForEach(AppLanguage.availableLanguages()) { lang in
+                        Text(lang.label).tag(lang.rawValue)
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "globe")
+                        .foregroundStyle(Color.accentPrimary)
+                        .frame(width: 24)
+                    Text("Language")
+                        .appText(.bodyBase)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    Text(currentLanguage.label)
+                        .appText(.bodySm)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Text("Choose System to follow your iOS language. Some system-managed text may need an app restart to fully update.")
                 .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)

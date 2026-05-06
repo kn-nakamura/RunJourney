@@ -31,9 +31,11 @@ final class CloudKitAccountMonitor {
             }
         }
 
-        var label: String {
+        /// SwiftUI 側で `Text(_ resource:)` 経由で localize するため `LocalizedStringResource`。
+        /// `String` を返すと `Text(String)` 経路がカタログを参照せず英語固定になる。
+        var label: LocalizedStringResource {
             switch self {
-            case .unknown:                 return "Checking..."
+            case .unknown:                 return "Checking…"
             case .available:               return "Sync Active"
             case .noAccount:               return "Not Signed In"
             case .restricted:              return "Restricted"
@@ -42,10 +44,10 @@ final class CloudKitAccountMonitor {
             }
         }
 
-        var detail: String {
+        var detail: LocalizedStringResource {
             switch self {
             case .unknown:
-                return "Checking iCloud account..."
+                return "Checking iCloud account…"
             case .available:
                 return "Records mirror to iCloud automatically. Other devices on the same Apple ID will receive new data."
             case .noAccount:

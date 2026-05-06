@@ -11,7 +11,9 @@
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
 	<key>com.apple.developer.icloud-container-identifiers</key>
-	<array/>
+	<array>
+		<string>iCloud.com.kn-nakamura.RunJourney</string>
+	</array>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
 		<string>CloudKit</string>

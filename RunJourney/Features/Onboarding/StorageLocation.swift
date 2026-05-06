@@ -11,7 +11,10 @@ enum StorageLocation: String, Codable, CaseIterable {
     static let userDefaultsKey = "storageLocation"
     static let chosenFlagKey   = "storageLocationChosen"
 
-    var displayName: String {
+    /// SwiftUI 側で `Text(_ resource:)` 経由で表示するための localizable 値。
+    /// `String` で返すと `Text(String)` 経路が localization を完全にスキップするため、
+    /// 文字列カタログを使わずに英語のまま固定されてしまう。
+    var displayName: LocalizedStringResource {
         switch self {
         case .local:  return "On This Device"
         case .iCloud: return "iCloud Sync"
@@ -25,7 +28,7 @@ enum StorageLocation: String, Codable, CaseIterable {
         }
     }
 
-    var detail: String {
+    var detail: LocalizedStringResource {
         switch self {
         case .local:
             return "Records stay on this device only. Fastest, most private."
