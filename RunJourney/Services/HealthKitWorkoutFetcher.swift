@@ -30,7 +30,6 @@ enum HealthKitWorkoutFetcher {
     enum FetchError: LocalizedError {
         case notAvailable
         case authorizationDenied
-        case noRoute
         case queryFailed(String)
 
         var errorDescription: String? {
@@ -39,8 +38,6 @@ enum HealthKitWorkoutFetcher {
                 return "Apple Health is not available on this device."
             case .authorizationDenied:
                 return "RunJourney does not have permission to read workouts. Enable access in Settings → Health → Data Access & Devices → RunJourney."
-            case .noRoute:
-                return "This workout has no GPS route."
             case .queryFailed(let detail):
                 return "Health query failed: \(detail)"
             }
@@ -109,12 +106,16 @@ enum HealthKitWorkoutFetcher {
     // MARK: - ParsedActivity construction
 
     /// 1 件の HKWorkout を `ParsedActivity` に変換する。
-    /// ルートが無い workout は `FetchError.noRoute` を投げる（取り込んでも意味が無いため）。
+    /// ルートが無い workout (トレッドミル / 室内ラン / 位置情報を録らなかった時計) でも、
+    /// 日時・所要時間・距離・心拍はインポートできるようメタデータのみで `ParsedActivity` を組み立てる。
     static func parsedActivity(from workout: HKWorkout) async throws -> ParsedActivity {
         let routeLocations = try await loadRouteLocations(for: workout)
-        guard !routeLocations.isEmpty else { throw FetchError.noRoute }
-
         let heartRateSamples = (try? await loadHeartRate(for: workout)) ?? []
+
+        if routeLocations.isEmpty {
+            return parsedActivityWithoutRoute(workout: workout, heartRateSamples: heartRateSamples)
+        }
+
         let trackPoints = makeTrackPoints(
             from: routeLocations,
             heartRateSamples: heartRateSamples,
@@ -134,6 +135,44 @@ enum HealthKitWorkoutFetcher {
             finishTimeSec: workout.duration,
             startCoordinate: trackPoints.first.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) },
             endCoordinate: trackPoints.last.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+        )
+    }
+
+    /// GPS ルートが無い workout 用の最小 ParsedActivity。
+    /// 距離は `distanceWalkingRunning` の合計、HR は workout 期間内のサンプル平均/最大を使う。
+    private static func parsedActivityWithoutRoute(
+        workout: HKWorkout,
+        heartRateSamples: [HRSample]
+    ) -> ParsedActivity {
+        let totalDistanceM = workout.statistics(for: HKQuantityType(.distanceWalkingRunning))?
+            .sumQuantity()?.doubleValue(for: .meter())
+        let totalTimeSec = workout.duration
+
+        var summary = SummaryStats()
+        summary.totalDistanceM = totalDistanceM
+        summary.totalTimeSec = totalTimeSec
+        if let dist = totalDistanceM, dist > 0, totalTimeSec > 0 {
+            summary.avgPaceSecPerKm = totalTimeSec / (dist / 1000.0)
+        }
+        let validBpms = heartRateSamples.map(\.bpm).filter { $0 > 0 }
+        if !validBpms.isEmpty {
+            summary.avgHeartRate = Int(Double(validBpms.reduce(0, +)) / Double(validBpms.count))
+            summary.maxHeartRate = validBpms.max()
+        }
+        if let energy = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
+            .sumQuantity()?.doubleValue(for: .kilocalorie()) {
+            summary.totalCalories = energy
+        }
+
+        return ParsedActivity(
+            trackPoints: [],
+            laps: [],
+            summary: summary,
+            startDate: workout.startDate,
+            endDate: workout.endDate,
+            finishTimeSec: totalTimeSec,
+            startCoordinate: nil,
+            endCoordinate: nil
         )
     }
 
