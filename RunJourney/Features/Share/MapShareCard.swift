@@ -159,20 +159,21 @@ struct MapShareCard: View {
         let totalKm = races.reduce(0.0) { $0 + ($1.distanceKm ?? $1.category.defaultDistanceKm ?? 0) }
         let countries = Set(races.compactMap { $0.country.isEmpty ? nil : $0.country }).count
         let cities = Set(races.compactMap { $0.city.isEmpty ? nil : $0.city }).count
-
-        let tiles: [(metric: MapMetric, label: String, value: String, unit: String?)] = [
-            (.races,     "RACES",     "\(races.count)",                                                   nil),
-            (.distance,  "DISTANCE",  PaceUtils.formatDistanceValue(km: totalKm, in: unit),               self.unit.label),
-            (.countries, "COUNTRIES", "\(countries)",                                                     nil),
-            (.cities,    "CITIES",    "\(cities)",                                                        nil),
-        ]
-
-        let visible = tiles.filter { enabledMapMetrics.contains($0.metric) }
+        let visible = MapMetric.allCases.filter { enabledMapMetrics.contains($0) }
 
         if !visible.isEmpty {
             HStack(spacing: 12) {
-                ForEach(visible, id: \.metric.id) { tile in
-                    statTile(label: tile.label, value: tile.value, unit: tile.unit)
+                ForEach(visible) { metric in
+                    switch metric {
+                    case .races:
+                        statTile(label: metric.label, value: "\(races.count)", unit: nil)
+                    case .distance:
+                        statTile(label: metric.label, value: PaceUtils.formatDistanceValue(km: totalKm, in: unit), unit: unit.label)
+                    case .countries:
+                        statTile(label: metric.label, value: "\(countries)", unit: nil)
+                    case .cities:
+                        statTile(label: metric.label, value: "\(cities)", unit: nil)
+                    }
                 }
             }
         }
