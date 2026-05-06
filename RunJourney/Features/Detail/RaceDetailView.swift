@@ -48,7 +48,10 @@ struct RaceDetailView: View {
         .navigationTitle(race.name.isEmpty ? "(Untitled)" : race.name)
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
 #endif
+        .keyboardCloseToolbar()
+        .dismissKeyboardOnBackgroundTap()
         .sheet(isPresented: $showDeleteSheet) {
             RaceDeleteSheet(race: race) {
                 dismiss()

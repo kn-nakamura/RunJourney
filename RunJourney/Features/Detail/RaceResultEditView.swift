@@ -22,7 +22,10 @@ struct RaceResultEditView: View {
         .navigationTitle("Edit Result")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
 #endif
+        .keyboardCloseToolbar()
+        .dismissKeyboardOnBackgroundTap()
     }
 
     // MARK: - Time

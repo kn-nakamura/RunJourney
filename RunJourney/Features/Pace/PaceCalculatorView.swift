@@ -116,6 +116,8 @@ struct PaceCalculatorView: View {
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
+        .keyboardCloseToolbar()
+        .dismissKeyboardOnBackgroundTap()
         .onChange(of: raceType) { _, newType in
             lapPaceOverrides.removeAll()
             applyDefaultsForRaceType(newType)

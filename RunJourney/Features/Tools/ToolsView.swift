@@ -54,6 +54,8 @@ struct ToolsView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
 #endif
+        .keyboardCloseToolbar()
+        .dismissKeyboardOnBackgroundTap()
     }
 
     // MARK: - iPhone (portrait & landscape)

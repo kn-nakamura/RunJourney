@@ -96,7 +96,10 @@ struct SettingsView: View {
         .background(Color.bgPrimary)
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
+        .scrollDismissesKeyboard(.interactively)
 #endif
+        .keyboardCloseToolbar()
+        .dismissKeyboardOnBackgroundTap()
         .task {
             cloudKitMonitor.startObserving()
             await cloudKitMonitor.refresh()

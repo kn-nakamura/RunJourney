@@ -47,6 +47,7 @@ struct AddResultSheet: View {
             .navigationTitle("Add Result")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .scrollDismissesKeyboard(.interactively)
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -57,6 +58,8 @@ struct AddResultSheet: View {
                         .appText(.bodyBaseBold)
                 }
             }
+            .keyboardCloseToolbar()
+            .dismissKeyboardOnBackgroundTap()
         }
     }
 

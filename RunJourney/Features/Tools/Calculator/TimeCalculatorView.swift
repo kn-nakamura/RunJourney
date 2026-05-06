@@ -113,12 +113,6 @@ struct TimeCalculatorView: View {
         }
         .animation(.default, value: op)
         .onTapGesture { focusedField = nil }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("閉じる") { focusedField = nil }
-            }
-        }
         .onAppear { distanceText = formatDistanceText() }
         .onChange(of: distanceKm) { _, _ in distanceText = formatDistanceText() }
         .onChange(of: distanceUnitRaw) { _, _ in distanceText = formatDistanceText() }
