@@ -72,6 +72,10 @@ final class CloudKitAccountMonitor {
     /// `weak self` が nil になり Task は自然終了する）。
     private var notificationTask: Task<Void, Never>?
 
+    init(containerIdentifier: String = "iCloud.com.kn-nakamura.RunJourney") {
+        self.container = CKContainer(identifier: containerIdentifier)
+    }
+
     /// アカウント状態を取り直す。Settings 画面が表示された直後や pull-to-refresh で呼ぶ。
     func refresh() async {
         do {
