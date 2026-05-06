@@ -143,13 +143,13 @@ enum HealthKitWorkoutFetcher {
     /// 1 つのワークアウトに複数 route が紐付くことがあるため flatten + 時系列ソートする。
     private static func loadRouteLocations(for workout: HKWorkout) async throws -> [CLLocation] {
         let routes = try await loadRouteSamples(for: workout)
-        var locations: [CLLocation] = []
+        var collected: [CLLocation] = []
         for route in routes {
             let chunk = try await locations(for: route)
-            locations.append(contentsOf: chunk)
+            collected.append(contentsOf: chunk)
         }
-        locations.sort { $0.timestamp < $1.timestamp }
-        return locations
+        collected.sort { $0.timestamp < $1.timestamp }
+        return collected
     }
 
     private static func loadRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {

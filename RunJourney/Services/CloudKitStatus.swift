@@ -67,15 +67,10 @@ final class CloudKitAccountMonitor {
     private(set) var lastChecked: Date?
 
     private let container: CKContainer
+    /// `for await` のリスナタスク。本オブジェクトはアプリ生存期間を通じて存在するシングルトン
+    /// 用途のため、明示的に cancel する deinit は不要（self が deallocate された次のイベントで
+    /// `weak self` が nil になり Task は自然終了する）。
     private var notificationTask: Task<Void, Never>?
-
-    init(containerIdentifier: String = "iCloud.com.kn-nakamura.RunJourney") {
-        self.container = CKContainer(identifier: containerIdentifier)
-    }
-
-    deinit {
-        notificationTask?.cancel()
-    }
 
     /// アカウント状態を取り直す。Settings 画面が表示された直後や pull-to-refresh で呼ぶ。
     func refresh() async {

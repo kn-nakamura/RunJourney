@@ -58,16 +58,14 @@ final class PurchaseManager {
     // MARK: - Internals
 
     /// 起動中ずっと回す `Transaction.updates` リスナ。プロモーション購入や
-    /// 別端末で行われた購入の同期がここから流れてくる。
+    /// 別端末で行われた購入の同期がここから流れてくる。本オブジェクトはアプリ生存期間を通じて
+    /// 存在するシングルトン用途のため、明示的に cancel する deinit は不要（self が deallocate
+    /// された次のイベントで `weak self` が nil になり Task は自然終了する）。
     private var transactionListener: Task<Void, Never>?
     private static let tipCountKey = "runjourney.purchase.tipCount"
 
     init() {
         transactionListener = startListeningForTransactions()
-    }
-
-    deinit {
-        transactionListener?.cancel()
     }
 
     // MARK: - Loading
