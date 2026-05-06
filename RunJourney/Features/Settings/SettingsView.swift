@@ -37,6 +37,15 @@ struct SettingsView: View {
     @State private var showStorageSwitchAlert = false
     @State private var sampleLoadMessage: String?
 
+    /// iCloud アカウントの可用性をリアルタイム表示するためのモニタ。
+    /// `.iCloud` ストレージを選んでいる時のみ意味を持つが、初期化は常に行ってもコスト極小。
+    @State private var cloudKitMonitor = CloudKitAccountMonitor()
+
+    /// アプリ起動時に注入される PurchaseManager。Premium バッジ + Paywall sheet の駆動。
+    @Environment(PurchaseManager.self) private var purchases
+
+    @State private var showPaywall = false
+
     enum DeleteScope: String, CaseIterable, Identifiable {
         case results
         case races
@@ -69,6 +78,7 @@ struct SettingsView: View {
                     .appText(.displayLg)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                premiumSection
                 librarySection
                 distanceUnitSection
                 customDistanceSection
@@ -85,6 +95,10 @@ struct SettingsView: View {
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
 #endif
+        .task {
+            cloudKitMonitor.startObserving()
+            await cloudKitMonitor.refresh()
+        }
         .sheet(isPresented: $showDataSheet) {
             DataManagementSheet()
                 .presentationDetents([.medium, .large])
@@ -104,6 +118,56 @@ struct SettingsView: View {
             Button("OK") { sampleLoadMessage = nil }
         } message: { msg in
             Text(msg)
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallSheet(reason: nil)
+        }
+    }
+
+    // MARK: - Premium / Tip Jar
+    //
+    // Premium 状態を分かりやすく表示する。未加入なら蛍光イエローの "Upgrade" ボタン、
+    // 加入済みなら "Premium Active" バッジと Manage (= Tip Jar への動線) を出す。
+
+    private var premiumSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "RunJourney Premium")
+            Button {
+                showPaywall = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: purchases.hasPremium ? "checkmark.seal.fill" : "lock.open.fill")
+                        .foregroundStyle(Color.accentPrimary)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(purchases.hasPremium ? "Premium Active" : "Upgrade to Premium")
+                            .appText(.bodyBase)
+                            .foregroundStyle(Color.textPrimary)
+                        Text(purchases.hasPremium
+                             ? "Unlimited races and results, plus PDF / image attachments."
+                             : "Unlock unlimited races, results, and PDF / image attachments.")
+                            .appText(.bodyXs)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.bgSecondary)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(purchases.hasPremium ? Color.accentPrimary.opacity(0.3) : Color.clear, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -420,38 +484,87 @@ struct SettingsView: View {
         let location = StorageLocation(rawValue: storageRaw) ?? .local
         return VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Storage")
-            Button {
-                showStorageSwitchAlert = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: location.systemImage)
-                        .foregroundStyle(Color.cat5K)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(location.displayName)
-                            .appText(.bodyBase)
-                            .foregroundStyle(Color.textPrimary)
-                        Text(location.detail)
-                            .appText(.bodyXs)
+            VStack(spacing: 0) {
+                Button {
+                    showStorageSwitchAlert = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: location.systemImage)
+                            .foregroundStyle(Color.cat5K)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(location.displayName)
+                                .appText(.bodyBase)
+                                .foregroundStyle(Color.textPrimary)
+                            Text(location.detail)
+                                .appText(.bodyXs)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
                             .foregroundStyle(.tertiary)
-                            .lineLimit(2)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                if location == .iCloud {
+                    rowDivider
+                    cloudKitStatusRow
+                }
             }
-            .buttonStyle(.plain)
+            .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
             Text("Switching does not migrate existing data. Each store is independent.")
                 .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
         }
+    }
+
+    /// CloudKit アカウント状態の行。`.iCloud` 選択時のみ表示し、タップで再チェック。
+    private var cloudKitStatusRow: some View {
+        let s = cloudKitMonitor.status
+        let symbol: String = {
+            switch s {
+            case .available:                return "checkmark.icloud.fill"
+            case .unknown:                  return "icloud"
+            case .noAccount, .restricted:   return "exclamationmark.icloud"
+            default:                        return "icloud.slash"
+            }
+        }()
+        let tint: Color = s.isHealthy ? Color.accentPrimary : .orange
+
+        return Button {
+            Task { await cloudKitMonitor.refresh() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .foregroundStyle(tint)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(s.label)
+                        .appText(.bodyBase)
+                        .foregroundStyle(Color.textPrimary)
+                    Text(s.detail)
+                        .appText(.bodyXs)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer()
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - About

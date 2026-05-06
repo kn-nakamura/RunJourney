@@ -69,7 +69,7 @@ struct RaceDeleteSheet: View {
                 for r in race.results ?? [] {
                     AttachmentStore.deleteAll(ownerID: r.id)
                 }
-                RaceLogoStore.delete(race.logoURL)
+                RaceLogoStore.deleteLocalArtifacts(for: race)
                 modelContext.delete(race)
                 try? modelContext.save()
                 dismiss()

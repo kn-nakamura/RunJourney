@@ -18,6 +18,10 @@ struct RunJourneyApp: App {
 
     @State private var splashCoordinator = SplashCoordinator()
     @State private var modelContainer: ModelContainer?
+    /// アプリ起動時に 1 回だけ作る StoreKit 2 ラッパ。
+    /// `Transaction.updates` の購読をプロセス生存中ずっと回す必要があるため、
+    /// scene 切替で破棄されないようにここに置く。
+    @State private var purchaseManager = PurchaseManager()
 
     init() {
 #if os(iOS)
@@ -45,7 +49,9 @@ struct RunJourneyApp: App {
                         }
                     }
                     .environment(splashCoordinator)
+                    .environment(purchaseManager)
                     .modelContainer(container)
+                    .task { await purchaseManager.loadProducts() }
                 } else {
                     Color.bgPrimary
                         .ignoresSafeArea()

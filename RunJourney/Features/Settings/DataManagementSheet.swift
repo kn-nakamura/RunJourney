@@ -104,7 +104,7 @@ struct DataManagementSheet: View {
                 for child in r.results ?? [] {
                     AttachmentStore.deleteAll(ownerID: child.id)
                 }
-                RaceLogoStore.delete(r.logoURL)
+                RaceLogoStore.deleteLocalArtifacts(for: r)
                 modelContext.delete(r)   // cascade で結果も消える
             }
         case .plans:
@@ -116,7 +116,7 @@ struct DataManagementSheet: View {
             }
             for r in races {
                 AttachmentStore.deleteAll(ownerID: r.id)
-                RaceLogoStore.delete(r.logoURL)
+                RaceLogoStore.deleteLocalArtifacts(for: r)
                 modelContext.delete(r)
             }
             for p in plans { modelContext.delete(p) }

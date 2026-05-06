@@ -18,6 +18,10 @@ struct RaceDetailView: View {
     @State private var showDeleteSheet = false
     @State private var showAddResultSheet = false
     @State private var pendingDeleteOffsets: IndexSet?
+    @State private var paywallReason: String? = nil
+
+    @Environment(PurchaseManager.self) private var purchases
+    @Query private var allResults: [RaceResult]
 
     private var sortedResults: [RaceResult] {
         (race.results ?? []).sorted { $0.raceDate > $1.raceDate }
@@ -53,6 +57,12 @@ struct RaceDetailView: View {
         }
         .sheet(isPresented: $showAddResultSheet) {
             AddResultSheet(race: race)
+        }
+        .sheet(item: Binding<PaywallReason?>(
+            get: { paywallReason.map(PaywallReason.init) },
+            set: { paywallReason = $0?.text }
+        )) { reason in
+            PaywallSheet(reason: reason.text)
         }
         .confirmationDialog(
             "Delete this result?",
@@ -293,7 +303,11 @@ struct RaceDetailView: View {
         } header: {
             SectionHeader(title: "Results", subtitle: "\(sortedResults.count)") {
                 Button {
-                    showAddResultSheet = true
+                    if PremiumLimits.canAddResult(currentCount: allResults.count, hasPremium: purchases.hasPremium) {
+                        showAddResultSheet = true
+                    } else {
+                        paywallReason = "Free plan supports up to \(PremiumLimits.freeResultLimit) total results. Upgrade to add more."
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))

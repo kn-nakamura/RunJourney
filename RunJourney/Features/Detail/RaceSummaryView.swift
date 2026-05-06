@@ -23,6 +23,10 @@ struct RaceSummaryView: View {
     @State private var showEditSheet = false
     @State private var showAddResultSheet = false
     @State private var showMapShareSheet = false
+    @State private var paywallReason: String? = nil
+
+    @Environment(PurchaseManager.self) private var purchases
+    @Query private var allResults: [RaceResult]
 
     private var sortedResults: [RaceResult] {
         (race.results ?? []).sorted { $0.raceDate > $1.raceDate }
@@ -94,6 +98,12 @@ struct RaceSummaryView: View {
         }
         .sheet(isPresented: $showAddResultSheet) {
             AddResultSheet(race: race)
+        }
+        .sheet(item: Binding<PaywallReason?>(
+            get: { paywallReason.map(PaywallReason.init) },
+            set: { paywallReason = $0?.text }
+        )) { reason in
+            PaywallSheet(reason: reason.text)
         }
     }
 
@@ -183,7 +193,7 @@ struct RaceSummaryView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.bgSecondary)
-            if let url = RaceLogoStore.url(for: race.logoURL) {
+            if let url = RaceLogoStore.fileURL(for: race) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .empty:
@@ -220,7 +230,11 @@ struct RaceSummaryView: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(title: "Results", subtitle: "\(sortedResults.count)") {
                 Button {
-                    showAddResultSheet = true
+                    if PremiumLimits.canAddResult(currentCount: allResults.count, hasPremium: purchases.hasPremium) {
+                        showAddResultSheet = true
+                    } else {
+                        paywallReason = "Free plan supports up to \(PremiumLimits.freeResultLimit) total results. Upgrade to add more."
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))

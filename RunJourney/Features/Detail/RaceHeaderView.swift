@@ -47,7 +47,7 @@ struct RaceHeaderView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.bgTertiary)
-            if let url = RaceLogoStore.url(for: race.logoURL) {
+            if let url = RaceLogoStore.fileURL(for: race) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .empty:

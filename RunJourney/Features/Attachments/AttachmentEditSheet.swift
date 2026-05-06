@@ -88,7 +88,7 @@ struct AttachmentEditSheet: View {
 
         case .pdf:
             Section {
-                if let fileURL = AttachmentStore.url(for: attachment.relativePath) {
+                if let fileURL = AttachmentStore.fileURL(for: attachment) {
                     VStack(alignment: .leading, spacing: 8) {
                         if let name = attachment.originalFilename {
                             Text(name)
@@ -127,7 +127,7 @@ struct AttachmentEditSheet: View {
 
         case .image:
             Section {
-                if let url = AttachmentStore.url(for: attachment.relativePath) {
+                if let url = AttachmentStore.fileURL(for: attachment) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .empty:
@@ -189,9 +189,7 @@ struct AttachmentEditSheet: View {
     }
 
     private func delete() {
-        if attachment.relativePath != nil {
-            AttachmentStore.delete(attachment.relativePath)
-        }
+        AttachmentStore.deleteLocalArtifacts(for: attachment)
         modelContext.delete(attachment)
         try? modelContext.save()
         onClose()
