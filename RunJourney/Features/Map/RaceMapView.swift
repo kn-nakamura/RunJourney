@@ -11,6 +11,7 @@ import MapKit
 /// この副作用は SwiftUI Map 特有で、MKMapView を介すと発生しない。
 struct RaceMapView: View {
     @Environment(SplashCoordinator.self) private var splashCoordinator
+    @Environment(\.adaptiveLayout) private var layout
     @Query(sort: \Race.createdAt, order: .reverse) private var races: [Race]
 
     /// アプリ全体のテーマ。マップは Settings で選んだ Dark/Light に追従する
@@ -51,6 +52,9 @@ struct RaceMapView: View {
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
     @State private var showMapShareSheet = false
+    /// iPad / Mac の永続サイドドロワー表示状態。`true` のとき左に 320pt のレース一覧を出す。
+    /// 初期値 true にして、広い画面ならまず両方見えている状態から始める。
+    @State private var showPersistentDrawer = true
     /// 親→子のズーム指示。`MapZoomCommand` をセットすると `RaceListMapView` が
     /// 一度だけ setRegion を呼び、終わったら nil に戻す。
     @State private var requestedZoom: MapZoomCommand? = nil
@@ -77,13 +81,12 @@ struct RaceMapView: View {
         //   外側で `.ignoresSafeArea(edges: .top)` をかけて status bar まで広げる。
         // - overlayLayer は ZStack 直下に置き safe area 内に保持。
         //   ハンバーガー / Layers / FAB がステータスバーやタブバーに被らない。
-        ZStack {
-            ColorSchemeOverride(scheme: appTheme.colorScheme) {
-                mapLayer
+        Group {
+            if layout.isWide {
+                wideMapBody
+            } else {
+                compactMapBody
             }
-            .ignoresSafeArea(edges: .top)
-
-            overlayLayer
         }
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
@@ -166,6 +169,8 @@ struct RaceMapView: View {
     /// 落ち着いてからシート (下部ウィンドウ) 表示。アイコン化は `sheetRace` の onChange で
     /// シート出現と同期して行うため、ここでは時間で測らない。
     private func zoomThenPresent(_ race: Race) async {
+        // ピンを選んだ瞬間に短く触覚を返し、選択が成立したことをユーザに伝える。
+        Haptics.selection()
         // 別ピンが既に拡大中なら一旦解除。新しいズーム中に古いピンが大きいままだと
         // 視点が混乱するので、ズーム開始と同時にリセットしておく。
         iconifiedRace = nil
@@ -177,6 +182,50 @@ struct RaceMapView: View {
         sheetRace = race
         // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
         selectedRace = nil
+    }
+
+    // MARK: - Adaptive top-level layouts
+
+    /// 縦持ち / 横持ち iPhone 用の従来挙動。地図全画面 + シートでドロワー。
+    private var compactMapBody: some View {
+        ZStack {
+            ColorSchemeOverride(scheme: appTheme.colorScheme) {
+                mapLayer
+            }
+            .ignoresSafeArea(edges: .top)
+
+            overlayLayer
+        }
+    }
+
+    /// iPad / Mac 用。左に永続サイドドロワー (折りたたみ可)、右に地図 + 既存オーバーレイ。
+    /// 地図のハンバーガーボタンは sheet を開く代わりに `showPersistentDrawer` を切替える。
+    private var wideMapBody: some View {
+        HStack(spacing: 0) {
+            if showPersistentDrawer {
+                RaceListDrawer(
+                    races: races,
+                    filters: $filters,
+                    onSelect: { race in
+                        Haptics.selection()
+                        selectedRace = race
+                        fitRace(race)
+                    }
+                )
+                .frame(width: 320)
+                .background(Color.bgPrimary)
+                .transition(.move(edge: .leading))
+                Divider()
+            }
+            ZStack {
+                ColorSchemeOverride(scheme: appTheme.colorScheme) {
+                    mapLayer
+                }
+                .ignoresSafeArea(edges: .top)
+                overlayLayer
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showPersistentDrawer)
     }
 
     // MARK: - Layers
@@ -211,10 +260,23 @@ struct RaceMapView: View {
         // GeometryReader での手動補正は不要。
         VStack {
             HStack(spacing: 8) {
-                HamburgerButton(action: { showRaceList = true })
+                HamburgerButton(
+                    isOpen: layout.isWide ? showPersistentDrawer : false,
+                    action: {
+                        Haptics.tap()
+                        if layout.isWide {
+                            showPersistentDrawer.toggle()
+                        } else {
+                            showRaceList = true
+                        }
+                    }
+                )
                 Spacer()
                 MapShareButton(
-                    action: { showMapShareSheet = true },
+                    action: {
+                        Haptics.selection()
+                        showMapShareSheet = true
+                    },
                     disabled: mappableRaces.isEmpty
                 )
                 LayersButton(mapSettings: $mapSettings, pinSettings: $pinSettings)
@@ -248,10 +310,20 @@ struct RaceMapView: View {
                 Spacer()
                 VStack(spacing: 10) {
                     MapActionsCluster(
-                        onZoomIn: { requestedZoom = .in },
-                        onZoomOut: { requestedZoom = .out },
-                        onFitAll: fitAllRaces,
+                        onZoomIn: {
+                            Haptics.tap()
+                            requestedZoom = .in
+                        },
+                        onZoomOut: {
+                            Haptics.tap()
+                            requestedZoom = .out
+                        },
+                        onFitAll: {
+                            Haptics.selection()
+                            fitAllRaces()
+                        },
                         onResetJapan: {
+                            Haptics.selection()
                             animate(toRegion: Self.japanRegion)
                         },
                         canFitAll: !mappableRaces.isEmpty
@@ -313,14 +385,19 @@ struct RaceMapView: View {
 
 // MARK: - Floating overlay components
 
-/// 左上ハンバーガー: タップで race list ドロワーを開く。
+/// 左上ハンバーガー: タップで race list ドロワーを開く / 閉じる。
 /// (Web 版 marathon-record-app の Sidebar への入口に相当)
+///
+/// `isOpen` は iPad/Mac の永続ドロワー表示中のみ意味を持ち、開いている間は
+/// アイコンを `xmark` にして「閉じる」操作だと分かるようにする。iPhone (sheet) では
+/// 常に false を渡せばよい。
 struct HamburgerButton: View {
+    var isOpen: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "line.3.horizontal")
+            Image(systemName: isOpen ? "sidebar.left" : "line.3.horizontal")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
@@ -332,7 +409,7 @@ struct HamburgerButton: View {
                 .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Races")
+        .accessibilityLabel(isOpen ? "Hide Races" : "Races")
     }
 }
 

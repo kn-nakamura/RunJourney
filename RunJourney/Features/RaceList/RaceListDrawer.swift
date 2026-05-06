@@ -123,6 +123,7 @@ struct RaceListDrawer: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 FilterPill(label: "All", isActive: filters.category == nil, color: .accentPrimary) {
+                    Haptics.tap()
                     filters.category = nil
                 }
                 ForEach(RaceCategory.allCases) { cat in
@@ -131,6 +132,7 @@ struct RaceListDrawer: View {
                         isActive: filters.category == cat,
                         color: cat.pinColor
                     ) {
+                        Haptics.tap()
                         filters.category = (filters.category == cat) ? nil : cat
                     }
                 }
@@ -144,6 +146,7 @@ struct RaceListDrawer: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 FilterPill(label: "All Years", isActive: filters.year == nil, color: .accentPrimary) {
+                    Haptics.tap()
                     filters.year = nil
                 }
                 ForEach(availableYears, id: \.self) { yr in
@@ -152,6 +155,7 @@ struct RaceListDrawer: View {
                         isActive: filters.year == yr,
                         color: .accentPrimary
                     ) {
+                        Haptics.tap()
                         filters.year = (filters.year == yr) ? nil : yr
                     }
                 }
@@ -178,6 +182,7 @@ struct RaceListDrawer: View {
                 LazyVStack(spacing: 8) {
                     ForEach(filteredRaces) { race in
                         Button {
+                            Haptics.selection()
                             onSelect(race)
                         } label: {
                             RaceListRow(race: race)

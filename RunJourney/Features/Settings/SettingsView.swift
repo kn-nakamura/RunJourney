@@ -44,6 +44,9 @@ struct SettingsView: View {
     /// アプリ起動時に注入される PurchaseManager。Premium バッジ + Paywall sheet の駆動。
     @Environment(PurchaseManager.self) private var purchases
 
+    /// 端末サイズに応じた多カラム表示切替。`ContentView` で注入される。
+    @Environment(\.adaptiveLayout) private var layout
+
     @State private var showPaywall = false
 
     enum DeleteScope: String, CaseIterable, Identifiable {
@@ -75,21 +78,18 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Settings")
-                    .appText(.displayLg)
+                    .appText(layout.isVerticallyCompact ? .displayMd : .displayLg)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                premiumSection
-                librarySection
-                distanceUnitSection
-                customDistanceSection
-                heartRateSection
-                appearanceSection
-                iCloudSection
-                aboutSection
-                developerSection
-                dataSection
+                if layout.prefersMultiColumn {
+                    multiColumnSections
+                } else {
+                    singleColumnSections
+                }
             }
-            .padding()
+            .padding(layout.standardPadding)
+            .frame(maxWidth: layout.contentMaxWidth ?? .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
         }
         .background(Color.bgPrimary)
 #if os(iOS)
@@ -124,6 +124,48 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Section dispatch (single vs multi-column)
+
+    /// 縦持ち iPhone 用: 既存の縦並び。各セクションは flex 横幅。
+    @ViewBuilder
+    private var singleColumnSections: some View {
+        premiumSection
+        librarySection
+        distanceUnitSection
+        customDistanceSection
+        heartRateSection
+        appearanceSection
+        iCloudSection
+        aboutSection
+        developerSection
+        dataSection
+    }
+
+    /// 横向き iPhone / iPad / Mac 用: 設定をカテゴリごとの 2 カラムに分け、
+    /// 「ライブラリ・アカウント系」と「アプリ動作・外観系」を並列に見られるようにする。
+    /// 上端には Premium / Library を全幅で残し、下に dataSection を控えめに置く。
+    @ViewBuilder
+    private var multiColumnSections: some View {
+        premiumSection
+        librarySection
+        HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
+                distanceUnitSection
+                customDistanceSection
+                heartRateSection
+                iCloudSection
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 20) {
+                appearanceSection
+                aboutSection
+                developerSection
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        dataSection
+    }
+
     // MARK: - Premium / Tip Jar
     //
     // Premium 状態を分かりやすく表示する。未加入なら蛍光イエローの "Upgrade" ボタン、
@@ -133,6 +175,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "RunJourney Premium")
             Button {
+                Haptics.selection()
                 showPaywall = true
             } label: {
                 HStack(spacing: 12) {
@@ -187,6 +230,7 @@ struct SettingsView: View {
                 sampleLoadMessage = added > 0
                     ? "Added \(added) sample race\(added == 1 ? "" : "s")."
                     : "All sample races are already loaded."
+                if added > 0 { Haptics.success() } else { Haptics.warning() }
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "shippingbox")
@@ -460,6 +504,7 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         Button {
+            Haptics.warning()
             showDataSheet = true
         } label: {
             HStack(spacing: 8) {

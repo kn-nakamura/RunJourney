@@ -10,6 +10,9 @@ struct DashboardView: View {
     @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
+    /// 端末サイズに応じたカラム数調整。`ContentView` で注入される。
+    @Environment(\.adaptiveLayout) private var layout
+
     @State private var selectedCategory: RaceCategory? = nil  // nil = すべて
 
     private var filteredResults: [RaceResult] {
@@ -33,8 +36,10 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // 横向き iPhone は縦余白が貴重なので、display 級の見出しは
+                // やや小さい middle ヘッダーに切替えて折りたたみ感を出す。
                 Text("Dashboard")
-                    .appText(.displayLg)
+                    .appText(layout.isVerticallyCompact ? .displayMd : .displayLg)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !results.isEmpty {
@@ -48,7 +53,9 @@ struct DashboardView: View {
                     categoryModeSections
                 }
             }
-            .padding()
+            .padding(layout.standardPadding)
+            .frame(maxWidth: layout.contentMaxWidth ?? .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
         }
         .background(Color.bgPrimary)
 #if os(iOS)
@@ -59,32 +66,81 @@ struct DashboardView: View {
 #endif
     }
 
+    // MARK: - Adaptive grid columns
+
+    /// StatCard 用 (小さいカード) のカラム数。横向き iPhone で 3、iPad/Mac で 4。
+    private var statColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 12), count: layout.statCardColumnCount)
+    }
+
+    /// PB ボード行・summary 4 枚など中程度カードのカラム数。
+    private var mediumColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 12), count: layout.mediumCardColumnCount)
+    }
+
     // MARK: - All mode (selectedCategory == nil)
     //
     // "All" は距離が混在するので、平均ペースのような単一指標は意味を持たない。
     // 代わりにアクティビティの「広がり」(年数・国・大会数) と「進捗」(年別距離・PB 推移)
     // を中心に並べ、distribution カードで季節性を可視化する。
+    //
+    // wide / phoneLandscape では Activity と PB Board を横に並べて、
+    // 余った幅を活かす。
 
     @ViewBuilder
     private var allModeSections: some View {
-        activityGroupSection
-        pbBoardSection
-        progressGroupSection
-        distributionGroupSection
-        yearChartSection
+        if layout.prefersMultiColumn {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 20) {
+                    activityGroupSection
+                    progressGroupSection
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 20) {
+                    pbBoardSection
+                    distributionGroupSection
+                    yearChartSection
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+        } else {
+            activityGroupSection
+            pbBoardSection
+            progressGroupSection
+            distributionGroupSection
+            yearChartSection
+        }
     }
 
     // MARK: - Category mode
 
     @ViewBuilder
     private var categoryModeSections: some View {
-        summaryGrid
-        pbBoardSection
-        if let cat = selectedCategory {
-            categoryProgressionSection(category: cat)
-            paceDistributionSection(category: cat)
+        if layout.prefersMultiColumn {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 20) {
+                    summaryGrid
+                    pbBoardSection
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 20) {
+                    if let cat = selectedCategory {
+                        categoryProgressionSection(category: cat)
+                        paceDistributionSection(category: cat)
+                    }
+                    yearChartSection
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+        } else {
+            summaryGrid
+            pbBoardSection
+            if let cat = selectedCategory {
+                categoryProgressionSection(category: cat)
+                paceDistributionSection(category: cat)
+            }
+            yearChartSection
         }
-        yearChartSection
     }
 
     // MARK: - Category filter pills
@@ -93,10 +149,12 @@ struct DashboardView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 DashboardFilterPill(label: "All", isActive: selectedCategory == nil, color: .accentPrimary) {
+                    Haptics.tap()
                     selectedCategory = nil
                 }
                 ForEach(RaceCategory.allCases) { cat in
                     DashboardFilterPill(label: cat.displayName, isActive: selectedCategory == cat, color: cat.pinColor) {
+                        Haptics.tap()
                         selectedCategory = (selectedCategory == cat) ? nil : cat
                     }
                 }
@@ -132,7 +190,7 @@ struct DashboardView: View {
     // distance が揃っているカテゴリ単独モードでは Avg Pace が意味を持つので 4 枚並べる。
 
     private var summaryGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+        LazyVGrid(columns: statColumns, spacing: 12) {
             StatCard(label: "Finishes", value: "\(aggregate.totalRaces)", unit: "", symbol: "flag.checkered", color: .accentPrimary)
             StatCard(label: "Total Distance", value: PaceUtils.formatDistanceValue(km: aggregate.totalDistanceM / 1000, in: unit), unit: unit.label, symbol: "ruler", color: .cat10K)
             StatCard(label: "Total Time", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
@@ -154,7 +212,7 @@ struct DashboardView: View {
         let countries = AdvancedAnalytics.countryCount(filteredResults)
 
         return MetricGroupCard(title: "Activity") {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: statColumns, spacing: 12) {
                 StatCard(label: "Finishes", value: "\(aggregate.totalRaces)", unit: "", symbol: "flag.checkered", color: .accentPrimary)
                 StatCard(label: "Total Distance", value: PaceUtils.formatDistanceValue(km: aggregate.totalDistanceM / 1000, in: unit), unit: unit.label, symbol: "ruler", color: .cat10K)
                 StatCard(label: "Total Time", value: formatTotalTime(aggregate.totalTimeSec), unit: "", symbol: "clock", color: .cat5K)
@@ -242,7 +300,9 @@ struct DashboardView: View {
     private var pbBoardSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Personal Bests", subtitle: "by category")
-            VStack(spacing: 10) {
+            // 縦持ち iPhone は 1 列、横向き iPhone / iPad / Mac は 2 列で
+            // PB カードを敷き詰める。
+            LazyVGrid(columns: mediumColumns, spacing: 10) {
                 ForEach(RaceCategory.allCases) { cat in
                     if let result = pbs[cat] {
                         NavigationLink {
@@ -251,6 +311,7 @@ struct DashboardView: View {
                             PBCard(category: cat, result: result)
                         }
                         .buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded { Haptics.selection() })
                         .contextMenu {
                             NavigationLink {
                                 ComparisonView(seedResults: results.filter { $0.race?.category == cat })
@@ -260,13 +321,13 @@ struct DashboardView: View {
                         }
                     }
                 }
-                if pbs.isEmpty {
-                    Text("No personal bests yet")
-                        .appText(.bodySm)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 14)
-                }
+            }
+            if pbs.isEmpty {
+                Text("No personal bests yet")
+                    .appText(.bodySm)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 14)
             }
         }
     }
