@@ -17,6 +17,7 @@ struct RaceResultDetailView: View {
 
     @State private var showDeleteSheet = false
     @State private var showShareSheet = false
+    @State private var showAIReviewSheet = false
 
     private var linkedPlan: PacePlan? {
         guard let id = result.linkedPacePlanId else { return nil }
@@ -86,6 +87,16 @@ struct RaceResultDetailView: View {
                 .accessibilityLabel("Share Result")
             }
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showAIReviewSheet = true
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Color.accentPrimary)
+                }
+                .accessibilityLabel("AI Review")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     RaceResultEditView(result: result)
                 } label: {
@@ -95,6 +106,9 @@ struct RaceResultDetailView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ResultShareSheet(result: result)
+        }
+        .sheet(isPresented: $showAIReviewSheet) {
+            AIReviewSheet(result: result, race: result.race, plan: linkedPlan)
         }
         .sheet(isPresented: $showDeleteSheet) {
             DeleteConfirmSheet(

@@ -36,6 +36,11 @@ final class RaceResult {
     /// 表示時に `@Query` 結果から `id == linkedPacePlanId` で lookup する。
     var linkedPacePlanId: UUID? = nil
 
+    // AI Review (Foundation Models / Apple Intelligence). On-device生成テキストをキャッシュ。
+    var aiReviewText: String? = nil
+    var aiReviewGeneratedAt: Date? = nil
+    var aiReviewModelVersion: String? = nil
+
     var createdAt: Date = Date.now
 
     var race: Race? = nil
