@@ -158,7 +158,10 @@ struct MapShareCard: View {
     private var totalsBlock: some View {
         let totalKm = races.reduce(0.0) { $0 + ($1.distanceKm ?? $1.category.defaultDistanceKm ?? 0) }
         let countries = Set(races.compactMap { $0.country.isEmpty ? nil : $0.country }).count
-        let cities = Set(races.compactMap { $0.city.isEmpty ? nil : $0.city }).count
+        let cities = Set(races.compactMap { race -> String? in
+            guard let city = race.city, !city.isEmpty else { return nil }
+            return city
+        }).count
         let visible = MapMetric.allCases.filter { enabledMapMetrics.contains($0) }
 
         if !visible.isEmpty {
