@@ -580,7 +580,7 @@ final class CameraFlyAnimator {
         // 0.13 秒 / work-unit, 下限 0.55s / 上限 1.8s に丸める。
         let fromCenter = MKMapPoint(x: fromCenterX, y: fromCenterY)
         let toCenter = MKMapPoint(x: toCenterX, y: toCenterY)
-        let meters = MKMetersBetweenMapPoints(fromCenter, toCenter)
+        let meters = fromCenter.distance(to: toCenter)
         let distFactor = log10(max(meters, 100) / 100)              // 0..~5
         let zoomRatio = max(fromRect.size.width, targetRect.size.width)
             / min(fromRect.size.width, targetRect.size.width)
