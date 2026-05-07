@@ -135,8 +135,14 @@ struct RaceListMapView: UIViewRepresentable {
             }
             // 同一 rect 設定では `regionDidChangeAnimated` が呼ばれない場合があるので、
             // 適用前に終点 rect を比較してフェイルセーフを発動する。
+            // MKMapRect は Equatable に未準拠のため、構成要素で比較する (1pt 未満は同一とみなす)。
             let targetRect = mapView.mapRectThatFits(mapRect, edgePadding: padding)
-            let alreadyAtTarget = targetRect.equalTo(mapView.visibleMapRect)
+            let cur = mapView.visibleMapRect
+            let alreadyAtTarget =
+                abs(targetRect.origin.x - cur.origin.x) < 1 &&
+                abs(targetRect.origin.y - cur.origin.y) < 1 &&
+                abs(targetRect.size.width - cur.size.width) < 1 &&
+                abs(targetRect.size.height - cur.size.height) < 1
             mapView.setVisibleMapRect(mapRect, edgePadding: padding, animated: true)
             DispatchQueue.main.async {
                 self.requestedRegion = nil
