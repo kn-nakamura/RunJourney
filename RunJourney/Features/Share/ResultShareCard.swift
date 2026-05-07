@@ -114,6 +114,7 @@ struct ResultShareCard: View {
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.5)
+            .frame(maxWidth: .infinity)
     }
 
     private var metaText: some View {
@@ -123,6 +124,8 @@ struct ResultShareCard: View {
             .foregroundStyle(palette.textMuted)
             .multilineTextAlignment(.center)
             .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(maxWidth: .infinity)
     }
 
     private func metaParts() -> [String] {
@@ -206,14 +209,19 @@ struct ResultShareCard: View {
             Text(s.label)
                 .appText(.eyebrow)
                 .foregroundStyle(palette.textMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(s.value)
                     .appText(compact ? .codeSmBold : .codeMdBold)
                     .foregroundStyle(palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                 if let u = s.unit {
                     Text(u)
                         .appText(.bodyXs)
                         .foregroundStyle(palette.textMuted)
+                        .lineLimit(1)
                 }
             }
         }
