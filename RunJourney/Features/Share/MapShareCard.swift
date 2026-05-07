@@ -90,24 +90,28 @@ struct MapShareCard: View {
 
     @ViewBuilder
     private var pinFieldView: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(palette.bgTertiary.opacity(0.6))
-            if let composite = mapComposite {
-                composite
-                    .resizable()
-                    .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(2)
-            } else {
-                SharePinField(pins: pins, palette: palette, accent: accentColor)
-                    .padding(8)
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(palette.border, lineWidth: 1)
-        )
+        // `.scaledToFill()` を直接 ZStack の子に置くと、Image のレイアウトサイズが
+        // ナチュラルサイズ (900×900) を主張して親 VStack を押し広げる。
+        // Color.clear の overlay に閉じ込めて、画像は描画専用にする。
+        Color.clear
+            .overlay(
+                Group {
+                    if let composite = mapComposite {
+                        composite
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        SharePinField(pins: pins, palette: palette, accent: accentColor)
+                            .padding(8)
+                    }
+                }
+            )
+            .background(palette.bgTertiary.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .strokeBorder(palette.border, lineWidth: 1)
+            )
     }
 
     private var heroTitle: String {
@@ -165,20 +169,40 @@ struct MapShareCard: View {
         let visible = MapMetric.allCases.filter { enabledMapMetrics.contains($0) }
 
         if !visible.isEmpty {
-            HStack(spacing: 12) {
-                ForEach(visible) { metric in
-                    switch metric {
-                    case .races:
-                        statTile(label: metric.label, value: "\(races.count)", unit: nil)
-                    case .distance:
-                        statTile(label: metric.label, value: PaceUtils.formatDistanceValue(km: totalKm, in: unit), unit: unit.label)
-                    case .countries:
-                        statTile(label: metric.label, value: "\(countries)", unit: nil)
-                    case .cities:
-                        statTile(label: metric.label, value: "\(cities)", unit: nil)
+            // Portrait / Square のカード幅 (540pt) では 4 タイルを 1 行 HStack に詰めると
+            // 横方向にあふれて両端が切れるため、3 タイル以上は 2 列 LazyVGrid に折り返す。
+            // 横長フォーマット (Landscape / Wide) は左サイドバー幅で 1 行に並ぶので HStack のまま。
+            let useGrid = !config.format.isWide && visible.count >= 3
+            if useGrid {
+                LazyVGrid(
+                    columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                    spacing: 8
+                ) {
+                    ForEach(visible) { metric in
+                        tile(for: metric, totalKm: totalKm, countries: countries, cities: cities)
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(visible) { metric in
+                        tile(for: metric, totalKm: totalKm, countries: countries, cities: cities)
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func tile(for metric: MapMetric, totalKm: Double, countries: Int, cities: Int) -> some View {
+        switch metric {
+        case .races:
+            statTile(label: metric.label, value: "\(races.count)", unit: nil)
+        case .distance:
+            statTile(label: metric.label, value: PaceUtils.formatDistanceValue(km: totalKm, in: unit), unit: unit.label)
+        case .countries:
+            statTile(label: metric.label, value: "\(countries)", unit: nil)
+        case .cities:
+            statTile(label: metric.label, value: "\(cities)", unit: nil)
         }
     }
 
@@ -188,14 +212,19 @@ struct MapShareCard: View {
             Text(label)
                 .appText(.eyebrow)
                 .foregroundStyle(palette.textMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
                     .appText(.codeMdBold)
                     .foregroundStyle(palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                 if let u = unit {
                     Text(u)
                         .appText(.bodyXs)
                         .foregroundStyle(palette.textMuted)
+                        .lineLimit(1)
                 }
             }
         }
@@ -207,15 +236,19 @@ struct MapShareCard: View {
     private var titleView: some View {
         VStack(alignment: .leading, spacing: 6) {
             ShareCardKit.watermark(palette: palette, accent: accentColor)
+                .lineLimit(1)
             Text(heroTitle)
                 .appText(.displayLg)
                 .foregroundStyle(palette.textPrimary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Text(heroSubtitle)
                 .appText(.bodySm)
                 .foregroundStyle(palette.textMuted)
                 .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
