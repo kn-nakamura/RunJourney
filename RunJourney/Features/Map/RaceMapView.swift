@@ -54,7 +54,10 @@ struct RaceMapView: View {
     /// ピンを「拡大＋アイコン表示」状態にするレース。`sheetRace` の onChange と同期して
     /// セット/解除されるため、シート出現と同じタイミングでピンがアイコンに切替わる。
     @State private var iconifiedRace: Race?
-    @State private var zoomTask: Task<Void, Never>?
+    /// ピンタップでズーム発火後、カメラが完全停止したらシートを上げるためのフラグ役。
+    /// `RaceListMapView` に渡され、その値が非 nil なら `regionDidChangeAnimated` 完了で
+    /// `presentSheetIfPending()` が呼ばれる。固定時間待ちは廃止した。
+    @State private var pendingPresentRace: Race?
     @State private var hasFitInitialRaces = false
     @State private var showRaceList = false
     @State private var showMapShareSheet = false
@@ -157,8 +160,13 @@ struct RaceMapView: View {
         }
         .onChange(of: selectedRace) { _, race in
             guard let race else { return }
-            zoomTask?.cancel()
-            zoomTask = Task { await zoomThenPresent(race) }
+            // ピンを選んだ瞬間に短く触覚を返し、選択が成立したことをユーザに伝える。
+            Haptics.selection()
+            // 別ピンが既に拡大中なら一旦解除。新しいズーム中に古いピンが大きいままだと
+            // 視点が混乱するので、ズーム開始と同時にリセットしておく。
+            iconifiedRace = nil
+            pendingPresentRace = race
+            fitRace(race)
         }
         .onChange(of: sheetRace) { _, race in
             // シート (下部ウィンドウ) の出現タイミングと完全に同期してアイコン化を切替える。
@@ -176,22 +184,15 @@ struct RaceMapView: View {
         }
     }
 
-    /// ピン選択 → ピンを画面上半分の中央へ向けて滑らかにズーム → ズームが完全に
-    /// 落ち着いてからシート (下部ウィンドウ) 表示。アイコン化は `sheetRace` の onChange で
-    /// シート出現と同期して行うため、ここでは時間で測らない。
-    private func zoomThenPresent(_ race: Race) async {
-        // ピンを選んだ瞬間に短く触覚を返し、選択が成立したことをユーザに伝える。
-        Haptics.selection()
-        // 別ピンが既に拡大中なら一旦解除。新しいズーム中に古いピンが大きいままだと
-        // 視点が混乱するので、ズーム開始と同時にリセットしておく。
-        iconifiedRace = nil
-        fitRace(race)
-        // ズームが完全に静止してからシートを上げる。fitRace の sin カーブアニメは
-        // 距離依存で 0.6〜2.0 秒。最長ケースでも止まり切るよう、それより少し長めに待つ。
-        try? await Task.sleep(for: .milliseconds(2100))
-        guard !Task.isCancelled else { return }
+    /// `RaceListMapView` から「カメラが完全停止した」と通知されたとき呼ばれる。
+    /// `pendingPresentRace` が立っていれば、そのレースのシートを上げる。
+    /// 固定時間待ちは廃止し、MKMapView 標準アニメ完了 (`regionDidChangeAnimated`) を
+    /// 真のシート発火タイミングとする。
+    private func presentSheetIfPending() {
+        guard let race = pendingPresentRace else { return }
         sheetRace = race
-        // ズーム後の sheet 表示で `selectedRace` をリセット。次回タップで onChange が再発火する。
+        pendingPresentRace = nil
+        // 次回タップで `onChange(of: selectedRace)` が再発火するように nil に戻す。
         selectedRace = nil
     }
 
@@ -254,6 +255,8 @@ struct RaceMapView: View {
             requestedRegionUpperHalf: requestedRegionUpperHalf,
             requestedZoom: $requestedZoom,
             currentCenter: $currentMapCenter,
+            pendingPresentRace: pendingPresentRace,
+            onProgrammaticCameraSettled: presentSheetIfPending,
             mapSettings: mapSettings,
             pinSettings: pinSettings
         )
