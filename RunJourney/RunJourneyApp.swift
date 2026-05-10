@@ -24,6 +24,9 @@ struct RunJourneyApp: App {
     /// `Transaction.updates` の購読をプロセス生存中ずっと回す必要があるため、
     /// scene 切替で破棄されないようにここに置く。
     @State private var purchaseManager = PurchaseManager()
+    /// テーマ/アクセント変更で view tree が rebuild されてもナビゲーション状態を保持するための
+    /// 共有ストア。App-level `@State` はプロセス生存中保持されるため `.id(...)` の影響を受けない。
+    @State private var navStore = AppNavigationStore()
 
     init() {
         // SwiftUI 構築前に AppleLanguages を反映しておくことで、起動直後の Bundle.main 参照
@@ -72,7 +75,10 @@ struct RunJourneyApp: App {
             // アクセントだけ変えても trait は変わらないため、`UIColor(dynamicProvider:)`
             // は再評価されない。`.id(...)` でツリーを強制再構築し全 Color を再解決する。
             // 言語切替も同様に Locale 環境を全 Text に再解決させたいので id に含める。
+            // ※ ナビゲーション状態 (selectedSection 等) は AppNavigationStore (App-level @State)
+            //    に持たせて、この rebuild で消えないようにしている。
             .id("\(appThemeRaw)|\(accentDarkRaw)|\(accentLightRaw)|\(appLanguageRaw)")
+            .environment(\.appNavigation, navStore)
             .preferredColorScheme(currentTheme.colorScheme)
             .environment(\.locale, currentLanguage.localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current)
             .tint(.accentPrimary)

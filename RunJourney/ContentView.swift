@@ -1,6 +1,50 @@
 import SwiftUI
 import SwiftData
 
+/// アプリのタブ / sidebar セクション。
+/// テーマやアクセント色の変更で view tree を再構築しても保持したいため、
+/// `AppNavigationStore` 経由で App-level の `@State` に格納する。
+enum AppSection: String, Hashable, CaseIterable, Identifiable {
+    case map
+    case dashboard
+    case pace
+    case tools
+    case settings
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .map: return "MAP"
+        case .dashboard: return "DASHBOARD"
+        case .pace: return "PACE"
+        case .tools: return "TOOLS"
+        case .settings: return "SETTINGS"
+        }
+    }
+    var symbolName: String {
+        switch self {
+        case .map: return "map"
+        case .dashboard: return "chart.bar"
+        case .pace: return "speedometer"
+        case .tools: return "function"
+        case .settings: return "gearshape"
+        }
+    }
+}
+
+/// 画面遷移状態をテーマ/アクセント切替の view 再構築の外側に保持するためのストア。
+/// `RunJourneyApp` の `@State` で 1 インスタンス作り、environment 経由で各 View に渡す。
+@Observable
+final class AppNavigationStore {
+    var selectedSection: AppSection = .map
+    var columnVisibility: NavigationSplitViewVisibility = .all
+    var presentedDetailRace: Race? = nil
+}
+
+extension EnvironmentValues {
+    @Entry var appNavigation: AppNavigationStore = AppNavigationStore()
+}
+
 /// アプリのルート。
 /// - iPhone (compact h, regular v): TabView で 「地図 / ダッシュボード / ペース / ツール / 設定」 を切替
 /// - iPhone landscape (compact h, compact v): TabView を維持しつつ各画面側で横向きを活かしたレイアウトに分岐
@@ -10,41 +54,17 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.appNavigation) private var nav
 
-    @State private var selectedSection: AppSection = .map
-    /// iPad / Mac の sidebar 表示状態。横画面では普段は出しっぱなしにしたいので `.all` を初期値にする。
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
-    /// レース詳細表示中のレース。iPad 横ではこの値を見て ContentView ルートで
-    /// 「画面の左半分に下から引き上がるオーバーレイ」を描画する。iPhone (TabView 経路) では
-    /// RaceMapView 内部の `.sheet(item:)` がこの binding を見て従来どおり下シートを出す。
-    @State private var presentedDetailRace: Race?
-
-    enum AppSection: String, Hashable, CaseIterable, Identifiable {
-        case map
-        case dashboard
-        case pace
-        case tools
-        case settings
-
-        var id: String { rawValue }
-        var displayName: String {
-            switch self {
-            case .map: return "MAP"
-            case .dashboard: return "DASHBOARD"
-            case .pace: return "PACE"
-            case .tools: return "TOOLS"
-            case .settings: return "SETTINGS"
-            }
-        }
-        var symbolName: String {
-            switch self {
-            case .map: return "map"
-            case .dashboard: return "chart.bar"
-            case .pace: return "speedometer"
-            case .tools: return "function"
-            case .settings: return "gearshape"
-            }
-        }
+    private var selectedSection: AppSection {
+        get { nav.selectedSection }
+        nonmutating set { nav.selectedSection = newValue }
+    }
+    private var columnVisibilityBinding: Binding<NavigationSplitViewVisibility> {
+        Binding(get: { nav.columnVisibility }, set: { nav.columnVisibility = $0 })
+    }
+    private var presentedDetailRaceBinding: Binding<Race?> {
+        Binding(get: { nav.presentedDetailRace }, set: { nav.presentedDetailRace = $0 })
     }
 
     private func resolvedLayout(containerWidth: CGFloat?) -> AdaptiveLayout {
@@ -76,7 +96,7 @@ struct ContentView: View {
                 // - 縦 (padPortrait): 画面の下半分を占める横長パネル (iPhone の bottom sheet と
                 //   同じ視覚スタイル。`.sheet` の iPad form sheet 適応を回避するため自前で出す)
                 // 外側 sidebar / RACES ドロワー / 地図は静止したまま、このパネルだけが動く。
-                if let race = presentedDetailRace {
+                if let race = nav.presentedDetailRace {
                     if layout.isWide {
                         detailOverlay(race: race)
                             .frame(width: proxy.size.width / 2)
@@ -100,7 +120,7 @@ struct ContentView: View {
             // adaptiveLayout は ZStack 全体にかける。detailOverlay 内の RaceResultDetailView が
             // `usesSidebarRoot` を見てフライスルーを `.fullScreenCover` で全画面表示するために必要。
             .environment(\.adaptiveLayout, layout)
-            .animation(.easeInOut(duration: 0.3), value: presentedDetailRace == nil)
+            .animation(.easeInOut(duration: 0.3), value: nav.presentedDetailRace == nil)
         }
     }
 
@@ -113,7 +133,7 @@ struct ContentView: View {
             HStack {
                 Button {
                     Haptics.tap()
-                    presentedDetailRace = nil
+                    nav.presentedDetailRace = nil
                 } label: {
                     Text("Close")
                         .appText(.bodyBaseBold)
@@ -148,7 +168,7 @@ struct ContentView: View {
         )
         let tv = TabView(selection: binding) {
             Tab(AppSection.map.displayName, systemImage: AppSection.map.symbolName, value: AppSection.map) {
-                NavigationStack { RaceMapView(sheetRace: $presentedDetailRace) }
+                NavigationStack { RaceMapView(sheetRace: presentedDetailRaceBinding) }
             }
             Tab(AppSection.dashboard.displayName, systemImage: AppSection.dashboard.symbolName, value: AppSection.dashboard) {
                 NavigationStack { DashboardView() }
@@ -176,7 +196,7 @@ struct ContentView: View {
     // MARK: - iPad / Mac
 
     private var sidebarSplitView: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView(columnVisibility: columnVisibilityBinding) {
             List(selection: sidebarSelectionBinding) {
                 Section("RunJourney") {
                     ForEach(AppSection.allCases) { section in
@@ -191,7 +211,7 @@ struct ContentView: View {
             NavigationStack {
                 Group {
                     switch selectedSection {
-                    case .map:       RaceMapView(sheetRace: $presentedDetailRace)
+                    case .map:       RaceMapView(sheetRace: presentedDetailRaceBinding)
                     case .dashboard: DashboardView()
                     case .pace:      PaceCalculatorView()
                     case .tools:     ToolsView()
