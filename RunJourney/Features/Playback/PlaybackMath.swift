@@ -1,12 +1,50 @@
 import Foundation
 import CoreLocation
 
+/// 山の高低差を擬似的に強調するカメラトリック設定。
+/// Apple MapKit は地形高さの倍率 API を提供しないため、カメラの仰角を水平寄りにして
+/// 距離を縮めることで、山が縦に伸びて見える効果を作る。
+enum ElevationEmphasis: String, CaseIterable, Identifiable, Codable {
+    case off, low, medium, high
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .off:    return "Off"
+        case .low:    return "Low"
+        case .medium: return "Med"
+        case .high:   return "High"
+        }
+    }
+    /// プロファイルの user-angle に対する負方向シフト (度数)。下げるほど水平視点 = 山が高く見える。
+    var angleDelta: Double {
+        switch self {
+        case .off:    return 0
+        case .low:    return -5
+        case .medium: return -10
+        case .high:   return -15
+        }
+    }
+    /// プロファイル distance への倍率 (短いほど迫力が出る)。
+    var distanceScale: Double {
+        switch self {
+        case .off:    return 1.00
+        case .low:    return 0.85
+        case .medium: return 0.70
+        case .high:   return 0.55
+        }
+    }
+
+    static let userDefaultsKey = "flythrough.elevationEmphasis"
+}
+
 /// 距離プロファイルから計算したフライスルーカメラの全パラメータ。
 struct FollowCameraProfile: Equatable {
     /// MapKit カメラ距離 (m)。ユーザ上書き可能。
     var distance: Double
-    /// カメラ pitch (度数)。ユーザ上書き可能。
-    var pitch: Double
+    /// カメラ user-angle (0..180 度)。
+    /// 0 = 後方地面レベル、90 = 真上俯瞰、180 = 前方地面レベル。
+    /// 実 MapKit pitch への変換は `PlaybackMath.angleToMapPitch(_:)` で行う。
+    var angle: Double
     /// 進行方向決定のための先読み時間 (秒)。
     var lookAheadSec: Double
     /// 中心追従の smoothDamp smoothTime (秒)。
@@ -27,7 +65,7 @@ struct FollowCameraProfile: Equatable {
 
     static let marathonDefault = FollowCameraProfile(
         distance: 3000,
-        pitch: 75,
+        angle: 75,
         lookAheadSec: 4,
         centerResponseSec: 0.26,
         bearingResponseSec: 1.5
@@ -102,22 +140,26 @@ enum PlaybackMath {
 
     /// ルート長に応じてカメラ姿勢・追従応答・先読みをまとめて返す。
     /// 移植元: `marathon-record-app/src/components/map/RouteFlythru.tsx` の `getFollowCameraProfile`。
-    static func followCameraProfile(distanceKm: Double) -> FollowCameraProfile {
+    /// - Parameter emphasis: 山の高低差を強調するカメラトリック (None/Low/Med/High)。
+    ///   ユーザが Angle/Distance を手動上書きしている時はこの効果は無視される (effective* 側で trump)。
+    static func followCameraProfile(distanceKm: Double, emphasis: ElevationEmphasis = .off) -> FollowCameraProfile {
         let factor = profileFactor(distanceKm: distanceKm)
         let shortBias = max(-factor, 0)
         let longBias  = max( factor, 0)
 
-        // フルマラソン基準値: distance=3000m (2x), pitch=75, lookAhead=4s, bearingResp=1.5s
-        // distance: 体感的に「もう少し引いた俯瞰」感を出すため 2x スケール。
-        // pitch: 60 だと体感 45° しか感じないので 75 まで起こしてダイナミックなフライスルーに。
-        let distance = clamp(
+        // フルマラソン基準値: distance=3000m (2x), angle=75 (= MapKit pitch 75, 後方視点), lookAhead=4s
+        let baseDistance = clamp(
             3000 - shortBias * 1400 + longBias * 1600,
             min: 1200, max: 7000
         )
-        let pitch = clamp(
+        let baseAngle = clamp(
             75 + shortBias * 1.5 - longBias * 3.2,
             min: 65, max: 80
         )
+        // Emphasis 適用: angle を下げて水平寄りに、distance も縮める。
+        let angle = clamp(baseAngle + emphasis.angleDelta, min: 30, max: 85)
+        let distance = clamp(baseDistance * emphasis.distanceScale, min: 600, max: 7000)
+
         let lookAhead = clamp(
             4.0 - shortBias * 0.45 + longBias * 1.0,
             min: 3.0, max: 6.5
@@ -139,7 +181,7 @@ enum PlaybackMath {
 
         return FollowCameraProfile(
             distance: distance,
-            pitch: pitch,
+            angle: angle,
             lookAheadSec: lookAhead,
             centerResponseSec: centerResp,
             bearingResponseSec: bearingResp,
@@ -148,6 +190,25 @@ enum PlaybackMath {
             centerDeadbandM: centerDeadband,
             centerSoftZoneM: centerSoftZone
         )
+    }
+
+    // MARK: - Angle / Heading mapping (user-angle 0..180 -> MapKit pitch + heading flip)
+
+    /// ユーザ角度 (0..180 度) を MapKit pitch (0..85) に変換。
+    /// - 0   = カメラ後方地面 (mapPitch ~85, 水平視点)
+    /// - 90  = 真上俯瞰 (mapPitch 0)
+    /// - 180 = カメラ前方地面 (mapPitch ~85, ただし heading 180 度反転は呼び出し側で処理)
+    static func angleToMapPitch(_ userAngle: Double) -> Double {
+        let clamped = clamp(userAngle, min: 0, max: 180)
+        let absDelta = abs(clamped - 90)             // 0..90
+        return min(85, 90 - absDelta)                // 0..85
+    }
+
+    /// userAngle が 90 を跨いだら heading を 180 度反転して「前方から後ろを見る」状態にする。
+    /// 88..92 はデッドゾーン (top-down 付近で急激な heading 反転を起こさない)。
+    static func headingFlip(forAngle userAngle: Double) -> Double {
+        if userAngle > 92 { return 180 }
+        return 0
     }
 
     /// デッドバンド / ソフトゾーン のブレンド係数を返す。

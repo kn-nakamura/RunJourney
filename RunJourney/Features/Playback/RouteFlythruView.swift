@@ -27,10 +27,19 @@ struct RouteFlythruView: View {
     @State private var lastCameraUpdateAt: CFTimeInterval = 0
 
     // ユーザ上書きカメラ値 (nil = プロファイル自動)
-    @State private var userPitch: Double? = nil
+    /// カメラ角度 (0..180 度)。0 = 後方地面、90 = 真上、180 = 前方地面。
+    @State private var userAngle: Double? = nil
     @State private var userDistance: Double? = nil
+    /// 進行方向に対する yaw オフセット (-180..180 度)。+ = 右側から見る、- = 左側。
+    @State private var userRotation: Double? = nil
     @State private var userCenterResponse: Double? = nil
     @State private var userBearingResponse: Double? = nil
+
+    /// 山の高低差を擬似強調するカメラトリック設定。デフォルト High。
+    @AppStorage(ElevationEmphasis.userDefaultsKey) private var elevationEmphasisRaw: String = ElevationEmphasis.high.rawValue
+    private var elevationEmphasis: ElevationEmphasis {
+        ElevationEmphasis(rawValue: elevationEmphasisRaw) ?? .high
+    }
 
     // ユーザがマップを触った時刻から 2.5 秒間はカメラ制御を渡す
     @State private var userInteractionExpiresAt: CFTimeInterval = 0
@@ -50,22 +59,26 @@ struct RouteFlythruView: View {
 
     private let allCoords: [CLLocationCoordinate2D]
     private let trackPointCoords: [CLLocationCoordinate2D]
-    private let cameraProfile: FollowCameraProfile
+    private let totalDistanceKm: Double
 
     init(result: RaceResult) {
         self.result = result
         let pts = result.trackPoints
         self.allCoords = pts.map(\.coordinate)
         self.trackPointCoords = self.allCoords
-        let totalDistKm = (pts.last?.distanceM ?? 0) / 1000
-        self.cameraProfile = PlaybackMath.followCameraProfile(distanceKm: totalDistKm)
+        self.totalDistanceKm = (pts.last?.distanceM ?? 0) / 1000
         self._controller = State(initialValue: PlaybackController(trackPoints: pts))
     }
 
     // MARK: - Effective camera params
 
-    private var effectivePitch: Double { userPitch ?? cameraProfile.pitch }
+    /// Elevation emphasis 設定を含むカメラプロファイル。emphasis 変更時に再計算される。
+    private var cameraProfile: FollowCameraProfile {
+        PlaybackMath.followCameraProfile(distanceKm: totalDistanceKm, emphasis: elevationEmphasis)
+    }
+    private var effectiveAngle: Double { userAngle ?? cameraProfile.angle }
     private var effectiveDistance: Double { userDistance ?? cameraProfile.distance }
+    private var effectiveRotation: Double { userRotation ?? 0 }
     private var effectiveCenterResp: Double { userCenterResponse ?? cameraProfile.centerResponseSec }
     private var effectiveBearingResp: Double { userBearingResponse ?? cameraProfile.bearingResponseSec }
 
@@ -79,11 +92,13 @@ struct RouteFlythruView: View {
                 if showSettings {
                     PlaybackSettingsPanel(
                         controller: controller,
-                        userPitch: $userPitch,
+                        userAngle: $userAngle,
                         userDistance: $userDistance,
+                        userRotation: $userRotation,
                         userCenterResponse: $userCenterResponse,
                         userBearingResponse: $userBearingResponse,
-                        profilePitch: cameraProfile.pitch,
+                        elevationEmphasisRaw: $elevationEmphasisRaw,
+                        profileAngle: cameraProfile.angle,
                         profileDistance: cameraProfile.distance,
                         profileCenterResponse: cameraProfile.centerResponseSec,
                         profileBearingResponse: cameraProfile.bearingResponseSec
@@ -124,6 +139,12 @@ struct RouteFlythruView: View {
         .onChange(of: controller.currentTime) { _, _ in
             updateCameraIfNeeded()
         }
+        // スライダー操作時は即時カメラ反映。再生停止中でも反応するようにする。
+        // smoothing は通さず effective* 値だけで再計算するため snap 応答になる。
+        .onChange(of: userAngle)    { _, _ in if followMode { applyCamera() } }
+        .onChange(of: userDistance) { _, _ in if followMode { applyCamera() } }
+        .onChange(of: userRotation) { _, _ in if followMode { applyCamera() } }
+        .onChange(of: elevationEmphasisRaw) { _, _ in if followMode { applyCamera() } }
     }
 
     // MARK: - Custom header
@@ -355,23 +376,35 @@ struct RouteFlythruView: View {
         )
     }
 
+    /// userAngle (0..180) と userRotation (-180..180) を MapKit (pitch, heading) に変換。
+    /// - pitch: angleToMapPitch で 0..85 にマップ
+    /// - heading: 経路 bearing (smoothed) + 90超え時の 180度反転 + ユーザの yaw オフセット (snap)
+    private var resolvedCameraOrientation: (pitch: Double, heading: Double) {
+        let pitch = PlaybackMath.angleToMapPitch(effectiveAngle)
+        let flip = PlaybackMath.headingFlip(forAngle: effectiveAngle)
+        let heading = (smoothedHeading + flip + effectiveRotation + 360).truncatingRemainder(dividingBy: 360)
+        return (pitch, heading)
+    }
+
 #if canImport(UIKit)
     private func makeMKCamera() -> MKMapCamera {
         let cam = MKMapCamera()
+        let orient = resolvedCameraOrientation
         cam.centerCoordinate = CLLocationCoordinate2D(latitude: smoothedLat, longitude: smoothedLng)
         cam.centerCoordinateDistance = effectiveDistance
-        cam.heading = smoothedHeading
-        cam.pitch = effectivePitch
+        cam.heading = orient.heading
+        cam.pitch = orient.pitch
         return cam
     }
 #endif
 
     private func makeMapCameraPosition() -> MapCameraPosition {
-        .camera(MapCamera(
+        let orient = resolvedCameraOrientation
+        return .camera(MapCamera(
             centerCoordinate: CLLocationCoordinate2D(latitude: smoothedLat, longitude: smoothedLng),
             distance: effectiveDistance,
-            heading: smoothedHeading,
-            pitch: effectivePitch
+            heading: orient.heading,
+            pitch: orient.pitch
         ))
     }
 }

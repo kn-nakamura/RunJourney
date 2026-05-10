@@ -10,6 +10,9 @@ import AppKit
 /// 子 SwiftUI ビュー（とその中の MapKit ビュー）はこれで指定したカラースキームで描画される。
 struct ColorSchemeOverride<Content: View>: View {
     let scheme: ColorScheme?
+    /// scheme == nil のとき (= AppTheme.system) は親の colorScheme (= OS の状態) に追従する。
+    /// 以前は `scheme ?? .dark` で強制 dark にしていたため、ライト OS でもマップがダークになっていた。
+    @Environment(\.colorScheme) private var inheritedScheme
     let content: () -> Content
 
     init(scheme: ColorScheme?, @ViewBuilder content: @escaping () -> Content) {
@@ -18,8 +21,8 @@ struct ColorSchemeOverride<Content: View>: View {
     }
 
     var body: some View {
-        OverrideRepresentable(scheme: scheme, content: content)
-            .environment(\.colorScheme, scheme ?? .dark)
+        let effective = scheme ?? inheritedScheme
+        OverrideRepresentable(scheme: effective, content: content)
     }
 }
 
@@ -43,7 +46,7 @@ private final class FullBleedHostingController<Content: View>: UIHostingControll
 }
 
 private struct OverrideRepresentable<Content: View>: UIViewControllerRepresentable {
-    let scheme: ColorScheme?
+    let scheme: ColorScheme
     let content: () -> Content
 
     func makeUIViewController(context: Context) -> UIHostingController<Content> {
@@ -58,14 +61,13 @@ private struct OverrideRepresentable<Content: View>: UIViewControllerRepresentab
         vc.overrideUserInterfaceStyle = uiStyle(scheme)
     }
 
-    private func uiStyle(_ s: ColorScheme?) -> UIUserInterfaceStyle {
-        guard let s else { return .unspecified }
-        return s == .dark ? .dark : .light
+    private func uiStyle(_ s: ColorScheme) -> UIUserInterfaceStyle {
+        s == .dark ? .dark : .light
     }
 }
 #elseif os(macOS)
 private struct OverrideRepresentable<Content: View>: NSViewControllerRepresentable {
-    let scheme: ColorScheme?
+    let scheme: ColorScheme
     let content: () -> Content
 
     func makeNSViewController(context: Context) -> NSHostingController<Content> {
@@ -79,9 +81,8 @@ private struct OverrideRepresentable<Content: View>: NSViewControllerRepresentab
         vc.view.appearance = appearance(scheme)
     }
 
-    private func appearance(_ s: ColorScheme?) -> NSAppearance? {
-        guard let s else { return nil }
-        return NSAppearance(named: s == .dark ? .darkAqua : .aqua)
+    private func appearance(_ s: ColorScheme) -> NSAppearance? {
+        NSAppearance(named: s == .dark ? .darkAqua : .aqua)
     }
 }
 #endif
