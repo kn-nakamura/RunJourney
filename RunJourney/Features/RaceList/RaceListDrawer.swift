@@ -290,7 +290,7 @@ private struct RaceListRow: View {
     private var trailingValue: some View {
         if let latest = latestResult {
             if let sec = latest.finishTimeSec, sec > 0 {
-                Text(formatDuration(sec))
+                Text(PaceUtils.formatDuration(sec))
                     .appText(.codeBaseBold)
                     .foregroundStyle(Color.accentPrimary)
             } else if latest.isDNF {
@@ -312,15 +312,6 @@ private struct RaceListRow: View {
             .padding(.vertical, 2)
             .background(background, in: Capsule())
             .foregroundStyle(.black)
-    }
-
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
     }
 
     private func formatDate(_ date: Date) -> String {

@@ -32,9 +32,6 @@ struct PaceCalculatorView: View {
 
     @State private var showShareSheet = false
 
-    /// Custom 距離 TextField のテキスト (表示単位ベース)。`customDistanceKm` (km 内部値) と同期。
-    @State private var customDistanceText: String = ""
-
     private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
 
     /// PaceTimeSpinner 用: 表示単位の sec ↔ 内部 sec/km をブリッジ。
@@ -285,48 +282,15 @@ struct PaceCalculatorView: View {
                 .appText(.bodySm)
                 .foregroundStyle(.secondary)
             Spacer()
-#if os(iOS)
-            TextField(unit.label, text: $customDistanceText)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .font(.appFont(.codeBaseBold))
-                .frame(width: 80)
-                .onAppear { customDistanceText = formatCustomDistanceText() }
-                .onSubmit { commitCustomDistanceText() }
-#else
-            TextField(unit.label, text: $customDistanceText)
-                .multilineTextAlignment(.trailing)
-                .font(.appFont(.codeBaseBold))
-                .frame(width: 80)
-                .onAppear { customDistanceText = formatCustomDistanceText() }
-                .onSubmit { commitCustomDistanceText() }
-#endif
-            Text(unit.label)
-                .appText(.bodySm)
-                .foregroundStyle(.secondary)
+            CustomDistanceField(
+                customDistanceKm: $customDistanceKm,
+                unit: unit,
+                fieldWidth: 80
+            )
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
-        .onChange(of: distanceUnitRaw) { _, _ in customDistanceText = formatCustomDistanceText() }
-        .onChange(of: customDistanceKm) { _, _ in customDistanceText = formatCustomDistanceText() }
-    }
-
-    private func formatCustomDistanceText() -> String {
-        let v = customDistanceKm.displayed(in: unit)
-        return abs(v) >= 10 ? String(format: "%.1f", v) : String(format: "%.2f", v)
-    }
-
-    private func commitCustomDistanceText() {
-        let normalized = customDistanceText
-            .replacingOccurrences(of: ",", with: ".")
-            .trimmingCharacters(in: .whitespaces)
-        guard let parsed = Double(normalized), parsed > 0 else {
-            customDistanceText = formatCustomDistanceText()
-            return
-        }
-        customDistanceKm = parsed.toKm(from: unit)
-        customDistanceText = formatCustomDistanceText()
     }
 
     // MARK: - Spinners
@@ -533,56 +497,3 @@ struct PaceCalculatorView: View {
     }
 }
 
-// MARK: - Subcomponents
-
-private struct DistanceTab: View {
-    let label: String
-    let isActive: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .appText(.displayXs)
-                .foregroundStyle(isActive ? Color.bgPrimary : Color.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    isActive ? Color.accentPrimary : Color.bgSecondary,
-                    in: RoundedRectangle(cornerRadius: 10)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(isActive ? .clear : .white.opacity(0.1), lineWidth: 0.5)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct SavedPlanRow: View {
-    let plan: PacePlan
-    @AppStorage("distanceUnit") private var distanceUnitRaw: String = DistanceUnit.km.rawValue
-    private var unit: DistanceUnit { DistanceUnit.resolve(distanceUnitRaw) }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plan.name)
-                    .appText(.bodySmBold)
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(1)
-                Text("\(PaceUtils.formatDistance(km: plan.targetDistanceKm, in: unit)) · \(PaceUtils.formatTimeSimple(Int(plan.targetTimeSec)))")
-                    .appText(.codeXs)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(PaceUtils.formatPace(secPerKm: Int(plan.paceSecPerKm), in: unit))
-                .appText(.codeMd)
-                .foregroundStyle(Color.accentPrimary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
-    }
-}

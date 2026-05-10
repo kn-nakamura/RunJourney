@@ -13,12 +13,12 @@ struct PlaybackHUD: View {
         HStack(alignment: .center, spacing: 0) {
             // 経過時間 / 総時間 — 固定幅78pt
             VStack(alignment: .leading, spacing: 0) {
-                Text(formatDuration(controller.currentTime))
+                Text(PaceUtils.formatDuration(controller.currentTime))
                     .appText(.codeSm)
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                     .foregroundStyle(Color.accentPrimary)
-                Text("/ \(formatDuration(controller.totalDuration))")
+                Text("/ \(PaceUtils.formatDuration(controller.totalDuration))")
                     .appText(.codeXxs)
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
@@ -124,12 +124,4 @@ struct PlaybackHUD: View {
         return String(format: "%.0f", alt)
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }

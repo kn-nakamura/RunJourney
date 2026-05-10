@@ -50,7 +50,7 @@ struct RaceResultEditView: View {
                     .foregroundStyle(.secondary)
             }
             if let sec = result.finishTimeSec, sec > 0 {
-                Text(formatDuration(sec))
+                Text(PaceUtils.formatDuration(sec))
                     .appText(.codeMd)
                     .foregroundStyle(Color.accentPrimary)
             }
@@ -140,12 +140,4 @@ struct RaceResultEditView: View {
 
     // MARK: - Helpers
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }

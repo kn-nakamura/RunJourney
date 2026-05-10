@@ -55,7 +55,7 @@ struct CumulativeTimeOverlayChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatDuration(raw))
+                        Text(PaceUtils.formatDuration(raw))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -84,12 +84,4 @@ struct CumulativeTimeOverlayChart: View {
         return f.string(from: r.raceDate)
     }
 
-    private func formatDuration(_ sec: Double) -> String {
-        let s = Int(sec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let r = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, r) }
-        return String(format: "%d:%02d", m, r)
-    }
 }

@@ -66,7 +66,7 @@ struct PaceZoneBars: View {
     }
 
     private var legend: some View {
-        Text("Target ±\(toleranceSec)s/km from \(formatPace(targetPaceSecPerKm))")
+        Text("Target ±\(toleranceSec)s/km from \(PaceUtils.formatPaceSimple(Int(targetPaceSecPerKm.rounded())))")
             .appText(.bodyXs)
             .foregroundStyle(.tertiary)
     }
@@ -84,8 +84,4 @@ struct PaceZoneBars: View {
         return String(format: "%.0f%%", sec / total * 100)
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let s = Int(secPerKm.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
 }

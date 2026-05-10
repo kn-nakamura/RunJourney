@@ -153,7 +153,7 @@ struct GoalTimeQuickSelect: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                FlowLayout(spacing: 6) {
+                WrappingFlowLayout(spacing: 6) {
                     ForEach(group.items, id: \.seconds) { item in
                         SubTargetButton(
                             label: item.label,
@@ -205,46 +205,3 @@ private struct SubTargetButton: View {
     }
 }
 
-// MARK: - FlowLayout (chip 折り返し用)
-
-private struct FlowLayout: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var totalHeight: CGFloat = 0
-        var lineWidth: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        var maxLineWidth: CGFloat = 0
-        for sv in subviews {
-            let s = sv.sizeThatFits(.unspecified)
-            if lineWidth + s.width > width {
-                totalHeight += lineHeight + spacing
-                maxLineWidth = max(maxLineWidth, lineWidth - spacing)
-                lineWidth = 0
-                lineHeight = 0
-            }
-            lineWidth += s.width + spacing
-            lineHeight = max(lineHeight, s.height)
-        }
-        totalHeight += lineHeight
-        maxLineWidth = max(maxLineWidth, lineWidth - spacing)
-        return CGSize(width: maxLineWidth, height: totalHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var origin = bounds.origin
-        var lineHeight: CGFloat = 0
-        for sv in subviews {
-            let s = sv.sizeThatFits(.unspecified)
-            if origin.x + s.width > bounds.maxX {
-                origin.x = bounds.minX
-                origin.y += lineHeight + spacing
-                lineHeight = 0
-            }
-            sv.place(at: origin, proposal: ProposedViewSize(s))
-            origin.x += s.width + spacing
-            lineHeight = max(lineHeight, s.height)
-        }
-    }
-}

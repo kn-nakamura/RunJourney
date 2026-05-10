@@ -31,7 +31,7 @@ struct PlaybackControls: View {
             }
             .buttonStyle(.plain)
 
-            Text(formatDuration(controller.currentTime))
+            Text(PaceUtils.formatDuration(controller.currentTime))
                 .appText(.codeXs)
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .leading)
@@ -55,7 +55,7 @@ struct PlaybackControls: View {
             )
             .tint(Color.accentPrimary)
 
-            Text(formatDuration(controller.totalDuration))
+            Text(PaceUtils.formatDuration(controller.totalDuration))
                 .appText(.codeXs)
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .trailing)
@@ -66,12 +66,4 @@ struct PlaybackControls: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.06)))
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }

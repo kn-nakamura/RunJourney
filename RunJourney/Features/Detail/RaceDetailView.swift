@@ -391,7 +391,7 @@ struct RaceResultRow: View {
                 }
                 Spacer()
                 if let sec = result.finishTimeSec {
-                    Text(formatDuration(sec))
+                    Text(PaceUtils.formatDuration(sec))
                         .appText(.codeLg)
                         .foregroundStyle(Color.accentPrimary)
                 } else if result.isDNF {
@@ -406,7 +406,7 @@ struct RaceResultRow: View {
                         .appText(.codeXs)
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
-                    Label(formatPace(pace), systemImage: "speedometer")
+                    Label("\(PaceUtils.formatPaceShort(secPerKm: pace, in: unit)) \(unit.perLabel)", systemImage: "speedometer")
                         .appText(.codeXs)
                 }
                 if let hr = result.summary?.avgHeartRate {
@@ -439,19 +439,4 @@ struct RaceResultRow: View {
         .padding(.vertical, 4)
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
-
-    private func formatPace(_ secPerKm: Double) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d \(unit.perLabel)", m, s)
-    }
 }

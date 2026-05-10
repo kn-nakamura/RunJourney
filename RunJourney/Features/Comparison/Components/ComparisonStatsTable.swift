@@ -99,7 +99,7 @@ struct ComparisonStatsTable: View {
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                 cell(label: "Distance", value: distanceText(r.distanceM), highlighted: false)
-                cell(label: "Time", value: r.timeSec > 0 ? formatDuration(r.timeSec) : "—", highlighted: timeBest)
+                cell(label: "Time", value: r.timeSec > 0 ? PaceUtils.formatDuration(r.timeSec) : "—", highlighted: timeBest)
                 cell(label: "Avg Pace", value: paceText(r.paceSecPerKm), highlighted: paceBest)
                 cell(label: "Avg HR", value: r.avgHR.map { "\($0) bpm" } ?? "—", highlighted: hrBest)
                 cell(label: "Avg Cad", value: r.avgCadence.map { "\($0) spm" } ?? "—", highlighted: cadBest)
@@ -157,12 +157,4 @@ struct ComparisonStatsTable: View {
         return PaceUtils.formatPace(secPerKm: Int(p.rounded()), in: unit)
     }
 
-    private func formatDuration(_ sec: Double) -> String {
-        let s = Int(sec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let r = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, r) }
-        return String(format: "%d:%02d", m, r)
-    }
 }

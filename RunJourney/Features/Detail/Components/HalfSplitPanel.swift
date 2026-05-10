@@ -53,7 +53,7 @@ struct HalfSplitPanel: View {
             Text(title)
                 .appText(.bodyXs)
                 .foregroundStyle(.tertiary)
-            Text(formatDuration(time))
+            Text(PaceUtils.formatDuration(time))
                 .appText(.codeLg)
                 .foregroundStyle(Color.textPrimary)
         }
@@ -62,12 +62,4 @@ struct HalfSplitPanel: View {
         .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func formatDuration(_ sec: Double) -> String {
-        let s = Int(sec.rounded())
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let r = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, r) }
-        return String(format: "%d:%02d", m, r)
-    }
 }

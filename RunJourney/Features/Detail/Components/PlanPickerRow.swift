@@ -48,7 +48,7 @@ struct PlanPickerRow: View {
                         .appText(.bodyXs)
                         .foregroundStyle(.tertiary)
                     Spacer()
-                    Text(formatPace(plan.paceSecPerKm))
+                    Text("\(PaceUtils.formatPaceSimple(Int(plan.paceSecPerKm.rounded()))) /km")
                         .appText(.codeBaseBold)
                         .foregroundStyle(Color.accentPrimary)
                 }
@@ -67,13 +67,8 @@ struct PlanPickerRow: View {
 
     private func label(for plan: PacePlan) -> String {
         let distance = String(format: "%.2f km", plan.targetDistanceKm)
-        let pace = formatPace(plan.paceSecPerKm)
+        let pace = "\(PaceUtils.formatPaceSimple(Int(plan.paceSecPerKm.rounded()))) /km"
         let name = plan.name.isEmpty ? "Plan" : plan.name
         return "\(name) · \(distance) @ \(pace)"
-    }
-
-    private func formatPace(_ secPerKm: Double) -> String {
-        let s = Int(secPerKm.rounded())
-        return String(format: "%d:%02d /km", s / 60, s % 60)
     }
 }

@@ -120,7 +120,7 @@ struct ResultPickerSheet: View {
                     .foregroundStyle(Color.textPrimary)
                 HStack(spacing: 8) {
                     if let sec = result.finishTimeSec, sec > 0 {
-                        Text(formatDuration(sec))
+                        Text(PaceUtils.formatDuration(sec))
                             .appText(.codeSm)
                             .foregroundStyle(.secondary)
                     } else if result.isDNF {
@@ -149,12 +149,4 @@ struct ResultPickerSheet: View {
             .padding(.leading, 50)
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }

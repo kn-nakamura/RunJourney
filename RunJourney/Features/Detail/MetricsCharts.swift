@@ -175,7 +175,7 @@ struct MultiResultLapPaceChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatPace(raw))
+                        Text(PaceUtils.formatPaceSimple(Int(raw)))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -198,11 +198,6 @@ struct MultiResultLapPaceChart: View {
         return f.string(from: result.raceDate)
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let m = Int(secPerKm) / 60
-        let s = Int(secPerKm) % 60
-        return String(format: "%d:%02d", m, s)
-    }
 }
 
 /// 複数結果のフィニッシュタイム比較棒グラフ。
@@ -239,7 +234,7 @@ struct FinishTimeComparisonChart: View {
                 .foregroundStyle(isPB ? Color.accentPrimary : Color.bgTertiary.opacity(0.85))
                 .cornerRadius(4)
                 .annotation(position: .top) {
-                    Text(formatDuration(result.finishTimeSec ?? 0))
+                    Text(PaceUtils.formatDuration(result.finishTimeSec ?? 0))
                         .appText(isPB ? .codeXxsBold : .codeXxs)
                         .foregroundStyle(isPB ? Color.accentPrimary : .secondary)
                 }
@@ -250,7 +245,7 @@ struct FinishTimeComparisonChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatDuration(raw))
+                        Text(PaceUtils.formatDuration(raw))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -270,12 +265,4 @@ struct FinishTimeComparisonChart: View {
         return f.string(from: result.raceDate)
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }

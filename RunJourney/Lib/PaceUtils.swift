@@ -25,6 +25,36 @@ enum PaceUtils {
         return String(format: "%d:%02d", m, s)
     }
 
+    /// Double 秒版。負値は 0 にクランプ。`formatTimeSimple(Int)` と同形式。
+    static func formatDuration(_ totalSec: Double) -> String {
+        formatTimeSimple(Int(max(0, totalSec).rounded()))
+    }
+
+    /// 経過時間を「日 / 時 / 分」で要約 (Dashboard の Total Time 用)。
+    /// 24h 以上は "Nd Nh"、1h 以上は "Nh Nm"、それ以下は "Nm"。
+    static func formatTotalTime(_ totalSec: Double) -> String {
+        guard totalSec > 0 else { return "—" }
+        let s = Int(totalSec)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        if h >= 24 {
+            return "\(h / 24)d \(h % 24)h"
+        }
+        if h > 0 { return "\(h)h \(m)m" }
+        return "\(m)m"
+    }
+
+    /// Double 秒/km → "M:SS" (ユニット suffix なし)。チャート軸/インライン表示向け。
+    static func formatPaceShort(secPerKm: Double, in u: DistanceUnit) -> String {
+        let displayed = paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: u)
+        return formatPaceSimple(displayed)
+    }
+
+    /// Double 秒/km → "M:SS /unit" (ユニット suffix あり)。詳細ラベル向け。
+    static func formatPaceWithUnit(secPerKm: Double, in u: DistanceUnit) -> String {
+        "\(formatPaceShort(secPerKm: secPerKm, in: u))\(u.perLabel)"
+    }
+
     /// 距離ラベル (整数 km なら "5"、小数なら "21.10" 等)
     static func formatDistanceLabel(_ km: Double) -> String {
         if km == km.rounded() {
