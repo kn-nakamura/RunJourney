@@ -2,7 +2,10 @@ import SwiftUI
 
 /// 子ビューを左→右→必要なら次の行にラップする簡易レイアウト。
 /// 凡例やタグ列など、要素数が動的でラップしてほしい場面で使う。
-struct FlowLayout: Layout {
+///
+/// ※ MapShareCard / ResultShareCard 内には固定幅 image renderer 用の
+/// 別実装 (private FlowLayout) があるので、そちらと混同しないこと。
+struct WrappingFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

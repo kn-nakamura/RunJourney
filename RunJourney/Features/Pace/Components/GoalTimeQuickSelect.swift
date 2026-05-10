@@ -153,7 +153,7 @@ struct GoalTimeQuickSelect: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                FlowLayout(spacing: 6) {
+                WrappingFlowLayout(spacing: 6) {
                     ForEach(group.items, id: \.seconds) { item in
                         SubTargetButton(
                             label: item.label,

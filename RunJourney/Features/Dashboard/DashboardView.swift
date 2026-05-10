@@ -400,7 +400,7 @@ struct DashboardView: View {
                 .background(Color.bgSecondary, in: RoundedRectangle(cornerRadius: 12))
 
                 // 凡例
-                FlowLayout(spacing: 10) {
+                WrappingFlowLayout(spacing: 10) {
                     ForEach(categoryCounts, id: \.category) { item in
                         HStack(spacing: 6) {
                             Circle().fill(item.category.pinColor).frame(width: 8, height: 8)
