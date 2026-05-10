@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // SettingsView の各セクションを computed property として並べる拡張。
 // メイン側 (SettingsView.swift) は状態定義と body / 多カラムディスパッチに集中させ、
