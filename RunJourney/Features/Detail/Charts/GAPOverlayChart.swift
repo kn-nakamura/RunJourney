@@ -54,7 +54,7 @@ struct GAPOverlayChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatPace(raw))
+                        Text(PaceUtils.formatPaceShort(secPerKm: raw, in: unit))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -70,10 +70,4 @@ struct GAPOverlayChart: View {
         .frame(height: 160)
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d", m, s)
-    }
 }

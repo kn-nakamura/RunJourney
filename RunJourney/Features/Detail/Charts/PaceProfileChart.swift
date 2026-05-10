@@ -48,7 +48,7 @@ struct PaceProfileChart: View {
                     .foregroundStyle(Color.cat10K.opacity(0.85))
                     .lineStyle(.init(lineWidth: 1.2, dash: [2, 4]))
                     .annotation(position: .bottomTrailing) {
-                        Text("Target \(formatPace(target))")
+                        Text("Target \(PaceUtils.formatPaceShort(secPerKm: target, in: unit))")
                             .appText(.codeXxs)
                             .foregroundStyle(Color.cat10K)
                     }
@@ -59,7 +59,7 @@ struct PaceProfileChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.06))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatPace(raw))
+                        Text(PaceUtils.formatPaceShort(secPerKm: raw, in: unit))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -75,10 +75,4 @@ struct PaceProfileChart: View {
         .frame(height: 160)
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d", m, s)
-    }
 }

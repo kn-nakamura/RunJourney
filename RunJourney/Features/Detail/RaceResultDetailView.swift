@@ -214,7 +214,7 @@ struct RaceResultDetailView: View {
                     inlineMetric(value: PaceUtils.formatDistance(km: dist / 1000, in: unit), label: "Distance")
                 }
                 if let pace = result.summary?.avgPaceSecPerKm {
-                    inlineMetric(value: formatPace(pace), label: "Avg Pace")
+                    inlineMetric(value: "\(PaceUtils.formatPaceShort(secPerKm: pace, in: unit)) \(unit.perLabel)", label: "Avg Pace")
                 }
             }
             .foregroundStyle(.secondary)
@@ -222,7 +222,7 @@ struct RaceResultDetailView: View {
     }
 
     private var timeText: String {
-        if let sec = result.finishTimeSec, sec > 0 { return formatDuration(sec) }
+        if let sec = result.finishTimeSec, sec > 0 { return PaceUtils.formatDuration(sec) }
         return "—"
     }
 
@@ -533,21 +533,6 @@ struct RaceResultDetailView: View {
 
     // MARK: - Helpers
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
-
-    private func formatPace(_ secPerKm: Double) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d \(unit.perLabel)", m, s)
-    }
 }
 
 // MARK: - Supporting views

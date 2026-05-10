@@ -45,7 +45,7 @@ struct LapPaceChart: View {
                 .cornerRadius(4)
                 .annotation(position: .top, alignment: .center, spacing: 2) {
                     if !compact {
-                        Text(formatPace(lap.paceSecPerKm))
+                        Text(PaceUtils.formatPaceShort(secPerKm: lap.paceSecPerKm, in: unit))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -57,7 +57,7 @@ struct LapPaceChart: View {
                     .foregroundStyle(.white.opacity(0.35))
                     .lineStyle(.init(lineWidth: 1, dash: [4, 3]))
                     .annotation(position: .topTrailing, alignment: .trailing, spacing: 0) {
-                        Text("Avg \(formatPace(avg))")
+                        Text("Avg \(PaceUtils.formatPaceShort(secPerKm: avg, in: unit))")
                             .appText(.codeXxs)
                             .foregroundStyle(.tertiary)
                     }
@@ -68,7 +68,7 @@ struct LapPaceChart: View {
                     .foregroundStyle(Color.cat10K.opacity(0.85))
                     .lineStyle(.init(lineWidth: 1.5, dash: [2, 4]))
                     .annotation(position: .bottomTrailing, alignment: .trailing, spacing: 0) {
-                        Text("Target \(formatPace(target))")
+                        Text("Target \(PaceUtils.formatPaceShort(secPerKm: target, in: unit))")
                             .appText(.codeXxs)
                             .foregroundStyle(Color.cat10K)
                     }
@@ -79,7 +79,7 @@ struct LapPaceChart: View {
                 AxisGridLine().foregroundStyle(.white.opacity(0.08))
                 if let raw = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(formatPace(raw))
+                        Text(PaceUtils.formatPaceShort(secPerKm: raw, in: unit))
                             .appText(.codeXxs)
                             .foregroundStyle(.secondary)
                     }
@@ -103,10 +103,4 @@ struct LapPaceChart: View {
         return .accentPrimary                                // 蛍光イエロー
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d", m, s)
-    }
 }

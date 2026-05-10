@@ -86,11 +86,11 @@ struct SplitsTable: View {
                 .appText(.codeXs)
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .trailing)
-            Text(formatLapTime(lap.timeSec))
+            Text(PaceUtils.formatDuration(lap.timeSec))
                 .appText(.codeXs)
                 .foregroundStyle(.secondary)
                 .frame(width: 64, alignment: .trailing)
-            Text(formatPaceShort(displayedPace))
+            Text(PaceUtils.formatPaceSimple(displayedPace))
                 .appText(.codeBaseBold)
                 .foregroundStyle(Color.textPrimary)
                 .frame(width: 56, alignment: .trailing)
@@ -127,19 +127,4 @@ struct SplitsTable: View {
         return .secondary
     }
 
-    private func formatLapTime(_ sec: Double) -> String {
-        let s = Int(sec.rounded())
-        let m = s / 60
-        let r = s % 60
-        if m >= 60 {
-            let h = m / 60
-            let mm = m % 60
-            return String(format: "%d:%02d:%02d", h, mm, r)
-        }
-        return String(format: "%d:%02d", m, r)
-    }
-
-    private func formatPaceShort(_ secs: Int) -> String {
-        String(format: "%d:%02d", secs / 60, secs % 60)
-    }
 }

@@ -46,11 +46,11 @@ enum AIReviewPromptBuilder {
         }
 
         if let sec = result.finishTimeSec, sec > 0 {
-            lines.append("Finish Time: \(formatDuration(sec))")
+            lines.append("Finish Time: \(PaceUtils.formatDuration(sec))")
         }
 
         if let pace = result.summary?.avgPaceSecPerKm, pace > 0 {
-            lines.append("Avg Pace: \(formatPace(secPerKm: pace, in: unit))")
+            lines.append("Avg Pace: \(PaceUtils.formatPaceWithUnit(secPerKm: pace, in: unit))")
         }
 
         if let hr = result.summary?.avgHeartRate { lines.append("Avg HR: \(hr) bpm") }
@@ -82,11 +82,11 @@ enum AIReviewPromptBuilder {
         if let split = AdvancedAnalytics.halfSplit(result.trackPoints) {
             let delta = split.secondHalfSec - split.firstHalfSec
             let label = delta < 0 ? "negative split" : (delta > 0 ? "positive split" : "even split")
-            lines.append("Half Split: 1st \(formatDuration(split.firstHalfSec)) / 2nd \(formatDuration(split.secondHalfSec)) (\(label), Δ \(PaceUtils.formatSignedDuration(delta)))")
+            lines.append("Half Split: 1st \(PaceUtils.formatDuration(split.firstHalfSec)) / 2nd \(PaceUtils.formatDuration(split.secondHalfSec)) (\(label), Δ \(PaceUtils.formatSignedDuration(delta)))")
         }
 
         if let plan {
-            let target = formatPace(secPerKm: plan.paceSecPerKm, in: unit)
+            let target = PaceUtils.formatPaceWithUnit(secPerKm: plan.paceSecPerKm, in: unit)
             let planLabel = plan.name.isEmpty ? "linked plan" : plan.name
             lines.append("Plan: \(planLabel) — target pace \(target)")
             let deltas = AdvancedAnalytics.planLapDeltas(actual: result.lapData, targetSecPerKm: plan.paceSecPerKm)
@@ -121,8 +121,8 @@ enum AIReviewPromptBuilder {
     private static func formatLapLines(_ laps: [LapData], unit: DistanceUnit) -> [String] {
         let formatted: [(Int, String)] = laps.map { lap in
             let dist = PaceUtils.formatDistance(km: lap.distanceM / 1000, in: unit)
-            let time = formatDuration(lap.timeSec)
-            let pace = formatPace(secPerKm: lap.paceSecPerKm, in: unit)
+            let time = PaceUtils.formatDuration(lap.timeSec)
+            let pace = PaceUtils.formatPaceWithUnit(secPerKm: lap.paceSecPerKm, in: unit)
             let hrText = lap.avgHeartRate.map { "HR \($0)" } ?? "HR —"
             return (lap.lapIndex, "  \(lap.lapIndex). \(dist) · \(time) · \(pace) · \(hrText)")
         }
@@ -133,22 +133,6 @@ enum AIReviewPromptBuilder {
         let tail = formatted.suffix(3).map(\.1)
         let omitted = formatted.count - 6
         return head + ["  … (\(omitted) laps omitted) …"] + tail
-    }
-
-    private static func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec.rounded())
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
-
-    private static func formatPace(secPerKm: Double, in unit: DistanceUnit) -> String {
-        let displayed = PaceUtils.paceSecondsPerUnit(secPerKm: Int(secPerKm.rounded()), in: unit)
-        let m = displayed / 60
-        let s = displayed % 60
-        return String(format: "%d:%02d%@", m, s, unit.perLabel)
     }
 
     private static let dateFormatter: DateFormatter = {

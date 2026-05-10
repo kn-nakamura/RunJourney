@@ -100,7 +100,7 @@ struct ImportConfirmationSheet: View {
             }
             LabeledContent("Distance", value: PaceUtils.formatDistance(km: activity.totalDistanceKm, in: unit))
             if let sec = activity.finishTimeSec {
-                LabeledContent("Time", value: formatDuration(sec))
+                LabeledContent("Time", value: PaceUtils.formatDuration(sec))
             }
             LabeledContent("Category (auto)", value: activity.estimatedCategory.displayName)
             if let coord = activity.startCoordinate {
@@ -230,12 +230,4 @@ struct ImportConfirmationSheet: View {
         }
     }
 
-    private func formatDuration(_ totalSec: Double) -> String {
-        let s = Int(totalSec)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
-    }
 }
