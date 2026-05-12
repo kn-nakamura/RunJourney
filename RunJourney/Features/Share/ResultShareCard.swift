@@ -32,6 +32,9 @@ struct ResultShareCard: View {
     let showRoute: Bool
     /// 表示するメトリクスの集合。nil の場合はすべて表示 (後方互換)。
     let enabledMetrics: Set<ResultMetric>?
+    /// `MKMapSnapshotter` で生成した地図タイル+ルートの合成画像。
+    /// nil の場合は SwiftUI の `ShareRoutePath` で単色背景にルートを描く。
+    let mapComposite: Image?
 
     init(
         result: RaceResult,
@@ -39,7 +42,8 @@ struct ResultShareCard: View {
         unit: DistanceUnit,
         config: ShareStyleConfig,
         showRoute: Bool,
-        enabledMetrics: Set<ResultMetric>? = nil
+        enabledMetrics: Set<ResultMetric>? = nil,
+        mapComposite: Image? = nil
     ) {
         self.result = result
         self.race = race
@@ -47,6 +51,7 @@ struct ResultShareCard: View {
         self.config = config
         self.showRoute = showRoute
         self.enabledMetrics = enabledMetrics
+        self.mapComposite = mapComposite
     }
 
     private var palette: SharePalette { config.theme.palette }
@@ -239,12 +244,30 @@ struct ResultShareCard: View {
 
     @ViewBuilder
     private func routeView(glow: Bool = true) -> some View {
-        ShareRoutePath(
-            coords: routeCoords,
-            accent: accentColor,
-            palette: palette,
-            glow: glow && config.theme == .dark
-        )
+        if let composite = mapComposite {
+            // 地図タイル + ルートが合成された画像 (MKMapSnapshotter 出力)。
+            // SwiftUI Image のナチュラルサイズで親レイアウトを押し広げないように、
+            // Color.clear の overlay に閉じ込めて描画専用にする。
+            Color.clear
+                .overlay(
+                    composite
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                )
+                .background(palette.bgTertiary.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(palette.border, lineWidth: 1)
+                )
+        } else {
+            ShareRoutePath(
+                coords: routeCoords,
+                accent: accentColor,
+                palette: palette,
+                glow: glow && config.theme == .dark
+            )
+        }
     }
 
     // MARK: - Layouts
@@ -274,7 +297,7 @@ struct ResultShareCard: View {
             Spacer(minLength: 10)
 
             VStack(spacing: 8) {
-                let stats = makeStats(max: 4)
+                let stats = makeStats(max: 6)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
                           spacing: 8) {
                     ForEach(stats) { statTile($0) }
@@ -316,8 +339,9 @@ struct ResultShareCard: View {
                 .padding(.vertical, 4)
 
             if hasRoute {
-                let stats = makeStats(max: 3)
-                HStack(spacing: 8) {
+                let stats = makeStats(max: 4)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                          spacing: 8) {
                     ForEach(stats) { statTile($0, compact: true) }
                 }
                 .padding(.horizontal, 18)
@@ -327,7 +351,7 @@ struct ResultShareCard: View {
                     .padding(.bottom, 14)
                     .frame(maxHeight: .infinity)
             } else {
-                let stats = makeStats(max: 4)
+                let stats = makeStats(max: 6)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
                           spacing: 8) {
                     ForEach(stats) { statTile($0, compact: true) }
@@ -355,7 +379,7 @@ struct ResultShareCard: View {
                     .foregroundStyle(palette.textMuted)
                     .lineLimit(1)
                 heroTime
-                let stats = makeStats(max: hasRoute ? 2 : 4)
+                let stats = makeStats(max: hasRoute ? 4 : 6)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
                           spacing: 8) {
                     ForEach(stats) { statTile($0, compact: true) }
