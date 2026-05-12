@@ -22,6 +22,8 @@ struct ResultShareSheet: View {
     @State private var isLoadingMap = false
     /// 合成済みアクセントの hex 値。アクセント変更時に再合成するためのキャッシュキー。
     @State private var mapCompositeAccent: UInt32? = nil
+    /// 合成済みテーマ。テーマ切替時に地図タイルを再合成するためのキャッシュキー。
+    @State private var mapCompositeTheme: ShareTheme? = nil
 
     init(result: RaceResult) {
         self.result = result
@@ -80,8 +82,8 @@ struct ResultShareSheet: View {
             appDefaults = resolved
             config = resolved
         }
-        .task(id: config.accent) {
-            // アクセント色変更時にルート色を反映するため再合成する。
+        .task(id: ShareMapCacheKey(theme: config.theme, accent: config.accent.hex)) {
+            // アクセント色 / テーマ変更時に地図タイルとルート色を反映するため再合成する。
             await loadMapCompositeIfNeeded()
         }
     }
@@ -274,10 +276,12 @@ struct ResultShareSheet: View {
     // MARK: - Map snapshot
 
 #if canImport(UIKit)
-    /// 既に同じアクセントで合成済みなら再フェッチしない。
+    /// 既に同じテーマ + アクセントで合成済みなら再フェッチしない。
     private func loadMapCompositeIfNeeded() async {
         guard hasRoute else { return }
-        if mapCompositeAccent == config.accent.hex, mapComposite != nil { return }
+        if mapCompositeAccent == config.accent.hex,
+           mapCompositeTheme == config.theme,
+           mapComposite != nil { return }
         await loadMapComposite()
     }
 
@@ -309,6 +313,13 @@ struct ResultShareSheet: View {
         opts.size = CGSize(width: 900, height: 900)
         opts.mapType = .mutedStandard
         opts.showsBuildings = false
+        // テーマピッカーの値に応じて Light/Dark タイルを描き分ける。
+        // 指定しないと呼び出し元 window の userInterfaceStyle が使われてしまい、
+        // シート上でテーマを切り替えても地図がダークのまま残る。
+        opts.traitCollection = UITraitCollection(traitsFrom: [
+            UITraitCollection(userInterfaceStyle: config.theme == .dark ? .dark : .light),
+            UITraitCollection(displayScale: 2)
+        ])
 
         guard let snapshot = try? await MKMapSnapshotter(options: opts).start() else { return }
 
@@ -369,12 +380,21 @@ struct ResultShareSheet: View {
                 border.stroke()
             }
         }
+        let snapshotTheme = config.theme
         await MainActor.run {
             mapComposite = Image(uiImage: composite)
             mapCompositeAccent = accentHex
+            mapCompositeTheme = snapshotTheme
         }
     }
 #else
     private func loadMapCompositeIfNeeded() async {}
 #endif
+}
+
+/// `.task(id:)` 用の地図再合成キャッシュキー。
+/// テーマとアクセントが両方一致するときだけ合成済み画像を使い回す。
+private struct ShareMapCacheKey: Hashable {
+    let theme: ShareTheme
+    let accent: UInt32
 }
