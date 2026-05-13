@@ -140,7 +140,11 @@ struct RouteFlythruView: View {
                     case .dark:  return .dark
                     default:     return UITraitCollection.current.userInterfaceStyle
                     }
-                }()
+                }(),
+                initialAngle: userAngle,
+                initialDistance: userDistance,
+                initialRotation: userRotation,
+                initialSpeed: controller.speed
             )
 #else
             ExportSheet(

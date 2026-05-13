@@ -69,7 +69,9 @@ final class RouteVideoRenderer {
         strokeColor: UIColor,
         configuration: MKMapConfiguration,
         userInterfaceStyle: UIUserInterfaceStyle,
-        preset: RouteVideoExportPreset
+        preset: RouteVideoExportPreset,
+        cameraOverride: FollowCameraOverride = .auto,
+        playbackSpeed: Double? = nil
     ) {
         guard !isRunning else { return }
         guard trackPoints.count >= 2 else {
@@ -95,7 +97,9 @@ final class RouteVideoRenderer {
             strokeColor: strokeColor,
             configuration: configuration,
             userInterfaceStyle: userInterfaceStyle,
-            preset: preset
+            preset: preset,
+            cameraOverride: cameraOverride,
+            playbackSpeed: playbackSpeed ?? preset.playbackSpeed
         )
 
         task = Task.detached(priority: .userInitiated) { [weak self] in
@@ -209,14 +213,16 @@ final class RouteVideoRenderer {
         let firstFollowCamera = Self.makeFollowCamera(
             trackPoints: input.trackPoints,
             atTime: 0,
-            distanceKm: input.totalDistanceKm
+            distanceKm: input.totalDistanceKm,
+            override: input.cameraOverride
         )
 
         // 最後の follow カメラ (animation 終端 / outro 開始)
         let lastFollowCamera = Self.makeFollowCamera(
             trackPoints: input.trackPoints,
             atTime: input.totalDurationSec,
-            distanceKm: input.totalDistanceKm
+            distanceKm: input.totalDistanceKm,
+            override: input.cameraOverride
         )
 
         // フレーム数の見積り
@@ -224,7 +230,7 @@ final class RouteVideoRenderer {
         let outroFrames = Int((preset.outroSeconds * Double(preset.fps)).rounded())
         let holdFrames  = Int((preset.holdSeconds  * Double(preset.fps)).rounded())
         let animSeconds = min(preset.maxAnimationSeconds,
-                              max(2.0, input.totalDurationSec / preset.playbackSpeed))
+                              max(2.0, input.totalDurationSec / max(1, input.playbackSpeed)))
         let animFrames  = Int((animSeconds * Double(preset.fps)).rounded())
         let totalFrames = introFrames + animFrames + outroFrames + holdFrames
 
@@ -262,7 +268,8 @@ final class RouteVideoRenderer {
             let camera = Self.makeFollowCamera(
                 trackPoints: input.trackPoints,
                 atTime: animTime,
-                distanceKm: input.totalDistanceKm
+                distanceKm: input.totalDistanceKm,
+                override: input.cameraOverride
             )
             try await Self.renderAndAppend(
                 phase: .animation(progress: t),
@@ -761,12 +768,16 @@ final class RouteVideoRenderer {
         return cam
     }
 
-    private static func makeFollowCamera(
+    fileprivate static func makeFollowCamera(
         trackPoints: [TrackPoint],
         atTime t: Double,
-        distanceKm: Double
+        distanceKm: Double,
+        override: FollowCameraOverride = .auto
     ) -> MKMapCamera {
         let profile = PlaybackMath.followCameraProfile(distanceKm: distanceKm, emphasis: .high)
+        let angleDeg = override.angle ?? profile.angle
+        let distanceM = override.distance ?? profile.distance
+        let rotationDeg = override.rotation
         let cur = PlaybackMath.interpolatedPoint(in: trackPoints, at: t)
         let lookAhead = PlaybackMath.lookAheadPoint(
             in: trackPoints,
@@ -778,12 +789,12 @@ final class RouteVideoRenderer {
             guard let cur, let lookAhead, lookAhead.id != cur.id else { return 0 }
             return PlaybackMath.bearingDegrees(from: cur.coordinate, to: lookAhead.coordinate)
         }()
-        let pitch = PlaybackMath.angleToMapPitch(profile.angle)
-        let flip = PlaybackMath.headingFlip(forAngle: profile.angle)
-        let heading = (bearing + flip + 360).truncatingRemainder(dividingBy: 360)
+        let pitch = PlaybackMath.angleToMapPitch(angleDeg)
+        let flip = PlaybackMath.headingFlip(forAngle: angleDeg)
+        let heading = (bearing + flip + rotationDeg + 360).truncatingRemainder(dividingBy: 360)
         let cam = MKMapCamera()
         cam.centerCoordinate = center
-        cam.centerCoordinateDistance = profile.distance
+        cam.centerCoordinateDistance = distanceM
         cam.pitch = pitch
         cam.heading = heading
         return cam
@@ -924,6 +935,85 @@ final class RouteVideoRenderer {
         let name = "RunJourney-\(formatter.string(from: Date())).mp4"
         return tmp.appendingPathComponent(name)
     }
+
+    // MARK: - Preview
+
+    /// エクスポートシートで「書き出すとこう見える」を確認するための単一フレーム
+    /// レンダリング。`atProgress` (0..1) で走行のどの地点を表示するか指定する。
+    /// 実エクスポートと同じ camera/overlay 合成パスを使う。
+    static func renderPreviewFrame(
+        trackPoints: [TrackPoint],
+        atProgress: Double,
+        size: CGSize,
+        strokeColor: UIColor,
+        configuration: MKMapConfiguration,
+        userInterfaceStyle: UIUserInterfaceStyle,
+        cameraOverride: FollowCameraOverride
+    ) async throws -> UIImage {
+        guard trackPoints.count >= 2 else {
+            throw NSError(domain: "RouteVideoRenderer", code: 10, userInfo: [
+                NSLocalizedDescriptionKey: "Route has no track points."
+            ])
+        }
+        let totalDuration = trackPoints.last?.timeSec ?? 0
+        let totalDistanceKm = (trackPoints.last?.distanceM ?? 0) / 1000
+        let t = max(0, min(1, atProgress)) * totalDuration
+
+        let camera = Self.makeFollowCamera(
+            trackPoints: trackPoints,
+            atTime: t,
+            distanceKm: totalDistanceKm,
+            override: cameraOverride
+        )
+        let previewPreset = RouteVideoExportPreset(
+            size: size,
+            fps: 30,
+            introSeconds: 0,
+            outroSeconds: 0,
+            holdSeconds: 0,
+            maxAnimationSeconds: 1,
+            playbackSpeed: 1,
+            bitrate: 1_000_000
+        )
+        let snapshot = try await Self.renderSnapshot(
+            camera: camera,
+            preset: previewPreset,
+            configuration: configuration,
+            userInterfaceStyle: userInterfaceStyle
+        )
+
+        // CGContext を生成してオーバーレイ合成し UIImage に変換
+        let scale: CGFloat = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: {
+            let f = UIGraphicsImageRendererFormat()
+            f.scale = scale
+            f.opaque = true
+            return f
+        }())
+        let stubInput = ExportInput(
+            trackPoints: trackPoints,
+            raceName: nil,
+            finishTimeSec: nil,
+            strokeColor: strokeColor,
+            configuration: configuration,
+            userInterfaceStyle: userInterfaceStyle,
+            preset: previewPreset,
+            cameraOverride: cameraOverride,
+            playbackSpeed: 1
+        )
+        let bounds = CGRect(origin: .zero, size: size)
+        let image = renderer.image { _ in
+            snapshot.image.draw(in: bounds)
+            Self.drawRouteOverlay(
+                snapshot: snapshot,
+                input: stubInput,
+                animationTime: t,
+                in: bounds,
+                phase: .animation(progress: atProgress)
+            )
+        }
+        return image
+    }
 }
 
 // MARK: - Input
@@ -936,9 +1026,33 @@ private struct ExportInput: @unchecked Sendable {
     let configuration: MKMapConfiguration
     let userInterfaceStyle: UIUserInterfaceStyle
     let preset: RouteVideoExportPreset
+    let cameraOverride: FollowCameraOverride
+    let playbackSpeed: Double
 
     var totalDurationSec: Double { trackPoints.last?.timeSec ?? 0 }
     var totalDistanceKm: Double { (trackPoints.last?.distanceM ?? 0) / 1000 }
+}
+
+// MARK: - Camera override
+
+/// 書き出し時に follow カメラの自動プロファイルを上書きするためのユーザ設定。
+/// `nil` のフィールドは自動値 (`FollowCameraProfile`) を維持する。
+public struct FollowCameraOverride: Equatable, Sendable {
+    /// 0..180 度。0 = 後方地面、90 = 真上、180 = 前方地面。
+    public var angle: Double?
+    /// カメラからセンタまでの距離 (メートル)。
+    public var distance: Double?
+    /// 進行方向に対する yaw オフセット (-180..180 度)。+ = 右側、- = 左側。
+    public var rotation: Double
+
+    public init(angle: Double? = nil, distance: Double? = nil, rotation: Double = 0) {
+        self.angle = angle
+        self.distance = distance
+        self.rotation = rotation
+    }
+
+    /// 自動プロファイルを全て採用する既定値。
+    public static let auto = FollowCameraOverride()
 }
 
 // MARK: - Phase

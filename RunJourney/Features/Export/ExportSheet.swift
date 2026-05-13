@@ -5,8 +5,9 @@ import MapKit
 #endif
 
 /// 動画書き出しシート。
-/// プリセットを選んで開始すると `RouteVideoRenderer.shared` がバックグラウンドで
-/// フレーム単位の書き出しを行うため、このシートを閉じても書き出しは継続される。
+/// 開始前にプレビューでカメラ角度・距離・回転・再生速度を調整でき、
+/// 開始後は `RouteVideoRenderer.shared` がバックグラウンドで書き出しを継続するため、
+/// このシートを閉じてもエクスポートはそのまま進行する。
 struct ExportSheet: View {
     @Bindable var controller: PlaybackController
     let raceName: String?
@@ -15,14 +16,32 @@ struct ExportSheet: View {
     let strokeColor: UIColor
     let configuration: MKMapConfiguration
     let userInterfaceStyle: UIUserInterfaceStyle
+    /// RouteFlythruView 側でユーザが既に触っていた値があれば、シート起動時の
+    /// 初期値として引き継ぐ。
+    var initialAngle: Double? = nil
+    var initialDistance: Double? = nil
+    var initialRotation: Double? = nil
+    var initialSpeed: Double? = nil
 #endif
 
     @Environment(\.dismiss) private var dismiss
 
 #if canImport(UIKit)
     @State private var renderer = RouteVideoRenderer.shared
-    @State private var selectedPreset: PresetChoice = .standard
     @State private var showShareSheet: Bool = false
+
+    // カメラ・スピード設定 (onAppear で実値を入れる)
+    @State private var angle: Double = 60
+    @State private var distance: Double = 1500
+    @State private var rotation: Double = 0
+    @State private var playbackSpeed: Double = 32
+    @State private var previewProgress: Double = 0.5
+
+    // プレビュー画像
+    @State private var previewImage: UIImage? = nil
+    @State private var previewTask: Task<Void, Never>? = nil
+    @State private var previewVersion: Int = 0
+    @State private var previewSize: CGSize = CGSize(width: 360, height: 200)
 #endif
 
     var body: some View {
@@ -39,13 +58,6 @@ struct ExportSheet: View {
     @ViewBuilder
     private var content: some View {
         List {
-            Section {
-                Text("Video export renders the route from an overview, follows the runner, then returns to overview to show the final result. Export continues in the background even if you close this sheet.")
-                    .appText(.bodySm)
-                    .foregroundStyle(.secondary)
-                    .listRowBackground(Color.clear)
-            }
-
             if renderer.isRunning {
                 progressSection
             } else if renderer.phase == .finished {
@@ -53,7 +65,10 @@ struct ExportSheet: View {
             } else if renderer.phase == .failed {
                 failedSection
             } else {
-                presetSection
+                introBlurb
+                previewSection
+                cameraSection
+                speedSection
                 startSection
             }
         }
@@ -70,62 +85,136 @@ struct ExportSheet: View {
                     .ignoresSafeArea()
             }
         }
+        .onAppear { onAppear() }
+        .onDisappear { previewTask?.cancel() }
     }
 
-    // MARK: - Preset section
+    // MARK: - Sections
 
-    private enum PresetChoice: String, CaseIterable, Identifiable {
-        case quick, standard, detailed
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .quick:    return "Quick"
-            case .standard: return "Standard"
-            case .detailed: return "Detailed"
-            }
+    @ViewBuilder
+    private var introBlurb: some View {
+        Section {
+            Text("Renders the route from an overview, follows the runner, then returns to overview to show the result. Export continues in the background even if you close this sheet.")
+                .appText(.bodySm)
+                .foregroundStyle(.secondary)
+                .listRowBackground(Color.clear)
         }
+    }
 
-        var subtitle: String {
-            switch self {
-            case .quick:    return "~12 s · 128× playback"
-            case .standard: return "~50 s · 32× playback"
-            case .detailed: return "~80 s · 8× playback"
+    @ViewBuilder
+    private var previewSection: some View {
+        Section("Preview") {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    if let image = previewImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    } else {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.bgSecondary)
+                            ProgressView().tint(Color.accentPrimary)
+                        }
+                        .aspectRatio(16 / 9, contentMode: .fit)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .topLeading) {
+                    Text("\(Int((previewProgress * 100).rounded()))% of route")
+                        .appText(.bodyXs)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Color.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(8)
+                }
+
+                HStack {
+                    Text("Preview Position")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $previewProgress, in: 0...1)
+                        .tint(Color.accentPrimary)
+                        .onChange(of: previewProgress) { _, _ in schedulePreview() }
+                }
             }
+            .padding(.vertical, 4)
         }
+    }
 
-        var preset: RouteVideoExportPreset {
-            switch self {
-            case .quick:    return .quick
-            case .standard: return .standard
-            case .detailed: return .detailed
+    @ViewBuilder
+    private var cameraSection: some View {
+        Section("Camera") {
+            sliderRow(
+                label: "Angle",
+                value: $angle,
+                range: 0...180,
+                format: "%.0f°",
+                onCommit: { schedulePreview() }
+            )
+            sliderRow(
+                label: "Rotation",
+                value: $rotation,
+                range: -180...180,
+                format: "%.0f°",
+                onCommit: { schedulePreview() }
+            )
+            sliderRow(
+                label: "Distance",
+                value: $distance,
+                range: 300...8000,
+                format: "%.0f m",
+                onCommit: { schedulePreview() }
+            )
+
+            Button {
+                resetCameraToAuto()
+            } label: {
+                HStack { Spacer(); Text("Reset to Auto").appText(.bodyXs); Spacer() }
+                    .foregroundStyle(Color.accentPrimary)
             }
         }
     }
 
     @ViewBuilder
-    private var presetSection: some View {
-        Section("Preset") {
-            ForEach(PresetChoice.allCases) { choice in
-                Button {
-                    selectedPreset = choice
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(choice.title)
-                                .appText(.bodyBase)
-                                .foregroundStyle(Color.textPrimary)
-                            Text(choice.subtitle)
-                                .appText(.bodyXs)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if selectedPreset == choice {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.accentPrimary)
-                        }
-                    }
+    private var speedSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Playback Speed")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("≈ \(formatExpectedDuration()) video")
+                        .appText(.bodyXs)
+                        .foregroundStyle(Color.textMuted)
                 }
+                speedGrid
+            }
+        }
+    }
+
+    private var speedGrid: some View {
+        let presets = PlaybackController.speedPresets
+        return LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5),
+            spacing: 6
+        ) {
+            ForEach(presets, id: \.self) { preset in
+                let isActive = playbackSpeed == preset
+                Button {
+                    playbackSpeed = preset
+                } label: {
+                    Text("\(formatSpeed(preset))×")
+                        .appText(.codeXsBold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(isActive ? Color.accentPrimary : Color.bgSecondary,
+                                    in: RoundedRectangle(cornerRadius: 6))
+                        .foregroundStyle(isActive ? Color.black : Color.textPrimary)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -149,7 +238,7 @@ struct ExportSheet: View {
         }
     }
 
-    // MARK: - Progress section
+    // MARK: - Progress / finished / failed
 
     @ViewBuilder
     private var progressSection: some View {
@@ -176,8 +265,6 @@ struct ExportSheet: View {
             }
         }
     }
-
-    // MARK: - Finished section
 
     @ViewBuilder
     private var finishedSection: some View {
@@ -222,8 +309,6 @@ struct ExportSheet: View {
         }
     }
 
-    // MARK: - Failed section
-
     @ViewBuilder
     private var failedSection: some View {
         Section("Export Failed") {
@@ -240,6 +325,103 @@ struct ExportSheet: View {
         }
     }
 
+    // MARK: - Helpers
+
+    private func sliderRow(
+        label: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: String,
+        onCommit: @escaping () -> Void
+    ) -> some View {
+        HStack {
+            Text(label)
+                .appText(.bodyXs)
+                .foregroundStyle(.secondary)
+                .frame(width: 78, alignment: .leading)
+            Slider(value: value, in: range)
+                .tint(Color.accentPrimary)
+                .onChange(of: value.wrappedValue) { _, _ in onCommit() }
+            Text(String(format: format, value.wrappedValue))
+                .appText(.codeXs)
+                .foregroundStyle(Color.textPrimary)
+                .frame(width: 64, alignment: .trailing)
+        }
+    }
+
+    private func onAppear() {
+        let totalDistanceKm = (controller.trackPoints.last?.distanceM ?? 0) / 1000
+        let profile = PlaybackMath.followCameraProfile(distanceKm: totalDistanceKm, emphasis: .high)
+        angle = initialAngle ?? profile.angle
+        distance = initialDistance ?? profile.distance
+        rotation = initialRotation ?? 0
+        playbackSpeed = initialSpeed ?? PlaybackMath.defaultPlaybackSpeed(
+            totalTimeSec: controller.totalDuration,
+            presets: PlaybackController.speedPresets
+        )
+        schedulePreview()
+    }
+
+    private func resetCameraToAuto() {
+        let totalDistanceKm = (controller.trackPoints.last?.distanceM ?? 0) / 1000
+        let profile = PlaybackMath.followCameraProfile(distanceKm: totalDistanceKm, emphasis: .high)
+        angle = profile.angle
+        distance = profile.distance
+        rotation = 0
+        schedulePreview()
+    }
+
+    private func currentCameraOverride() -> FollowCameraOverride {
+        FollowCameraOverride(angle: angle, distance: distance, rotation: rotation)
+    }
+
+    private func schedulePreview() {
+        previewTask?.cancel()
+        previewVersion += 1
+        let version = previewVersion
+        let trackPoints = controller.trackPoints
+        let progress = previewProgress
+        let override = currentCameraOverride()
+        let size = previewSize
+        let stroke = strokeColor
+        let cfg = configuration
+        let style = userInterfaceStyle
+        previewTask = Task {
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            if Task.isCancelled { return }
+            let image: UIImage? = try? await RouteVideoRenderer.renderPreviewFrame(
+                trackPoints: trackPoints,
+                atProgress: progress,
+                size: size,
+                strokeColor: stroke,
+                configuration: cfg,
+                userInterfaceStyle: style,
+                cameraOverride: override
+            )
+            if Task.isCancelled { return }
+            await MainActor.run {
+                if version == previewVersion { previewImage = image }
+            }
+        }
+    }
+
+    private func formatSpeed(_ s: Double) -> String {
+        if s == s.rounded() { return "\(Int(s))" }
+        return String(format: "%.1f", s)
+    }
+
+    private func formatExpectedDuration() -> String {
+        let total = controller.totalDuration
+        guard total > 0, playbackSpeed > 0 else { return "—" }
+        let preset = RouteVideoExportPreset.standard
+        let animSec = min(preset.maxAnimationSeconds, max(2.0, total / playbackSpeed))
+        let totalSec = preset.introSeconds + animSec + preset.outroSeconds + preset.holdSeconds
+        let m = Int(totalSec) / 60
+        let s = Int(totalSec) % 60
+        if m > 0 { return String(format: "%dm %02ds", m, s) }
+        return String(format: "%ds", s)
+    }
+
     // MARK: - Actions
 
     private func startExport() {
@@ -251,7 +433,9 @@ struct ExportSheet: View {
             strokeColor: strokeColor,
             configuration: configuration,
             userInterfaceStyle: userInterfaceStyle,
-            preset: selectedPreset.preset
+            preset: .standard,
+            cameraOverride: currentCameraOverride(),
+            playbackSpeed: playbackSpeed
         )
     }
 #else
