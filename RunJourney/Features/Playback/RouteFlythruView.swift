@@ -127,7 +127,32 @@ struct RouteFlythruView: View {
         .navigationBarBackButtonHidden(true)
 #endif
         .sheet(isPresented: $showExportSheet) {
-            ExportSheet(controller: controller)
+#if canImport(UIKit)
+            ExportSheet(
+                controller: controller,
+                raceName: result.race?.name,
+                finishTimeSec: result.finishTimeSec,
+                strokeColor: UIColor(result.race?.category.pinColor ?? .accentPrimary),
+                configuration: mapSettings.mapConfiguration,
+                userInterfaceStyle: {
+                    switch appTheme.colorScheme {
+                    case .light: return .light
+                    case .dark:  return .dark
+                    default:     return UITraitCollection.current.userInterfaceStyle
+                    }
+                }(),
+                initialAngle: userAngle,
+                initialDistance: userDistance,
+                initialRotation: userRotation,
+                initialSpeed: controller.speed
+            )
+#else
+            ExportSheet(
+                controller: controller,
+                raceName: result.race?.name,
+                finishTimeSec: result.finishTimeSec
+            )
+#endif
         }
         .onAppear {
             advanceSmoothing(dt: 1.0 / 60.0)
