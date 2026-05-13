@@ -81,7 +81,7 @@ struct ExportSheet: View {
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = renderer.outputURL {
-                ShareSheet(items: [url])
+                ExportShareSheet(items: [url])
                     .ignoresSafeArea()
             }
         }
@@ -449,14 +449,3 @@ struct ExportSheet: View {
 #endif
 }
 
-#if canImport(UIKit)
-/// 共有シート。完了した動画ファイルを Photos に保存していないユーザでも、AirDrop や
-/// メッセージ等から動画を取り出せるようにする。
-private struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
-}
-#endif
