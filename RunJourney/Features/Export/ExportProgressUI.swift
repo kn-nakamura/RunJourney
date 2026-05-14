@@ -125,8 +125,8 @@ struct ExportProgressBadge: View {
 // MARK: - Status sheet (presentable from anywhere)
 
 /// `RouteVideoRenderer.shared` の現在状態だけを表示する軽量シート。
-/// ExportSheet とは異なり `controller` 等のコンテキストを必要としないので、
-/// 別画面に遷移したあとでも進捗確認 / 共有 / キャンセルができる。
+/// `controller` 等のコンテキストを必要としないので、別画面に遷移したあとでも
+/// 進捗確認 / 共有 / キャンセルができる。
 struct ExportStatusSheet: View {
     @State private var renderer = RouteVideoRenderer.shared
     @State private var showShareSheet: Bool = false
@@ -248,8 +248,8 @@ struct ExportStatusSheet: View {
 
 // MARK: - Share sheet (shared)
 
-/// UIActivityViewController の SwiftUI ラッパ。`ExportSheet` / `ExportStatusSheet`
-/// 両方で再利用する。
+/// UIActivityViewController の SwiftUI ラッパ。`ExportStatusSheet` から
+/// 動画ファイルを共有するために使う。
 struct ExportShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     func makeUIViewController(context: Context) -> UIActivityViewController {

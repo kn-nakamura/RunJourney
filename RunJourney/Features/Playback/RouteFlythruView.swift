@@ -47,6 +47,7 @@ struct RouteFlythruView: View {
     // UI 状態
     @State private var showSettings: Bool = false
     @State private var showExportSheet: Bool = false
+    @State private var renderer = RouteVideoRenderer.shared
 
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
@@ -126,8 +127,8 @@ struct RouteFlythruView: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
 #endif
-        .sheet(isPresented: $showExportSheet) {
 #if canImport(UIKit)
+        .sheet(isPresented: $showExportSheet) {
             ExportSheet(
                 controller: controller,
                 raceName: result.race?.name,
@@ -141,19 +142,15 @@ struct RouteFlythruView: View {
                     default:     return UITraitCollection.current.userInterfaceStyle
                     }
                 }(),
-                initialAngle: userAngle,
-                initialDistance: userDistance,
-                initialRotation: userRotation,
-                initialSpeed: controller.speed
+                cameraOverride: FollowCameraOverride(
+                    angle: effectiveAngle,
+                    distance: effectiveDistance,
+                    rotation: effectiveRotation
+                ),
+                playbackSpeed: controller.speed
             )
-#else
-            ExportSheet(
-                controller: controller,
-                raceName: result.race?.name,
-                finishTimeSec: result.finishTimeSec
-            )
-#endif
         }
+#endif
         .onAppear {
             advanceSmoothing(dt: 1.0 / 60.0)
             applyCamera()
@@ -215,9 +212,7 @@ struct RouteFlythruView: View {
                 .buttonStyle(.plain)
 
                 Button { showExportSheet = true } label: {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.textPrimary)
+                    exportButtonIcon
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
@@ -431,5 +426,48 @@ struct RouteFlythruView: View {
             heading: orient.heading,
             pitch: orient.pitch
         ))
+    }
+
+    // MARK: - Export button icon
+
+    /// ヘッダの書き出しアイコン。
+    /// - idle/cancelled: ダウンロードアイコン
+    /// - rendering: 進捗リング + パーセンテージ (再生画面のカスタムヘッダが
+    ///   アプリ root の `ExportProgressBadge` を覆い隠してしまうため、
+    ///   このアイコン自体で進捗を可視化する)
+    /// - preparing/finalizing/savingToPhotos: スピナー
+    /// - finished: チェック
+    /// - failed: 警告 (オレンジ)
+    @ViewBuilder
+    private var exportButtonIcon: some View {
+        switch renderer.phase {
+        case .rendering:
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.18), lineWidth: 2)
+                Circle()
+                    .trim(from: 0, to: CGFloat(max(0.04, renderer.progress)))
+                    .stroke(Color.accentPrimary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 18, height: 18)
+            .animation(.linear(duration: 0.1), value: renderer.progress)
+        case .preparing, .finalizing, .savingToPhotos:
+            ProgressView()
+                .tint(Color.accentPrimary)
+                .scaleEffect(0.7)
+        case .finished:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.accentPrimary)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.orange)
+        case .idle, .cancelled:
+            Image(systemName: "square.and.arrow.down")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.textPrimary)
+        }
     }
 }

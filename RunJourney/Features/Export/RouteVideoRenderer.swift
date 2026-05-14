@@ -845,6 +845,32 @@ final class RouteVideoRenderer {
             o.traitCollection = UITraitCollection(userInterfaceStyle: userInterfaceStyle)
             return o
         }
+        // MapKit はアプリ単位で snapshot のレートを制限しており、超過時には
+        // MKErrorDomain code 2 (.loadingThrottled) を返す。ここでは最大 5 回まで
+        // 指数バックオフでリトライし、フレームごとに走るループ全体が落ちないように
+        // 守る。serverFailure / NSURLErrorDomain も一時的なものとして再試行する。
+        let maxAttempts = 5
+        var lastError: Error?
+        for attempt in 0..<maxAttempts {
+            do {
+                return try await runSnapshotter(options: options)
+            } catch let err as NSError where Self.isRetryableSnapshotError(err) {
+                lastError = err
+                if attempt == maxAttempts - 1 { break }
+                // 250ms, 500ms, 1s, 2s
+                let backoffNs = UInt64(250_000_000) << attempt
+                try await Task.sleep(nanoseconds: backoffNs)
+                continue
+            } catch {
+                throw error
+            }
+        }
+        throw lastError ?? NSError(domain: "RouteVideoRenderer", code: 5, userInfo: [
+            NSLocalizedDescriptionKey: "MKMapSnapshotter returned nil snapshot."
+        ])
+    }
+
+    private static func runSnapshotter(options: MKMapSnapshotter.Options) async throws -> MKMapSnapshotter.Snapshot {
         let snapshotter = MKMapSnapshotter(options: options)
         return try await withCheckedThrowingContinuation { cont in
             snapshotter.start(with: .global(qos: .userInitiated)) { snap, err in
@@ -857,6 +883,16 @@ final class RouteVideoRenderer {
                 }
             }
         }
+    }
+
+    private static func isRetryableSnapshotError(_ err: NSError) -> Bool {
+        if err.domain == MKError.errorDomain {
+            // 2 = .loadingThrottled, 1 = .serverFailure
+            if err.code == MKError.loadingThrottled.rawValue { return true }
+            if err.code == MKError.serverFailure.rawValue { return true }
+        }
+        if err.domain == NSURLErrorDomain { return true }
+        return false
     }
 
     // MARK: - AVAssetWriter
@@ -958,84 +994,6 @@ final class RouteVideoRenderer {
         return tmp.appendingPathComponent(name)
     }
 
-    // MARK: - Preview
-
-    /// エクスポートシートで「書き出すとこう見える」を確認するための単一フレーム
-    /// レンダリング。`atProgress` (0..1) で走行のどの地点を表示するか指定する。
-    /// 実エクスポートと同じ camera/overlay 合成パスを使う。
-    static func renderPreviewFrame(
-        trackPoints: [TrackPoint],
-        atProgress: Double,
-        size: CGSize,
-        strokeColor: UIColor,
-        configuration: MKMapConfiguration,
-        userInterfaceStyle: UIUserInterfaceStyle,
-        cameraOverride: FollowCameraOverride
-    ) async throws -> UIImage {
-        guard trackPoints.count >= 2 else {
-            throw NSError(domain: "RouteVideoRenderer", code: 10, userInfo: [
-                NSLocalizedDescriptionKey: "Route has no track points."
-            ])
-        }
-        let totalDuration = trackPoints.last?.timeSec ?? 0
-        let totalDistanceKm = (trackPoints.last?.distanceM ?? 0) / 1000
-        let t = max(0, min(1, atProgress)) * totalDuration
-
-        let camera = Self.makeFollowCamera(
-            trackPoints: trackPoints,
-            atTime: t,
-            distanceKm: totalDistanceKm,
-            override: cameraOverride
-        )
-        let previewPreset = RouteVideoExportPreset(
-            size: size,
-            fps: 30,
-            introSeconds: 0,
-            outroSeconds: 0,
-            holdSeconds: 0,
-            maxAnimationSeconds: 1,
-            playbackSpeed: 1,
-            bitrate: 1_000_000
-        )
-        let snapshot = try await Self.renderSnapshot(
-            camera: camera,
-            preset: previewPreset,
-            configuration: configuration,
-            userInterfaceStyle: userInterfaceStyle
-        )
-
-        // CGContext を生成してオーバーレイ合成し UIImage に変換
-        let scale: CGFloat = 1
-        let renderer = UIGraphicsImageRenderer(size: size, format: {
-            let f = UIGraphicsImageRendererFormat()
-            f.scale = scale
-            f.opaque = true
-            return f
-        }())
-        let stubInput = ExportInput(
-            trackPoints: trackPoints,
-            raceName: nil,
-            finishTimeSec: nil,
-            strokeColor: strokeColor,
-            configuration: configuration,
-            userInterfaceStyle: userInterfaceStyle,
-            preset: previewPreset,
-            cameraOverride: cameraOverride,
-            playbackSpeed: 1
-        )
-        let bounds = CGRect(origin: .zero, size: size)
-        let image = renderer.image { _ in
-            snapshot.image.draw(in: bounds)
-            Self.drawRouteOverlay(
-                snapshot: snapshot,
-                input: stubInput,
-                animationTime: t,
-                in: bounds,
-                phase: .animation(progress: atProgress)
-            )
-        }
-        return image
-    }
 }
 
 // MARK: - Input
@@ -1084,6 +1042,33 @@ private enum RenderPhase {
     case animation(progress: Double)
     case outro(progress: Double)
     case hold
+}
+
+// MARK: - Resolution
+
+/// 出力動画の解像度プリセット。`RouteVideoExportPreset.size` を上書きするために
+/// `ExportSheet` から渡される。
+public enum RouteVideoResolution: String, CaseIterable, Identifiable, Equatable, Sendable {
+    case sd720
+    case hd1080
+
+    public var id: String { rawValue }
+
+    /// portrait 9:16 のピクセルサイズ。
+    public var size: CGSize {
+        switch self {
+        case .sd720:  return CGSize(width: 720,  height: 1280)
+        case .hd1080: return CGSize(width: 1080, height: 1920)
+        }
+    }
+
+    /// 設定 UI 用の英語ラベル。
+    public var label: String {
+        switch self {
+        case .sd720:  return "720p"
+        case .hd1080: return "1080p"
+        }
+    }
 }
 
 // MARK: - Preset
