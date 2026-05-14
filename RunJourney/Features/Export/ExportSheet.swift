@@ -242,6 +242,9 @@ struct ExportSheet: View {
     // MARK: - Actions
 
     private func startExport() {
+        // 背景の RouteFlythruView の CADisplayLink と MapView 更新が
+        // MKMapSnapshotter / AVAssetWriter とハードウェアリソースを取り合うのを防ぐ。
+        controller.pause()
         let base = quality.preset
         var preset = base
         preset.size = resolution.size

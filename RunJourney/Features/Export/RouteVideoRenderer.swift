@@ -10,7 +10,9 @@ import Photos
 /// 画面録画 (ReplayKit) ではなく、`MKMapSnapshotter` + `AVAssetWriter` でフレーム単位
 /// にレンダリングするオフラインビデオエクスポータ。
 /// - 画面に出ているマップに依存しないため、シートを閉じてアプリ内を別の操作中でも
-///   バックグラウンドで書き出しが続行できる
+///   書き出しが続行できる。`UIApplication.beginBackgroundTask` を取得することで、
+///   ユーザがホームに戻ったり別アプリに切り替えても iOS から数十秒〜数分の
+///   extended runtime が与えられ、書き出しが中断されないようにする。
 /// - marathon-record-app の web 版と同じ「overview → ランナー追従 → overview → 結果ホールド」
 ///   というシネマティック構成を再現する
 @MainActor
@@ -44,6 +46,9 @@ final class RouteVideoRenderer {
     /// 書き出し中のキャンセル要求フラグ。バックグラウンドスレッドから読み取るため
     /// `@unchecked Sendable` なクラスにラップする。
     private var cancelToken: CancellationToken?
+    /// 他アプリへ切り替わってもエクスポートが iOS に suspend されないように
+    /// 取得しておく background task identifier。
+    private var bgTaskID: UIBackgroundTaskIdentifier = .invalid
 
     var isRunning: Bool {
         switch phase {
@@ -89,6 +94,15 @@ final class RouteVideoRenderer {
 
         let token = CancellationToken()
         cancelToken = token
+
+        // 他アプリ起動でも AVAssetWriter が中断されないように extended runtime を確保。
+        // 時間切れになったら expirationHandler でキャンセルし、フレームループの
+        // `checkCancel(_:)` 経由で `markCancelled` 経路に綺麗に落とす。
+        // expirationHandler は任意スレッドから呼ばれうるので、@unchecked Sendable な
+        // CancellationToken をローカルキャプチャして MainActor 隔離を回避する。
+        bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "RouteVideoExport") {
+            token.cancel()
+        }
 
         let input = ExportInput(
             trackPoints: trackPoints,
@@ -148,17 +162,26 @@ final class RouteVideoRenderer {
         phase = .finished
         progress = 1
         statusMessage = "Done"
+        endBackgroundTaskIfNeeded()
     }
 
     fileprivate func markFailed(_ message: String) {
         phase = .failed
         errorMessage = message
         statusMessage = "Failed"
+        endBackgroundTaskIfNeeded()
     }
 
     fileprivate func markCancelled() {
         phase = .cancelled
         statusMessage = "Cancelled"
+        endBackgroundTaskIfNeeded()
+    }
+
+    private func endBackgroundTaskIfNeeded() {
+        guard bgTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(bgTaskID)
+        bgTaskID = .invalid
     }
 
     // MARK: - Export driver (detached)
