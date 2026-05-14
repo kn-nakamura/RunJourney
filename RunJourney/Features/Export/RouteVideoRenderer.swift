@@ -203,6 +203,12 @@ final class RouteVideoRenderer {
             ])
         }
         writer.startSession(atSourceTime: .zero)
+        if writer.status != .writing {
+            throw NSError(domain: "RouteVideoRenderer", code: 9, userInfo: [
+                NSLocalizedDescriptionKey: writer.error?.localizedDescription
+                    ?? "AVAssetWriter is not in writing state after startSession (status \(writer.status.rawValue))."
+            ])
+        }
 
         // overview カメラを 1 度だけ仮想 MKMapView で計算
         let overviewCamera = await MainActor.run { () -> MKMapCamera in
@@ -252,6 +258,7 @@ final class RouteVideoRenderer {
                 camera: camera,
                 input: input,
                 animationTime: 0,
+                writer: writer,
                 writerInput: writerInput,
                 adaptor: adaptor,
                 presentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
@@ -276,6 +283,7 @@ final class RouteVideoRenderer {
                 camera: camera,
                 input: input,
                 animationTime: animTime,
+                writer: writer,
                 writerInput: writerInput,
                 adaptor: adaptor,
                 presentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
@@ -294,6 +302,7 @@ final class RouteVideoRenderer {
                 camera: camera,
                 input: input,
                 animationTime: input.totalDurationSec,
+                writer: writer,
                 writerInput: writerInput,
                 adaptor: adaptor,
                 presentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
@@ -310,6 +319,7 @@ final class RouteVideoRenderer {
                 camera: overviewCamera,
                 input: input,
                 animationTime: input.totalDurationSec,
+                writer: writer,
                 writerInput: writerInput,
                 adaptor: adaptor,
                 presentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
@@ -366,6 +376,7 @@ final class RouteVideoRenderer {
         camera: MKMapCamera,
         input: ExportInput,
         animationTime: Double,
+        writer: AVAssetWriter,
         writerInput: AVAssetWriterInput,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
         presentationTime: CMTime
@@ -378,7 +389,7 @@ final class RouteVideoRenderer {
             userInterfaceStyle: input.userInterfaceStyle
         )
 
-        let pixelBuffer = try Self.makePixelBuffer(adaptor: adaptor, size: input.preset.size)
+        let pixelBuffer = try Self.makePixelBuffer(writer: writer, adaptor: adaptor, size: input.preset.size)
 
         // Pixel buffer を描画コンテキストにマップ
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
@@ -871,10 +882,18 @@ final class RouteVideoRenderer {
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         input.expectsMediaDataInRealTime = false
+        // IOSurface backing is required for the hardware H.264 encoder to allocate
+        // adaptor.pixelBufferPool; without it the pool stays nil and every frame
+        // append fails with "Pixel buffer pool is not available." The CG-bitmap
+        // compatibility keys ensure the vended buffers can be wrapped in CGContext
+        // for the overlay drawing pass.
         let attrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
             kCVPixelBufferWidthKey as String: Int(preset.size.width),
-            kCVPixelBufferHeightKey as String: Int(preset.size.height)
+            kCVPixelBufferHeightKey as String: Int(preset.size.height),
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
         ]
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
@@ -891,12 +910,15 @@ final class RouteVideoRenderer {
     }
 
     private static func makePixelBuffer(
+        writer: AVAssetWriter,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
         size: CGSize
     ) throws -> CVPixelBuffer {
         guard let pool = adaptor.pixelBufferPool else {
+            let detail = writer.error?.localizedDescription
+                ?? "writer.status=\(writer.status.rawValue)"
             throw NSError(domain: "RouteVideoRenderer", code: 7, userInfo: [
-                NSLocalizedDescriptionKey: "Pixel buffer pool is not available."
+                NSLocalizedDescriptionKey: "Pixel buffer pool is not available (\(detail))."
             ])
         }
         var pb: CVPixelBuffer?
