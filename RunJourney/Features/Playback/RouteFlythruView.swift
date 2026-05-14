@@ -159,6 +159,9 @@ struct RouteFlythruView: View {
             controller.pause()
         }
         .onChange(of: controller.currentTime) { _, _ in
+            // 動画書き出し中は MKMapSnapshotter とのリソース競合を避けるため
+            // 背景 MapView のカメラ追従を止める。
+            if RouteVideoRenderer.shared.isRunning { return }
             updateCameraIfNeeded()
         }
         // スライダー操作時は即時カメラ反映。再生停止中でも反応するようにする。
