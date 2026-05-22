@@ -59,15 +59,6 @@ struct RunJourneyApp: App {
                                 .transition(.opacity)
                         }
                     }
-#if canImport(UIKit)
-                    // バックグラウンド動画書き出しのフローティング進捗バッジ。
-                    // 書き出し中・完了直後だけ画面上部に表示され、タップで詳細状態
-                    // を確認・操作できる。アプリ全体に重ねるためここに置く。
-                    .overlay(alignment: .top) {
-                        ExportProgressBadge()
-                            .padding(.top, 6)
-                    }
-#endif
                     .environment(splashCoordinator)
                     .environment(purchaseManager)
                     .modelContainer(container)

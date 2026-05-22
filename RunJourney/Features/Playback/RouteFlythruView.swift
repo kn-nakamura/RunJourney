@@ -46,8 +46,14 @@ struct RouteFlythruView: View {
 
     // UI 状態
     @State private var showSettings: Bool = false
-    @State private var showExportSheet: Bool = false
-    @State private var renderer = RouteVideoRenderer.shared
+    /// 画面録画 (ReplayKit) ラッパー。録画中は他のUIをフェードアウトさせるため
+    /// `RecordButton` と RouteFlythruView の両方から状態を観察する。
+    @State private var exporter = VideoExporter()
+
+    private var isRecording: Bool {
+        if case .recording = exporter.state { return true }
+        return false
+    }
 
     @StoredMapStyleSettings private var mapSettings
     @StoredPinSettings private var pinSettings
@@ -118,38 +124,38 @@ struct RouteFlythruView: View {
                 .padding(.bottom, 16)
             }
             .animation(.easeInOut(duration: 0.22), value: showSettings)
+            .opacity(isRecording ? 0 : 1)
+            .allowsHitTesting(!isRecording)
+            .animation(.easeInOut(duration: 0.25), value: isRecording)
+
+#if os(iOS)
+            // 録画ボタン: 録画中も常時表示。ZStack の右下に固定配置する。
+            RecordButton(
+                exporter: exporter,
+                onRecordingWillStart: {
+                    controller.seek(to: 0)
+                    controller.play()
+                },
+                onRecordingDidStop: {
+                    controller.pause()
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .padding(.trailing, 16)
+            .padding(.bottom, 32)
+            .allowsHitTesting(true)
+#endif
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             customHeader
+                .opacity(isRecording ? 0 : 1)
+                .allowsHitTesting(!isRecording)
+                .animation(.easeInOut(duration: 0.25), value: isRecording)
         }
         .background(Color.bgPrimary)
 #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-#endif
-#if canImport(UIKit)
-        .sheet(isPresented: $showExportSheet) {
-            ExportSheet(
-                controller: controller,
-                raceName: result.race?.name,
-                finishTimeSec: result.finishTimeSec,
-                strokeColor: UIColor(result.race?.category.pinColor ?? .accentPrimary),
-                configuration: mapSettings.mapConfiguration,
-                userInterfaceStyle: {
-                    switch appTheme.colorScheme {
-                    case .light: return .light
-                    case .dark:  return .dark
-                    default:     return UITraitCollection.current.userInterfaceStyle
-                    }
-                }(),
-                cameraOverride: FollowCameraOverride(
-                    angle: effectiveAngle,
-                    distance: effectiveDistance,
-                    rotation: effectiveRotation
-                ),
-                playbackSpeed: controller.speed
-            )
-        }
 #endif
         .onAppear {
             advanceSmoothing(dt: 1.0 / 60.0)
@@ -159,9 +165,6 @@ struct RouteFlythruView: View {
             controller.pause()
         }
         .onChange(of: controller.currentTime) { _, _ in
-            // 動画書き出し中は MKMapSnapshotter とのリソース競合を避けるため
-            // 背景 MapView のカメラ追従を止める。
-            if RouteVideoRenderer.shared.isRunning { return }
             updateCameraIfNeeded()
         }
         // スライダー操作時は即時カメラ反映。再生停止中でも反応するようにする。
@@ -186,7 +189,8 @@ struct RouteFlythruView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 3)
 
-            // Row 2: back + Follow/Overview + spacer + gear + export
+            // Row 2: back + Follow/Overview + spacer + gear
+            // (録画ボタンは ZStack 内の右下 overlay として配置)
             HStack(spacing: 4) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
@@ -210,12 +214,6 @@ struct RouteFlythruView: View {
                     Image(systemName: showSettings ? "gearshape.fill" : "gearshape")
                         .font(.system(size: 14))
                         .foregroundStyle(showSettings ? Color.accentPrimary : Color.textPrimary)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-
-                Button { showExportSheet = true } label: {
-                    exportButtonIcon
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
@@ -431,46 +429,4 @@ struct RouteFlythruView: View {
         ))
     }
 
-    // MARK: - Export button icon
-
-    /// ヘッダの書き出しアイコン。
-    /// - idle/cancelled: ダウンロードアイコン
-    /// - rendering: 進捗リング + パーセンテージ (再生画面のカスタムヘッダが
-    ///   アプリ root の `ExportProgressBadge` を覆い隠してしまうため、
-    ///   このアイコン自体で進捗を可視化する)
-    /// - preparing/finalizing/savingToPhotos: スピナー
-    /// - finished: チェック
-    /// - failed: 警告 (オレンジ)
-    @ViewBuilder
-    private var exportButtonIcon: some View {
-        switch renderer.phase {
-        case .rendering:
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.18), lineWidth: 2)
-                Circle()
-                    .trim(from: 0, to: CGFloat(max(0.04, renderer.progress)))
-                    .stroke(Color.accentPrimary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: 18, height: 18)
-            .animation(.linear(duration: 0.1), value: renderer.progress)
-        case .preparing, .finalizing, .savingToPhotos:
-            ProgressView()
-                .tint(Color.accentPrimary)
-                .scaleEffect(0.7)
-        case .finished:
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.accentPrimary)
-        case .failed:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(.orange)
-        case .idle, .cancelled:
-            Image(systemName: "square.and.arrow.down")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.textPrimary)
-        }
-    }
 }

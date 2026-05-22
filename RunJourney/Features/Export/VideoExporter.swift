@@ -36,6 +36,9 @@ final class VideoExporter {
             state = .recording
             return
         }
+        // マイク無効・アプリ音のみ。フロントカメラ PiP の誤発火も防ぐ。
+        recorder.isMicrophoneEnabled = false
+        recorder.isCameraEnabled = false
         state = .starting
         do {
             try await startRecordingHandler()

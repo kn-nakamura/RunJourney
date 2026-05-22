@@ -6,15 +6,19 @@ import ReplayKit
 /// フライスルー画面に置く録画ボタン。
 /// - 状態: idle → starting → recording → stopping → idle / error
 /// - 録画停止後はOS標準のプレビューで保存・共有できる
+/// - `exporter` を親から受け取ることで、親側で `exporter.state` を観察して
+///   録画中だけ他のUIをフェードアウトさせるなどの制御ができる。
 struct RecordButton: View {
-    /// 録画開始/停止イベントを親に通知。typically: 親で再生コントローラを pause する。
+    /// 親が所有する `VideoExporter`。録画状態を共有する。
+    @Bindable var exporter: VideoExporter
+    /// 録画開始 (state が `.recording` に遷移した直後) に呼ばれる。
+    /// 典型用途: 再生コントローラを seek(to: 0) + play() してフライスルーを頭から流す。
+    /// ReplayKit の許可ダイアログの後に呼ばれるので、ダイアログ中に再生が先行する事故を防ぐ。
     var onRecordingWillStart: (() -> Void)? = nil
+    /// 録画停止の直前に呼ばれる。典型用途: 再生コントローラを pause。
     var onRecordingDidStop: (() -> Void)? = nil
 
-    @State private var exporter = VideoExporter()
 #if os(iOS)
-    /// プレビューシートの状態。安定した id を持つ Item として保持し、
-    /// 不要な sheet 再表示を防ぐ（@State 1個で id 不変）。
     @State private var previewItem: RPPreviewItem?
 #endif
     @State private var errorMessage: String?
@@ -47,23 +51,24 @@ struct RecordButton: View {
             ZStack {
                 Circle()
                     .fill(isRecording ? Color.red : Color.bgSecondary)
-                    .frame(width: 44, height: 44)
-                    .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 1))
+                    .frame(width: 56, height: 56)
+                    .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 2)
 
                 if isRecording {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(.white)
-                        .frame(width: 14, height: 14)
+                        .frame(width: 18, height: 18)
                 } else {
                     Circle()
                         .fill(.red)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 22, height: 22)
                 }
             }
             .scaleEffect(isRecording ? 1.05 : 1.0)
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isRecording)
         }
-        .disabled(isBusy)
+        .disabled(isBusy || !exporter.isAvailable)
         .accessibilityLabel(isRecording ? "Stop Recording" : "Start Recording")
     }
 
@@ -88,15 +93,19 @@ struct RecordButton: View {
 
     private func toggleRecording() async {
         switch exporter.state {
-        case .idle:
-            // 録画開始前に親へ通知（再生をいったん止めたいなら親側で対応）
-            onRecordingWillStart?()
+        case .idle, .error:
             await exporter.startRecording()
-            if case .error(let msg) = exporter.state {
+            switch exporter.state {
+            case .recording:
+                // 許可ダイアログを抜けて録画が確定したタイミングで呼ぶ。
+                // 早すぎると、システムダイアログ中に再生が進んで頭出しがズレる。
+                onRecordingWillStart?()
+            case .error(let msg):
                 errorMessage = msg
+            default:
+                break
             }
         case .recording:
-            // 停止前に親へ通知（再生を pause させて Map のカメラ更新を止める）
             onRecordingDidStop?()
             if let vc = await exporter.stopRecording() {
                 previewItem = RPPreviewItem(controller: vc)
