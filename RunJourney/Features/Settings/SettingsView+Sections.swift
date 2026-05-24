@@ -381,24 +381,50 @@ extension SettingsView {
     // 誤タップで4スコープが見えないようにする。タップで `DataManagementSheet` を開く。
 
     var dataSection: some View {
-        Button {
-            Haptics.warning()
-            showDataSheet = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "trash")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Delete data...")
-                    .appText(.bodyXs)
-                    .foregroundStyle(.secondary)
-                Spacer()
+        VStack(spacing: 0) {
+            Button {
+                Haptics.selection()
+                showDataTransferSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Export / Import data...")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            Rectangle()
+                .fill(.white.opacity(0.06))
+                .frame(height: 0.5)
+                .padding(.leading, 14)
+
+            Button {
+                Haptics.warning()
+                showDataSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Delete data...")
+                        .appText(.bodyXs)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Storage

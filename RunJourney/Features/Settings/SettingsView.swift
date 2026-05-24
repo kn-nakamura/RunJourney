@@ -39,6 +39,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) var systemColorScheme
 
     @State var showDataSheet = false
+    @State var showDataTransferSheet = false
     @State var showStorageSwitchAlert = false
     @State var sampleLoadMessage: String?
 
@@ -109,6 +110,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showDataSheet) {
             DataManagementSheet()
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showDataTransferSheet) {
+            DataTransferSheet()
                 .presentationDetents([.medium, .large])
         }
         .alert("Choose storage on next launch?", isPresented: $showStorageSwitchAlert) {
